@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const Navbar = () => {
   return (
@@ -32,10 +33,10 @@ const Navbar = () => {
         </div>
 
         {/* CTA */}
-        <button className="border-gradient-animated rounded-full px-5 py-2 text-sm font-medium text-foreground hover:glow-cyan transition-all duration-300 flex items-center gap-2">
+        <Link to="/dashboard" className="border-gradient-animated rounded-full px-5 py-2 text-sm font-medium text-foreground hover:glow-cyan transition-all duration-300 flex items-center gap-2">
           <Sparkles size={14} className="icon-neon text-cyan-glow" />
           Acceder al Sistema
-        </button>
+        </Link>
       </div>
     </motion.nav>
   );
