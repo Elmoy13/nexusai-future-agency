@@ -74,13 +74,10 @@ const AppMockup = () => {
 
           {/* Terminal content */}
           <div className="p-6 md:p-8 font-mono text-sm md:text-base space-y-1.5 min-h-[280px]">
-            {lines.map((line, i) =>
-              line.text ? (
-                <TypingText key={i} text={line.text} color={line.color} startDelay={line.delay + 0.5} />
-              ) : (
-                <div key={i} className="h-4" />
-              )
-            )}
+            <TypingText text={typedLine.text} color={typedLine.color} startDelay={0.5} />
+            {instantLines.map((line, i) => (
+              <InstantLine key={i} text={line.text} color={line.color} delay={line.delay} />
+            ))}
           </div>
         </motion.div>
       </div>
