@@ -341,11 +341,12 @@ const MOCKUP_DEFS: MockupDef[] = [
 const getMockupDef = (mockupType?: string) => MOCKUP_DEFS.find((m) => m.id === mockupType);
 
 /* ── Mockup Frame Renderer (used in canvas + thumbnails) ── */
-const MockupFrame = ({ el, interactive, onDrop, onChildAdjust }: {
+const MockupFrame = ({ el, interactive, onDrop, onChildAdjust, onNativeFileDrop }: {
   el: SlideElement;
   interactive?: boolean;
   onDrop?: (mockupId: string, imgSrc: string, imgElId: string) => void;
   onChildAdjust?: (patch: Partial<SlideElement>) => void;
+  onNativeFileDrop?: (mockupId: string, src: string) => void;
 }) => {
   const def = getMockupDef(el.mockupType);
   const [dragOver, setDragOver] = useState(false);
