@@ -1,9 +1,10 @@
 import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
-import TrustedBy from "@/components/TrustedBy";
+import RoleCards from "@/components/RoleCards";
 import OnboardingChat from "@/components/OnboardingChat";
 import BentoFeatures from "@/components/BentoFeatures";
+import StrategicFlow from "@/components/StrategicFlow";
 import ROIMetrics from "@/components/ROIMetrics";
 import AppMockup from "@/components/AppMockup";
 import PricingSection from "@/components/PricingSection";
@@ -18,13 +19,14 @@ const Index = () => {
       <Navbar onOpenModal={openModal} />
       <HeroSection onOpenModal={openModal} />
       <EarlyAccessModal open={modalOpen} onClose={() => setModalOpen(false)} />
-      <TrustedBy />
+      <RoleCards />
       <div id="onboarding-chat">
         <OnboardingChat />
       </div>
       <div id="bento-features">
         <BentoFeatures />
       </div>
+      <StrategicFlow />
       <ROIMetrics />
       <AppMockup />
       <PricingSection onOpenModal={openModal} />
