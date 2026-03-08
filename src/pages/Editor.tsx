@@ -1059,7 +1059,7 @@ const RndElement = ({
 /* ── Interactive Canvas with Smart Guides ── */
 const InteractiveCanvas = ({
   elements, bgImage, scale, selectedIds, onSelectElement, onUpdateElement, onDeleteElement, onDeselect,
-  eyedropperMode, onImageClick, onMockupDrop, onMockupChildAdjust,
+  eyedropperMode, onImageClick, onMockupDrop, onMockupChildAdjust, onNativeFileDrop, onMockupNativeFileDrop,
 }: {
   elements: SlideElement[];
   bgImage?: string;
@@ -1073,8 +1073,12 @@ const InteractiveCanvas = ({
   onImageClick?: (elId: string, localX: number, localY: number) => void;
   onMockupDrop?: (mockupId: string, imgSrc: string, imgElId: string) => void;
   onMockupChildAdjust?: (id: string, patch: Partial<SlideElement>) => void;
+  onNativeFileDrop?: (src: string, x: number, y: number) => void;
+  onMockupNativeFileDrop?: (mockupId: string, src: string) => void;
 }) => {
   const [guides, setGuides] = useState<GuideLines>({ x: null, y: null });
+  const [canvasDragOver, setCanvasDragOver] = useState(false);
+  const canvasRef = useRef<HTMLDivElement>(null);
 
   const sorted = useMemo(() => [...elements].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)), [elements]);
 
@@ -1086,6 +1090,33 @@ const InteractiveCanvas = ({
 
   const handleDragEnd = useCallback(() => { setGuides({ x: null, y: null }); }, []);
 
+  const handleCanvasDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCanvasDragOver(true);
+  }, []);
+
+  const handleCanvasDragLeave = useCallback(() => { setCanvasDragOver(false); }, []);
+
+  const handleCanvasDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCanvasDragOver(false);
+    if (!e.dataTransfer.files?.length) return;
+    const file = e.dataTransfer.files[0];
+    if (!file.type.startsWith("image/")) return;
+    const src = URL.createObjectURL(file);
+    // Calculate drop position in canvas coords
+    if (canvasRef.current) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / scale;
+      const y = (e.clientY - rect.top) / scale;
+      onNativeFileDrop?.(src, Math.round(x - 200), Math.round(y - 150));
+    } else {
+      onNativeFileDrop?.(src, 400, 200);
+    }
+  }, [scale, onNativeFileDrop]);
+
   return (
     <div
       className="absolute inset-0 flex items-center justify-center"
@@ -1093,13 +1124,25 @@ const InteractiveCanvas = ({
     >
       <div style={{ transform: `scale(${scale})`, transformOrigin: "center center", willChange: "transform" }}>
         <div
-          className="bg-white shadow-2xl shadow-black/10 ring-1 ring-border/20 rounded-lg overflow-hidden"
+          ref={canvasRef}
+          className={`bg-white shadow-2xl shadow-black/10 ring-1 ring-border/20 rounded-lg overflow-hidden transition-shadow ${canvasDragOver ? "ring-4 ring-cyan-500/60 shadow-cyan-500/20" : ""}`}
           style={{ width: 1920, height: 1080, position: "relative" }}
           onMouseDown={(e) => {
             if (e.target === e.currentTarget || (e.target as HTMLElement).dataset.canvas) onDeselect();
           }}
+          onDragOver={handleCanvasDragOver}
+          onDragLeave={handleCanvasDragLeave}
+          onDrop={handleCanvasDrop}
         >
           {bgImage && <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-[1]" />}
+
+          {canvasDragOver && (
+            <div className="absolute inset-0 z-[60] pointer-events-none flex items-center justify-center bg-cyan-500/5 border-2 border-dashed border-cyan-500/40 rounded-lg">
+              <div className="bg-slate-900/80 backdrop-blur-sm text-white text-sm font-semibold px-4 py-2 rounded-full flex items-center gap-2">
+                <Image size={16} /> Soltar imagen aquí
+              </div>
+            </div>
+          )}
 
           {guides.x !== null && (
             <div className="absolute top-0 bottom-0 z-[50] pointer-events-none" style={{ left: guides.x, width: 1, background: "#06b6d4" }}>
@@ -1112,7 +1155,7 @@ const InteractiveCanvas = ({
             </div>
           )}
 
-          <div className="absolute inset-0 z-[2]" data-canvas="true" style={{ position: "relative", width: 1920, height: 1080 }}>
+          <div className="absolute inset-0 z-[2]" data-canvas="true" style={{ position: "relative", width: 1920, height: 1080, pointerEvents: "none" }}>
             {sorted.map((el) => (
               <RndElement
                 key={el.id}
@@ -1128,6 +1171,7 @@ const InteractiveCanvas = ({
                 onImageClick={onImageClick}
                 onMockupDrop={onMockupDrop}
                 onMockupChildAdjust={onMockupChildAdjust}
+                onMockupNativeFileDrop={onMockupNativeFileDrop}
               />
             ))}
           </div>
