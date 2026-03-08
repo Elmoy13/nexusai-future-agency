@@ -1209,6 +1209,36 @@ const Editor = () => {
     toast({ title: "📐 Plantilla aplicada", description: "El diseño ha sido reemplazado." });
   };
 
+  const addMockup = (mockupType: string) => {
+    const def = getMockupDef(mockupType);
+    if (!def) return;
+    const maxZ = Math.max(0, ...currentElements.map((e) => e.zIndex ?? 0));
+    const el: SlideElement = {
+      id: uid(), type: "mockup", content: mockupType,
+      x: 760, y: 140, width: def.width, height: def.height,
+      zIndex: maxZ + 1, mockupType: mockupType,
+    };
+    history.set((prev) => [...prev, el]);
+    setSelectedIds(new Set([el.id]));
+    setActiveTool(null);
+    toast({ title: `📱 ${def.name} añadido`, description: "Arrastra una imagen sobre el dispositivo para insertarla." });
+  };
+
+  const handleMockupDrop = useCallback((mockupId: string, imgSrc: string, imgElId: string) => {
+    history.set((prev) => {
+      const updated = prev.map((e) =>
+        e.id === mockupId ? { ...e, mockupChild: imgSrc, mockupChildScale: 1, mockupChildX: 0, mockupChildY: 0 } : e
+      );
+      // Remove the original image element from the canvas
+      return updated.filter((e) => e.id !== imgElId);
+    });
+    toast({ title: "🎯 Imagen insertada en Mockup", description: "Doble clic en el mockup para ajustar escala." });
+  }, [history]);
+
+  const handleMockupChildAdjust = useCallback((id: string, patch: Partial<SlideElement>) => {
+    history.set((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+  }, [history]);
+
   const addSlide = () => {
     const newId = `new-${Date.now()}`;
     setSlideMeta((prev) => [...prev, { id: newId, type: "content" as const, image: undefined }]);
