@@ -56,8 +56,10 @@ function slideToElements(slide: SlideData): SlideElement[] {
 function buildTransform(el: SlideElement): string {
   const parts: string[] = [];
   if (el.rotation) parts.push(`rotate(${el.rotation}deg)`);
-  if (el.flipH) parts.push("scaleX(-1)");
-  if (el.flipV) parts.push("scaleY(-1)");
+  const flipX = (el as SlideElement & { flipX?: boolean }).flipX;
+  const flipY = (el as SlideElement & { flipY?: boolean }).flipY;
+  if (el.flipH || flipX) parts.push("scaleX(-1)");
+  if (el.flipV || flipY) parts.push("scaleY(-1)");
   return parts.length ? parts.join(" ") : "none";
 }
 
@@ -334,12 +336,12 @@ const FormatBar = ({
 
           <div className="flex items-center gap-0.5" title="Voltear">
             <button
-              onClick={() => updateAllSelected({ flipH: !(first?.flipH ?? false) })}
+              onClick={() => updateAllSelected({ flipH: !(first?.flipH ?? false), flipX: !((first as SlideElement & { flipX?: boolean })?.flipX ?? false) })}
               className={`w-7 h-7 rounded-md flex items-center justify-center transition ${first?.flipH ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground hover:text-foreground"}`}
               title="Voltear Horizontal"
             ><FlipHorizontal size={13} /></button>
             <button
-              onClick={() => updateAllSelected({ flipV: !(first?.flipV ?? false) })}
+              onClick={() => updateAllSelected({ flipV: !(first?.flipV ?? false), flipY: !((first as SlideElement & { flipY?: boolean })?.flipY ?? false) })}
               className={`w-7 h-7 rounded-md flex items-center justify-center transition ${first?.flipV ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground hover:text-foreground"}`}
               title="Voltear Vertical"
             ><FlipVertical size={13} /></button>
@@ -427,13 +429,13 @@ const RndElement = ({
       bounds="parent"
       onMouseDown={(e: any) => { e.stopPropagation(); onSelect(e); }}
       style={{
+        position: "absolute",
         zIndex: selected ? 9999 : (el.zIndex ?? 0),
         outline: selected ? "2px solid #06b6d4" : "none",
         outlineOffset: 2,
         borderRadius: el.type === "shape" ? 16 : 4,
         willChange: "transform",
         userSelect: dragging ? "none" : "auto",
-        transform,
       }}
     >
       <div
@@ -454,7 +456,17 @@ const RndElement = ({
         }}
       >
         {el.type === "image" ? (
-          <img src={el.content} alt="" className="w-full h-full object-cover rounded-lg pointer-events-none" style={{ opacity: el.opacity ?? 1 }} draggable={false} />
+          <div
+            className="w-full h-full"
+            style={{
+              transform,
+              transformOrigin: "center center",
+              transition: "transform 120ms ease-out",
+              willChange: "transform",
+            }}
+          >
+            <img src={el.content} alt="" className="w-full h-full object-cover rounded-lg pointer-events-none" style={{ opacity: el.opacity ?? 1 }} draggable={false} />
+          </div>
         ) : el.type === "shape" ? (
           <div className="w-full h-full" style={{ background: el.content, borderRadius: 16 }} />
         ) : editing ? (
@@ -727,7 +739,7 @@ const Editor = () => {
       const w = el.width ?? 400;
       const h = el.height ?? 400;
       const newSrc = await chromaKeyRemove(el.content, localX, localY, w, h);
-      updateElement(elId, { content: newSrc });
+      history.set((prev) => prev.map((item) => (item.id === elId ? { ...item, content: newSrc } : item)));
       toast({ title: "✅ Fondo eliminado", description: "Se procesaron los píxeles correctamente." });
     } catch (err) {
       console.error(err);
@@ -735,7 +747,7 @@ const Editor = () => {
     } finally {
       setBgRemoveProcessing(false);
     }
-  }, [eyedropperMode, currentElements]);
+  }, [eyedropperMode, currentElements, history]);
 
   /* ── Keyboard shortcuts ── */
   useEffect(() => {
