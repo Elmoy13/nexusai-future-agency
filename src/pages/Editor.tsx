@@ -203,6 +203,7 @@ const RndElement = ({
 }) => {
   const [editing, setEditing] = useState(false);
   const [localContent, setLocalContent] = useState(el.content);
+  const [dragging, setDragging] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { setLocalContent(el.content); }, [el.content]);
@@ -235,15 +236,17 @@ const RndElement = ({
     <Rnd
       size={{ width: w, height: h }}
       position={{ x: el.x, y: el.y }}
+      onDragStart={() => setDragging(true)}
       onDragStop={(_e, d) => {
-        onUpdate({ x: d.x, y: d.y });
+        setDragging(false);
+        onUpdate({ x: Math.round(d.x), y: Math.round(d.y) });
       }}
       onResizeStop={(_e, _dir, ref, _delta, pos) => {
         onUpdate({
           width: parseInt(ref.style.width),
           height: parseInt(ref.style.height),
-          x: pos.x,
-          y: pos.y,
+          x: Math.round(pos.x),
+          y: Math.round(pos.y),
         });
       }}
       disableDragging={editing}
@@ -260,14 +263,21 @@ const RndElement = ({
         outline: selected ? "2px solid #06b6d4" : "none",
         outlineOffset: 2,
         borderRadius: el.type === "shape" ? 16 : 4,
+        willChange: "transform",
+        userSelect: dragging ? "none" : "auto",
       }}
     >
       <div
         className={`w-full h-full relative ${!selected && !editing ? "hover:outline hover:outline-2 hover:outline-dashed hover:outline-cyan-400/40" : ""}`}
-        onDoubleClick={() => {
+        onDoubleClick={(e) => {
+          e.stopPropagation();
           if (el.type === "text") setEditing(true);
         }}
-        style={{ cursor: editing ? "text" : "grab", borderRadius: el.type === "shape" ? 16 : 0 }}
+        style={{
+          cursor: editing ? "text" : dragging ? "grabbing" : "grab",
+          borderRadius: el.type === "shape" ? 16 : 0,
+          userSelect: dragging ? "none" : "auto",
+        }}
       >
         {/* Format toolbar */}
         {selected && el.type === "text" && !editing && (
@@ -351,38 +361,44 @@ const InteractiveCanvas = ({
   });
 
   return (
+    /* Centering wrapper — this handles positioning, NOT the slide itself */
     <div
-      className="absolute bg-white shadow-2xl shadow-black/10 ring-1 ring-border/20 rounded-lg overflow-hidden"
-      style={{
-        width: 1920, height: 1080,
-        left: "50%", top: "50%",
-        transform: `translate(-50%, -50%) scale(${scale})`,
-        transformOrigin: "center center",
-      }}
+      className="absolute inset-0 flex items-center justify-center"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget || (e.target as HTMLElement).dataset.canvas) {
-          onDeselect();
-        }
+        if (e.target === e.currentTarget) onDeselect();
       }}
     >
-      {bgImage && <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-[1]" />}
-      <div className="absolute inset-0 z-[2]" data-canvas="true" style={{ position: "relative" }}>
-        {sorted.map((el) => (
-          <RndElement
-            key={el.id}
-            el={el}
-            scale={scale}
-            selected={selectedId === el.id}
-            onSelect={() => onSelectElement(el.id)}
-            onUpdate={(patch) => onUpdateElement(el.id, patch)}
-            onDelete={() => onDeleteElement(el.id)}
-          />
-        ))}
+      {/* Scale wrapper — only applies visual scale, no translate */}
+      <div style={{ transform: `scale(${scale})`, transformOrigin: "center center", willChange: "transform" }}>
+        {/* The actual 1920×1080 slide — position:relative is critical for react-rnd bounds="parent" */}
+        <div
+          className="bg-white shadow-2xl shadow-black/10 ring-1 ring-border/20 rounded-lg overflow-hidden"
+          style={{ width: 1920, height: 1080, position: "relative" }}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget || (e.target as HTMLElement).dataset.canvas) {
+              onDeselect();
+            }
+          }}
+        >
+          {bgImage && <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-[1]" />}
+          <div className="absolute inset-0 z-[2]" data-canvas="true" style={{ position: "relative", width: 1920, height: 1080 }}>
+            {sorted.map((el) => (
+              <RndElement
+                key={el.id}
+                el={el}
+                scale={scale}
+                selected={selectedId === el.id}
+                onSelect={() => onSelectElement(el.id)}
+                onUpdate={(patch) => onUpdateElement(el.id, patch)}
+                onDelete={() => onDeleteElement(el.id)}
+              />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
 };
-
 /* ── Presentation Slide (non-interactive, properly scaled) ── */
 const PresentationSlide = ({ elements, bgImage }: { elements: SlideElement[]; bgImage?: string }) => {
   const containerRef = useRef<HTMLDivElement>(null);
