@@ -739,7 +739,7 @@ const Editor = () => {
       const w = el.width ?? 400;
       const h = el.height ?? 400;
       const newSrc = await chromaKeyRemove(el.content, localX, localY, w, h);
-      updateElement(elId, { content: newSrc });
+      history.set((prev) => prev.map((item) => (item.id === elId ? { ...item, content: newSrc } : item)));
       toast({ title: "✅ Fondo eliminado", description: "Se procesaron los píxeles correctamente." });
     } catch (err) {
       console.error(err);
@@ -747,7 +747,7 @@ const Editor = () => {
     } finally {
       setBgRemoveProcessing(false);
     }
-  }, [eyedropperMode, currentElements]);
+  }, [eyedropperMode, currentElements, history]);
 
   /* ── Keyboard shortcuts ── */
   useEffect(() => {
