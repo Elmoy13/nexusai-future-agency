@@ -1,5 +1,5 @@
-import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
+import { motion, useInView } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
 
 const typedLine = { text: '$ nexus-ai start-campaign --brand="{Tu_Marca_Aquí}"', color: "text-muted-foreground" };
 
@@ -11,50 +11,76 @@ const instantLines = [
   { text: "[NexusAI] > Parrilla multimodal lista. Tiempo de ejecución: 3.8s", color: "text-emerald-accent", delay: 4.0 },
 ];
 
-const TypingText = ({ text, color, startDelay }: { text: string; color: string; startDelay: number }) => {
+const TypingText = ({ text, color, active }: { text: string; color: string; active: boolean }) => {
   const [displayed, setDisplayed] = useState("");
-  const [started, setStarted] = useState(false);
 
   useEffect(() => {
-    const timeout = setTimeout(() => setStarted(true), startDelay * 1000);
-    return () => clearTimeout(timeout);
-  }, [startDelay]);
-
-  useEffect(() => {
-    if (!started) return;
+    if (!active) return;
+    setDisplayed("");
     let i = 0;
     const interval = setInterval(() => {
       i++;
       setDisplayed(text.slice(0, i));
       if (i >= text.length) clearInterval(interval);
-    }, 18);
+    }, 30);
     return () => clearInterval(interval);
-  }, [started, text]);
+  }, [active, text]);
 
-  if (!started) return null;
-  return <div className={color}>{displayed}<span className="inline-block w-1.5 h-4 bg-cyan-glow/70 animate-pulse ml-0.5 align-middle" style={{ opacity: displayed.length < text.length ? 1 : 0 }} /></div>;
+  if (!active) return null;
+  return (
+    <div className={color}>
+      {displayed}
+      <span
+        className="inline-block w-1.5 h-4 bg-cyan-glow/70 animate-pulse ml-0.5 align-middle"
+        style={{ opacity: displayed.length < text.length ? 1 : 0 }}
+      />
+    </div>
+  );
 };
 
-const InstantLine = ({ text, color, delay }: { text: string; color: string; delay: number }) => {
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    // Wait for typed line to finish (~50 chars * 18ms ≈ 0.9s) + delay
-    const t = setTimeout(() => setVisible(true), (1.0 + delay) * 1000);
-    return () => clearTimeout(t);
-  }, [delay]);
-  if (!visible) return null;
+const InstantLine = ({ text, color, active }: { text: string; color: string; active: boolean }) => {
+  if (!active) return null;
   if (!text) return <div className="h-4" />;
   return (
-    <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className={color}>
+    <motion.div
+      initial={{ opacity: 0, x: -8 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.3 }}
+      className={color}
+    >
       {text}
     </motion.div>
   );
 };
 
 const AppMockup = () => {
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true, margin: "-100px" });
+  const [step, setStep] = useState(-1);
+
+  // Typed line duration: ~50 chars * 30ms = 1.5s
+  const typedDuration = typedLine.text.length * 30;
+
+  useEffect(() => {
+    if (!isInView) return;
+
+    // Start typing immediately
+    setStep(0);
+
+    // After typing finishes, show instant lines one by one
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    instantLines.forEach((_, i) => {
+      timers.push(
+        setTimeout(() => setStep(i + 1), typedDuration + 200 + i * 800)
+      );
+    });
+
+    return () => timers.forEach(clearTimeout);
+  }, [isInView, typedDuration]);
+
   return (
     <section className="relative py-32 px-6">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto" ref={ref}>
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -74,9 +100,9 @@ const AppMockup = () => {
 
           {/* Terminal content */}
           <div className="p-6 md:p-8 font-mono text-sm md:text-base space-y-1.5 min-h-[280px]">
-            <TypingText text={typedLine.text} color={typedLine.color} startDelay={0.5} />
+            <TypingText text={typedLine.text} color={typedLine.color} active={step >= 0} />
             {instantLines.map((line, i) => (
-              <InstantLine key={i} text={line.text} color={line.color} delay={line.delay} />
+              <InstantLine key={i} text={line.text} color={line.color} active={step >= i + 1} />
             ))}
           </div>
         </motion.div>
