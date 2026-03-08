@@ -998,7 +998,7 @@ const RndElement = ({
 /* ── Interactive Canvas with Smart Guides ── */
 const InteractiveCanvas = ({
   elements, bgImage, scale, selectedIds, onSelectElement, onUpdateElement, onDeleteElement, onDeselect,
-  eyedropperMode, onImageClick,
+  eyedropperMode, onImageClick, onMockupDrop, onMockupChildAdjust,
 }: {
   elements: SlideElement[];
   bgImage?: string;
@@ -1010,6 +1010,8 @@ const InteractiveCanvas = ({
   onDeselect: () => void;
   eyedropperMode?: boolean;
   onImageClick?: (elId: string, localX: number, localY: number) => void;
+  onMockupDrop?: (mockupId: string, imgSrc: string, imgElId: string) => void;
+  onMockupChildAdjust?: (id: string, patch: Partial<SlideElement>) => void;
 }) => {
   const [guides, setGuides] = useState<GuideLines>({ x: null, y: null });
 
@@ -1063,6 +1065,8 @@ const InteractiveCanvas = ({
                 onDragEnd={handleDragEnd}
                 eyedropperMode={eyedropperMode}
                 onImageClick={onImageClick}
+                onMockupDrop={onMockupDrop}
+                onMockupChildAdjust={onMockupChildAdjust}
               />
             ))}
           </div>
