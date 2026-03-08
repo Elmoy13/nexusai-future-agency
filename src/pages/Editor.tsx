@@ -976,9 +976,7 @@ const RndElement = ({
       <div
         className={`w-full h-full relative ${!selected && !editing ? "hover:outline hover:outline-2 hover:outline-dashed hover:outline-cyan-400/40" : ""}`}
         onDoubleClick={(e) => { e.stopPropagation(); if (el.type === "text") setEditing(true); }}
-        onMouseDown={(e) => {
-          e.stopPropagation();
-          onSelect(e);
+        onClick={(e) => {
           if (eyedropperMode && el.type === "image" && onImageClick) {
             const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
             const localX = (e.clientX - rect.left) / (rect.width / w);
@@ -986,18 +984,10 @@ const RndElement = ({
             onImageClick(el.id, localX, localY);
           }
         }}
-        draggable={el.type === "image"}
-        onDragStart={(e) => {
-          if (el.type === "image") {
-            e.dataTransfer.setData("application/mockup-drop", JSON.stringify({ imgSrc: el.content, imgElId: el.id }));
-            e.dataTransfer.effectAllowed = "move";
-          }
-        }}
         style={{
           cursor: eyedropperMode && el.type === "image" ? "crosshair" : editing ? "text" : dragging ? "grabbing" : "grab",
           borderRadius: isMockup ? 0 : el.type === "shape" ? 16 : 0,
           userSelect: dragging ? "none" : "auto",
-          pointerEvents: "auto",
         }}
       >
         {isMockup ? (
