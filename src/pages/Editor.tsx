@@ -456,7 +456,17 @@ const RndElement = ({
         }}
       >
         {el.type === "image" ? (
-          <img src={el.content} alt="" className="w-full h-full object-cover rounded-lg pointer-events-none" style={{ opacity: el.opacity ?? 1 }} draggable={false} />
+          <div
+            className="w-full h-full"
+            style={{
+              transform,
+              transformOrigin: "center center",
+              transition: "transform 120ms ease-out",
+              willChange: "transform",
+            }}
+          >
+            <img src={el.content} alt="" className="w-full h-full object-cover rounded-lg pointer-events-none" style={{ opacity: el.opacity ?? 1 }} draggable={false} />
+          </div>
         ) : el.type === "shape" ? (
           <div className="w-full h-full" style={{ background: el.content, borderRadius: 16 }} />
         ) : editing ? (
