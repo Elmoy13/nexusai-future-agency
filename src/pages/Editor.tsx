@@ -261,8 +261,9 @@ const Editor = () => {
       <div className="h-14 bg-white border-b border-border/40 flex items-center justify-between px-4 flex-shrink-0 z-10">
         <div className="flex items-center gap-3">
           <Button onClick={() => navigate("/dashboard")} variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5 h-8 px-3 text-xs">
-            <ArrowLeft size={14} /> Volver
+           <ArrowLeft size={14} /> Volver
           </Button>
+
           <div className="w-px h-6 bg-border/40" />
           <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center">
             <Hexagon size={14} className="text-primary" />
