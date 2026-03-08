@@ -1,11 +1,49 @@
 import { motion } from "framer-motion";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Lock } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { toast } from "sonner";
 
 interface NavbarProps {
   onOpenModal?: () => void;
 }
 
 const Navbar = ({ onOpenModal }: NavbarProps) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const scrollToSection = (id: string) => {
+    if (location.pathname !== "/") {
+      navigate("/");
+      setTimeout(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+      }, 300);
+    } else {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  const handleLogoClick = () => {
+    if (location.pathname !== "/") {
+      navigate("/");
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const handleDocsClick = () => {
+    toast("Documentación encriptada", {
+      description: "Acceso disponible en la v1.0",
+      icon: <Lock size={16} />,
+    });
+  };
+
+  const navItems = [
+    { label: "Producto", action: () => scrollToSection("onboarding-chat") },
+    { label: "Agentes", action: () => scrollToSection("bento-features") },
+    { label: "Precios", action: () => scrollToSection("pricing") },
+    { label: "Docs", action: handleDocsClick },
+  ];
+
   return (
     <motion.nav
       initial={{ y: -30, opacity: 0 }}
@@ -14,33 +52,30 @@ const Navbar = ({ onOpenModal }: NavbarProps) => {
       className="fixed top-6 left-1/2 -translate-x-1/2 z-50 px-2"
     >
       <div className="glass-strong rounded-full px-6 py-3 flex items-center gap-8">
-        {/* Logo */}
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-accent pulse-dot" />
+        <button onClick={handleLogoClick} className="flex items-center gap-2 cursor-pointer">
+          <span className="w-2 h-2 rounded-full bg-accent pulse-dot" />
           <span className="text-foreground font-bold text-lg tracking-tight">
             NexusAI
           </span>
-        </div>
+        </button>
 
-        {/* Nav Links */}
         <div className="hidden md:flex items-center gap-6">
-          {["Producto", "Agentes", "Precios", "Docs"].map((item) => (
-            <a
-              key={item}
-              href="#"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
+          {navItems.map((item) => (
+            <button
+              key={item.label}
+              onClick={item.action}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 bg-transparent border-none cursor-pointer"
             >
-              {item}
-            </a>
+              {item.label}
+            </button>
           ))}
         </div>
 
-        {/* CTA */}
         <button
-          onClick={onOpenModal}
+          onClick={() => navigate("/login")}
           className="border-gradient-animated rounded-full px-5 py-2 text-sm font-medium text-foreground hover:glow-cyan transition-all duration-300 flex items-center gap-2"
         >
-          <Sparkles size={14} className="icon-neon text-cyan-glow" />
+          <Sparkles size={14} className="icon-neon text-primary" />
           Acceder al Sistema
         </button>
       </div>
