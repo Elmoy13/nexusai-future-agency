@@ -8,7 +8,6 @@ type View = "overview" | "briefs" | "parrilla" | "community";
 interface Props {
   activeView: View;
   onViewChange: (view: View) => void;
-  onOpenSettings: () => void;
 }
 
 const navItems: { id: View; label: string; icon: React.ElementType }[] = [
@@ -18,7 +17,7 @@ const navItems: { id: View; label: string; icon: React.ElementType }[] = [
   { id: "community", label: "Community & Social", icon: MessageSquare },
 ];
 
-const DashboardSidebar = ({ activeView, onViewChange, onOpenSettings }: Props) => {
+const DashboardSidebar = ({ activeView, onViewChange }: Props) => {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -73,7 +72,7 @@ const DashboardSidebar = ({ activeView, onViewChange, onOpenSettings }: Props) =
       <div className="mt-auto space-y-3">
         {/* Settings button */}
         <button
-          onClick={onOpenSettings}
+          onClick={() => navigate("/settings")}
           className={cn(
             "flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-200 border-none cursor-pointer text-muted-foreground hover:text-foreground hover:bg-secondary/40 bg-transparent w-full",
             collapsed ? "justify-center px-0 py-3" : "px-3 py-2.5"
