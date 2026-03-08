@@ -35,6 +35,22 @@ const TypingText = ({ text, color, startDelay }: { text: string; color: string; 
   return <div className={color}>{displayed}<span className="inline-block w-1.5 h-4 bg-cyan-glow/70 animate-pulse ml-0.5 align-middle" style={{ opacity: displayed.length < text.length ? 1 : 0 }} /></div>;
 };
 
+const InstantLine = ({ text, color, delay }: { text: string; color: string; delay: number }) => {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    // Wait for typed line to finish (~50 chars * 18ms ≈ 0.9s) + delay
+    const t = setTimeout(() => setVisible(true), (1.0 + delay) * 1000);
+    return () => clearTimeout(t);
+  }, [delay]);
+  if (!visible) return null;
+  if (!text) return <div className="h-4" />;
+  return (
+    <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className={color}>
+      {text}
+    </motion.div>
+  );
+};
+
 const AppMockup = () => {
   return (
     <section className="relative py-32 px-6">
