@@ -27,19 +27,6 @@ const HeroSection = () => {
 
       {/* Content */}
       <div className="relative z-10 max-w-5xl mx-auto px-6 text-center">
-        {/* Badge */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="inline-flex items-center gap-2 glass rounded-full px-5 py-2 mb-8"
-        >
-          <span className="text-sm">✨</span>
-          <span className="text-sm text-muted-foreground">
-            Motor IA Llama 3.3 70B Activo
-          </span>
-        </motion.div>
-
         {/* Headline */}
         <motion.h1
           initial={{ opacity: 0, y: 30 }}
@@ -71,14 +58,20 @@ const HeroSection = () => {
           transition={{ duration: 0.8, delay: 0.9 }}
           className="flex flex-col sm:flex-row items-center justify-center gap-4"
         >
-          <button className="group glass-strong rounded-full px-8 py-4 text-base font-semibold text-foreground hover:glow-cyan transition-all duration-500 flex items-center gap-3">
+          <button
+            onClick={onOpenModal}
+            className="group glass-strong rounded-full px-8 py-4 text-base font-semibold text-foreground hover:glow-cyan transition-all duration-500 flex items-center gap-3"
+          >
             Iniciar Demostración
             <ArrowRight
               size={18}
               className="icon-neon text-cyan-glow group-hover:translate-x-1 transition-transform"
             />
           </button>
-          <button className="rounded-full px-8 py-4 text-base font-medium text-muted-foreground border border-border hover:text-foreground hover:border-foreground/30 transition-all duration-300 flex items-center gap-3">
+          <button
+            onClick={scrollToBento}
+            className="rounded-full px-8 py-4 text-base font-medium text-muted-foreground border border-border hover:text-foreground hover:border-foreground/30 transition-all duration-300 flex items-center gap-3"
+          >
             <Eye size={18} />
             Ver el Flujo de Trabajo
           </button>
