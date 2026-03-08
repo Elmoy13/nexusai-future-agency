@@ -13,7 +13,8 @@ import {
   LayoutTemplate, Type, Image, Hexagon, Sparkles,
   Plus, ChevronLeft, ChevronRight, Cloud, Palette,
   Play, X, Undo2, Redo2, AlignLeft, AlignCenter, AlignRight, Minus,
-  Bold, Italic, Trash2,
+  Bold, Trash2, RotateCcw, RotateCw, FlipHorizontal, FlipVertical,
+  ArrowUpToLine, ArrowDownToLine, ArrowUp, ArrowDown, Pipette,
 } from "lucide-react";
 import { initialCampaigns } from "@/components/dashboard/briefs/campaignData";
 import type { SlideData, SlideElement } from "@/components/dashboard/briefs/campaignData";
@@ -28,26 +29,36 @@ const SNAP_THRESHOLD = 5;
 function slideToElements(slide: SlideData): SlideElement[] {
   if (slide.elements?.length) return slide.elements;
   const els: SlideElement[] = [];
+  let z = 0;
   if (slide.type === "cover") {
-    els.push({ id: uid(), type: "text", content: slide.title, x: 80, y: 680, width: 1760, height: 120, fontSize: 96, fontWeight: "900", color: "#ffffff" });
-    if (slide.body) els.push({ id: uid(), type: "text", content: slide.body, x: 80, y: 820, width: 1400, height: 60, fontSize: 28, fontWeight: "400", color: "rgba(255,255,255,0.5)" });
-    if (slide.image) els.push({ id: uid(), type: "image", content: slide.image, x: 0, y: 0, width: 1920, height: 1080, opacity: 0.7 });
+    if (slide.image) els.push({ id: uid(), type: "image", content: slide.image, x: 0, y: 0, width: 1920, height: 1080, opacity: 0.7, zIndex: z++ });
+    els.push({ id: uid(), type: "text", content: slide.title, x: 80, y: 680, width: 1760, height: 120, fontSize: 96, fontWeight: "900", color: "#ffffff", zIndex: z++ });
+    if (slide.body) els.push({ id: uid(), type: "text", content: slide.body, x: 80, y: 820, width: 1400, height: 60, fontSize: 28, fontWeight: "400", color: "rgba(255,255,255,0.5)", zIndex: z++ });
   } else if (slide.type === "content") {
-    els.push({ id: uid(), type: "text", content: slide.title, x: 860, y: 80, width: 980, height: 80, fontSize: 56, fontWeight: "800", color: "#0f172a" });
-    if (slide.image) els.push({ id: uid(), type: "image", content: slide.image, x: 100, y: 200, width: 600, height: 600 });
+    els.push({ id: uid(), type: "text", content: slide.title, x: 860, y: 80, width: 980, height: 80, fontSize: 56, fontWeight: "800", color: "#0f172a", zIndex: z++ });
+    if (slide.image) els.push({ id: uid(), type: "image", content: slide.image, x: 100, y: 200, width: 600, height: 600, zIndex: z++ });
     slide.bullets?.forEach((b, i) => {
-      els.push({ id: uid(), type: "text", content: b, x: 860, y: 220 + i * 120, width: 980, height: 100, fontSize: 28, fontWeight: "400", color: "#475569" });
+      els.push({ id: uid(), type: "text", content: b, x: 860, y: 220 + i * 120, width: 980, height: 100, fontSize: 28, fontWeight: "400", color: "#475569", zIndex: z++ });
     });
   } else {
-    els.push({ id: uid(), type: "text", content: slide.title, x: 80, y: 80, width: 1000, height: 80, fontSize: 56, fontWeight: "800", color: "#0f172a" });
-    if (slide.body) els.push({ id: uid(), type: "text", content: slide.body, x: 80, y: 180, width: 1000, height: 50, fontSize: 32, fontWeight: "400", color: "#64748b" });
-    if (slide.image) els.push({ id: uid(), type: "image", content: slide.image, x: 80, y: 280, width: 1000, height: 600 });
+    els.push({ id: uid(), type: "text", content: slide.title, x: 80, y: 80, width: 1000, height: 80, fontSize: 56, fontWeight: "800", color: "#0f172a", zIndex: z++ });
+    if (slide.body) els.push({ id: uid(), type: "text", content: slide.body, x: 80, y: 180, width: 1000, height: 50, fontSize: 32, fontWeight: "400", color: "#64748b", zIndex: z++ });
+    if (slide.image) els.push({ id: uid(), type: "image", content: slide.image, x: 80, y: 280, width: 1000, height: 600, zIndex: z++ });
     slide.colors?.forEach((c, i) => {
-      els.push({ id: uid(), type: "shape", content: c.hex, x: 1200 + (i % 2) * 200, y: 280 + Math.floor(i / 2) * 200, width: 160, height: 160 });
-      els.push({ id: uid(), type: "text", content: `${c.name}\n${c.hex}`, x: 1200 + (i % 2) * 200, y: 460 + Math.floor(i / 2) * 200, width: 180, height: 50, fontSize: 18, fontWeight: "500", color: "#475569" });
+      els.push({ id: uid(), type: "shape", content: c.hex, x: 1200 + (i % 2) * 200, y: 280 + Math.floor(i / 2) * 200, width: 160, height: 160, zIndex: z++ });
+      els.push({ id: uid(), type: "text", content: `${c.name}\n${c.hex}`, x: 1200 + (i % 2) * 200, y: 460 + Math.floor(i / 2) * 200, width: 180, height: 50, fontSize: 18, fontWeight: "500", color: "#475569", zIndex: z++ });
     });
   }
   return els;
+}
+
+/* ── build CSS transform string for an element ── */
+function buildTransform(el: SlideElement): string {
+  const parts: string[] = [];
+  if (el.rotation) parts.push(`rotate(${el.rotation}deg)`);
+  if (el.flipH) parts.push("scaleX(-1)");
+  if (el.flipV) parts.push("scaleY(-1)");
+  return parts.length ? parts.join(" ") : "none";
 }
 
 /* ── Smart Guides Engine ── */
@@ -56,67 +67,25 @@ interface GuideLines { x: number | null; y: number | null }
 function computeSnapAndGuides(
   dragEl: { x: number; y: number; w: number; h: number },
   others: { x: number; y: number; w: number; h: number }[],
-  canvasW: number,
-  canvasH: number,
+  canvasW: number, canvasH: number,
 ): { snappedX: number; snappedY: number; guides: GuideLines } {
-  let snappedX = dragEl.x;
-  let snappedY = dragEl.y;
-  let guideX: number | null = null;
-  let guideY: number | null = null;
+  let snappedX = dragEl.x, snappedY = dragEl.y;
+  let guideX: number | null = null, guideY: number | null = null;
+  const dragCX = dragEl.x + dragEl.w / 2, dragCY = dragEl.y + dragEl.h / 2;
+  const cxCanvas = canvasW / 2, cyCanvas = canvasH / 2;
 
-  const dragCX = dragEl.x + dragEl.w / 2;
-  const dragCY = dragEl.y + dragEl.h / 2;
+  if (Math.abs(dragCX - cxCanvas) < SNAP_THRESHOLD) { snappedX = cxCanvas - dragEl.w / 2; guideX = cxCanvas; }
+  if (Math.abs(dragCY - cyCanvas) < SNAP_THRESHOLD) { snappedY = cyCanvas - dragEl.h / 2; guideY = cyCanvas; }
 
-  // Canvas center
-  const cxCanvas = canvasW / 2;
-  const cyCanvas = canvasH / 2;
-
-  if (Math.abs(dragCX - cxCanvas) < SNAP_THRESHOLD) {
-    snappedX = cxCanvas - dragEl.w / 2;
-    guideX = cxCanvas;
-  }
-  if (Math.abs(dragCY - cyCanvas) < SNAP_THRESHOLD) {
-    snappedY = cyCanvas - dragEl.h / 2;
-    guideY = cyCanvas;
-  }
-
-  // Snap to other elements' edges/centers
   for (const o of others) {
-    const oCX = o.x + o.w / 2;
-    const oCY = o.y + o.h / 2;
-
-    // Center-to-center
-    if (guideX === null && Math.abs(dragCX - oCX) < SNAP_THRESHOLD) {
-      snappedX = oCX - dragEl.w / 2;
-      guideX = oCX;
-    }
-    if (guideY === null && Math.abs(dragCY - oCY) < SNAP_THRESHOLD) {
-      snappedY = oCY - dragEl.h / 2;
-      guideY = oCY;
-    }
-
-    // Left edge to left edge
-    if (guideX === null && Math.abs(dragEl.x - o.x) < SNAP_THRESHOLD) {
-      snappedX = o.x;
-      guideX = o.x;
-    }
-    // Right edge to right edge
-    if (guideX === null && Math.abs((dragEl.x + dragEl.w) - (o.x + o.w)) < SNAP_THRESHOLD) {
-      snappedX = o.x + o.w - dragEl.w;
-      guideX = o.x + o.w;
-    }
-    // Top edge
-    if (guideY === null && Math.abs(dragEl.y - o.y) < SNAP_THRESHOLD) {
-      snappedY = o.y;
-      guideY = o.y;
-    }
-    // Bottom edge
-    if (guideY === null && Math.abs((dragEl.y + dragEl.h) - (o.y + o.h)) < SNAP_THRESHOLD) {
-      snappedY = o.y + o.h - dragEl.h;
-      guideY = o.y + o.h;
-    }
+    const oCX = o.x + o.w / 2, oCY = o.y + o.h / 2;
+    if (guideX === null && Math.abs(dragCX - oCX) < SNAP_THRESHOLD) { snappedX = oCX - dragEl.w / 2; guideX = oCX; }
+    if (guideY === null && Math.abs(dragCY - oCY) < SNAP_THRESHOLD) { snappedY = oCY - dragEl.h / 2; guideY = oCY; }
+    if (guideX === null && Math.abs(dragEl.x - o.x) < SNAP_THRESHOLD) { snappedX = o.x; guideX = o.x; }
+    if (guideX === null && Math.abs((dragEl.x + dragEl.w) - (o.x + o.w)) < SNAP_THRESHOLD) { snappedX = o.x + o.w - dragEl.w; guideX = o.x + o.w; }
+    if (guideY === null && Math.abs(dragEl.y - o.y) < SNAP_THRESHOLD) { snappedY = o.y; guideY = o.y; }
+    if (guideY === null && Math.abs((dragEl.y + dragEl.h) - (o.y + o.h)) < SNAP_THRESHOLD) { snappedY = o.y + o.h - dragEl.h; guideY = o.y + o.h; }
   }
-
   return { snappedX, snappedY, guides: { x: guideX, y: guideY } };
 }
 
@@ -128,18 +97,67 @@ const tools = [
   { icon: Palette, label: "Brand Hub", action: "brand" },
 ];
 
+/* ── Chroma Key Background Removal ── */
+async function chromaKeyRemove(
+  imgSrc: string,
+  clickX: number, clickY: number,
+  elW: number, elH: number,
+  tolerance: number = 38 // ~15% of 255
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0);
+
+      // Map click coords from element space to image space
+      const sx = img.naturalWidth / elW;
+      const sy = img.naturalHeight / elH;
+      const px = Math.round(clickX * sx);
+      const py = Math.round(clickY * sy);
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      // Get key color from click position
+      const idx = (py * canvas.width + px) * 4;
+      const keyR = data[idx], keyG = data[idx + 1], keyB = data[idx + 2];
+
+      // Process pixels with flood-fill-like tolerance
+      for (let i = 0; i < data.length; i += 4) {
+        const dr = Math.abs(data[i] - keyR);
+        const dg = Math.abs(data[i + 1] - keyG);
+        const db = Math.abs(data[i + 2] - keyB);
+        if (dr <= tolerance && dg <= tolerance && db <= tolerance) {
+          data[i + 3] = 0; // set alpha to transparent
+        }
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+      resolve(canvas.toDataURL("image/png"));
+    };
+    img.onerror = () => reject(new Error("Failed to load image for chroma key"));
+    img.src = imgSrc;
+  });
+}
+
 /* ── Static element renderer ── */
 const StaticElement = ({ el }: { el: SlideElement }) => {
+  const transform = buildTransform(el);
   if (el.type === "image") {
     return (
-      <div style={{ position: "absolute", left: el.x, top: el.y, width: el.width ?? 400, height: el.height ?? 400, opacity: el.opacity ?? 1 }}>
+      <div style={{ position: "absolute", left: el.x, top: el.y, width: el.width ?? 400, height: el.height ?? 400, opacity: el.opacity ?? 1, zIndex: el.zIndex ?? 0, transform }}>
         <img src={el.content} alt="" className="w-full h-full object-cover" draggable={false} />
       </div>
     );
   }
   if (el.type === "shape") {
     return (
-      <div style={{ position: "absolute", left: el.x, top: el.y, width: el.width ?? 160, height: el.height ?? 160, background: el.content, borderRadius: 16 }} />
+      <div style={{ position: "absolute", left: el.x, top: el.y, width: el.width ?? 160, height: el.height ?? 160, background: el.content, borderRadius: 16, zIndex: el.zIndex ?? 0, transform }} />
     );
   }
   return (
@@ -148,8 +166,9 @@ const StaticElement = ({ el }: { el: SlideElement }) => {
       width: el.width ?? "auto",
       fontSize: el.fontSize ?? 28, fontWeight: el.fontWeight ?? "400",
       color: el.color ?? "#0f172a", lineHeight: 1.3, whiteSpace: "pre-wrap",
-      fontFamily: (el as any).fontFamily ?? "Inter",
-      textAlign: ((el as any).textAlign ?? "left") as any,
+      fontFamily: el.fontFamily ?? "Inter",
+      textAlign: (el.textAlign ?? "left") as any,
+      zIndex: el.zIndex ?? 0, transform,
     }}>
       {el.content}
     </div>
@@ -158,10 +177,7 @@ const StaticElement = ({ el }: { el: SlideElement }) => {
 
 /* ── Slide Thumbnail ── */
 const SlideThumbnail = ({ elements, bgImage }: { elements: SlideElement[]; bgImage?: string }) => {
-  const sorted = [...elements].sort((a, b) => {
-    const order = { image: 0, shape: 1, text: 2 };
-    return (order[a.type] ?? 1) - (order[b.type] ?? 1);
-  });
+  const sorted = [...elements].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
   return (
     <div className="absolute inset-0 overflow-hidden bg-white">
       <div style={{ width: 1920, height: 1080, transform: "scale(0.0833)", transformOrigin: "top left", position: "relative" }}>
@@ -180,26 +196,58 @@ const FormatBar = ({
   selectedIds,
   onUpdate,
   onDelete,
+  onBgRemove,
+  bgRemoveProcessing,
 }: {
   elements: SlideElement[];
   selectedIds: Set<string>;
   onUpdate: (id: string, patch: Partial<SlideElement>) => void;
   onDelete: (id: string) => void;
+  onBgRemove: () => void;
+  bgRemoveProcessing: boolean;
 }) => {
   const selectedEls = elements.filter((e) => selectedIds.has(e.id));
   const textEls = selectedEls.filter((e) => e.type === "text");
+  const imageEls = selectedEls.filter((e) => e.type === "image");
   const firstText = textEls[0];
+  const firstImage = imageEls[0];
+  const first = selectedEls[0];
 
   if (selectedEls.length === 0) return null;
 
-  const fontFamily = firstText ? ((firstText as any).fontFamily ?? "Inter") : "Inter";
-  const textAlign = firstText ? ((firstText as any).textAlign ?? "left") : "left";
+  const fontFamily = firstText?.fontFamily ?? "Inter";
+  const textAlign = firstText?.textAlign ?? "left";
   const fontSize = firstText?.fontSize ?? 28;
   const color = firstText?.color ?? "#0f172a";
   const fontWeight = firstText?.fontWeight ?? "400";
 
   const updateAllSelected = (patch: Partial<SlideElement>) => {
     selectedIds.forEach((id) => onUpdate(id, patch));
+  };
+
+  /* Layer helpers */
+  const maxZ = Math.max(...elements.map((e) => e.zIndex ?? 0));
+  const minZ = Math.min(...elements.map((e) => e.zIndex ?? 0));
+
+  const bringToFront = () => {
+    let next = maxZ;
+    selectedIds.forEach((id) => { next++; onUpdate(id, { zIndex: next }); });
+  };
+  const sendToBack = () => {
+    let next = minZ;
+    selectedIds.forEach((id) => { next--; onUpdate(id, { zIndex: next }); });
+  };
+  const moveUp = () => {
+    selectedIds.forEach((id) => {
+      const el = elements.find((e) => e.id === id);
+      if (el) onUpdate(id, { zIndex: (el.zIndex ?? 0) + 1 });
+    });
+  };
+  const moveDown = () => {
+    selectedIds.forEach((id) => {
+      const el = elements.find((e) => e.id === id);
+      if (el) onUpdate(id, { zIndex: (el.zIndex ?? 0) - 1 });
+    });
   };
 
   return (
@@ -210,101 +258,107 @@ const FormatBar = ({
       className="bg-white border-b border-border/40 flex items-center px-5 gap-3 flex-shrink-0 z-10 overflow-hidden"
     >
       {/* Element info */}
-      <span className="text-[11px] text-muted-foreground font-medium min-w-[80px]">
-        {selectedEls.length > 1 ? `${selectedEls.length} elementos` : selectedEls[0]?.type === "text" ? "Texto" : selectedEls[0]?.type === "image" ? "Imagen" : "Forma"}
+      <span className="text-[11px] text-muted-foreground font-medium min-w-[60px]">
+        {selectedEls.length > 1 ? `${selectedEls.length} sel.` : first?.type === "text" ? "Texto" : first?.type === "image" ? "Imagen" : "Forma"}
       </span>
-
       <div className="w-px h-6 bg-border/40" />
 
+      {/* ── Layer Controls (always visible) ── */}
+      <div className="flex items-center gap-0.5" title="Capas">
+        <button onClick={bringToFront} className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition" title="Traer al frente"><ArrowUpToLine size={13} /></button>
+        <button onClick={moveUp} className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition" title="Subir un nivel"><ArrowUp size={13} /></button>
+        <button onClick={moveDown} className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition" title="Bajar un nivel"><ArrowDown size={13} /></button>
+        <button onClick={sendToBack} className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition" title="Enviar al fondo"><ArrowDownToLine size={13} /></button>
+      </div>
+      <div className="w-px h-6 bg-border/40" />
+
+      {/* ── Text Controls ── */}
       {firstText && (
         <>
-          {/* Font family */}
           <select
             value={fontFamily}
-            onChange={(e) => updateAllSelected({ fontFamily: e.target.value } as any)}
-            className="bg-muted/50 text-foreground text-xs rounded-md px-2.5 py-1.5 border border-border/40 outline-none cursor-pointer h-8 w-44 font-medium"
+            onChange={(e) => updateAllSelected({ fontFamily: e.target.value })}
+            className="bg-muted/50 text-foreground text-xs rounded-md px-2.5 py-1.5 border border-border/40 outline-none cursor-pointer h-8 w-40 font-medium"
           >
-            {FONTS.map((f) => (
-              <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>
-            ))}
+            {FONTS.map((f) => <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>)}
           </select>
-
           <div className="w-px h-6 bg-border/40" />
 
-          {/* Font size */}
           <div className="flex items-center gap-1 bg-muted/50 rounded-md border border-border/40 h-8 px-1">
             <button onClick={() => updateAllSelected({ fontSize: Math.max(10, fontSize - 2) })} className="w-6 h-6 rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground"><Minus size={13} /></button>
-            <input
-              type="number"
-              value={fontSize}
-              onChange={(e) => updateAllSelected({ fontSize: Math.max(10, Math.min(200, parseInt(e.target.value) || 28)) })}
-              className="w-10 text-center text-xs font-semibold bg-transparent border-none outline-none text-foreground tabular-nums"
-            />
+            <input type="number" value={fontSize} onChange={(e) => updateAllSelected({ fontSize: Math.max(10, Math.min(200, parseInt(e.target.value) || 28)) })} className="w-10 text-center text-xs font-semibold bg-transparent border-none outline-none text-foreground tabular-nums" />
             <button onClick={() => updateAllSelected({ fontSize: Math.min(200, fontSize + 2) })} className="w-6 h-6 rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground"><Plus size={13} /></button>
           </div>
-
           <div className="w-px h-6 bg-border/40" />
 
-          {/* Bold / Italic */}
-          <div className="flex items-center gap-0.5">
-            <button
-              onClick={() => updateAllSelected({ fontWeight: fontWeight === "700" || fontWeight === "800" || fontWeight === "900" ? "400" : "700" })}
-              className={`w-8 h-8 rounded-md flex items-center justify-center transition ${["700", "800", "900"].includes(fontWeight) ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground"}`}
-            >
-              <Bold size={14} />
-            </button>
-          </div>
-
+          <button
+            onClick={() => updateAllSelected({ fontWeight: ["700", "800", "900"].includes(fontWeight) ? "400" : "700" })}
+            className={`w-8 h-8 rounded-md flex items-center justify-center transition ${["700", "800", "900"].includes(fontWeight) ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground"}`}
+          ><Bold size={14} /></button>
           <div className="w-px h-6 bg-border/40" />
 
-          {/* Color */}
           <div className="flex items-center gap-1">
-            {COLORS_PALETTE.map((c) => (
-              <button
-                key={c}
-                onClick={() => updateAllSelected({ color: c })}
-                className={`w-6 h-6 rounded-full border-2 transition-all ${color === c ? "border-primary scale-110 shadow-sm" : "border-border/40 hover:scale-105"}`}
-                style={{ background: c }}
-              />
+            {COLORS_PALETTE.slice(0, 6).map((c) => (
+              <button key={c} onClick={() => updateAllSelected({ color: c })} className={`w-5 h-5 rounded-full border-2 transition-all ${color === c ? "border-primary scale-110" : "border-border/40 hover:scale-105"}`} style={{ background: c }} />
             ))}
-            <label className="w-6 h-6 rounded-full overflow-hidden cursor-pointer border-2 border-border/40 relative hover:scale-105 transition-transform">
-              <input
-                type="color"
-                value={color}
-                onChange={(e) => updateAllSelected({ color: e.target.value })}
-                className="absolute inset-0 opacity-0 cursor-pointer"
-              />
+            <label className="w-5 h-5 rounded-full overflow-hidden cursor-pointer border-2 border-border/40 relative hover:scale-105 transition-transform">
+              <input type="color" value={color} onChange={(e) => updateAllSelected({ color: e.target.value })} className="absolute inset-0 opacity-0 cursor-pointer" />
               <div className="w-full h-full" style={{ background: `conic-gradient(red, yellow, lime, aqua, blue, magenta, red)` }} />
             </label>
           </div>
-
           <div className="w-px h-6 bg-border/40" />
 
-          {/* Alignment */}
           <div className="flex items-center gap-0.5">
             {([["left", AlignLeft], ["center", AlignCenter], ["right", AlignRight]] as const).map(([align, Icon]) => (
-              <button
-                key={align}
-                onClick={() => updateAllSelected({ textAlign: align } as any)}
-                className={`w-8 h-8 rounded-md flex items-center justify-center transition ${textAlign === align ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground"}`}
-              >
-                <Icon size={14} />
-              </button>
+              <button key={align} onClick={() => updateAllSelected({ textAlign: align })} className={`w-7 h-7 rounded-md flex items-center justify-center transition ${textAlign === align ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground"}`}><Icon size={13} /></button>
             ))}
           </div>
         </>
       )}
 
+      {/* ── Image Controls (rotation, flip, bg remove) ── */}
+      {firstImage && (
+        <>
+          <div className="flex items-center gap-0.5" title="Rotación">
+            <button onClick={() => updateAllSelected({ rotation: ((first?.rotation ?? 0) - 90) % 360 })} className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition" title="Rotar 90° izq"><RotateCcw size={13} /></button>
+            <button onClick={() => updateAllSelected({ rotation: ((first?.rotation ?? 0) + 90) % 360 })} className="w-7 h-7 rounded-md flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition" title="Rotar 90° der"><RotateCw size={13} /></button>
+            <input
+              type="number"
+              value={first?.rotation ?? 0}
+              onChange={(e) => updateAllSelected({ rotation: parseInt(e.target.value) || 0 })}
+              className="w-12 text-center text-xs font-semibold bg-muted/50 border border-border/40 rounded-md h-7 outline-none text-foreground tabular-nums"
+              title="Ángulo de rotación"
+            />
+          </div>
+          <div className="w-px h-6 bg-border/40" />
+
+          <div className="flex items-center gap-0.5" title="Voltear">
+            <button
+              onClick={() => updateAllSelected({ flipH: !(first?.flipH ?? false) })}
+              className={`w-7 h-7 rounded-md flex items-center justify-center transition ${first?.flipH ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground hover:text-foreground"}`}
+              title="Voltear Horizontal"
+            ><FlipHorizontal size={13} /></button>
+            <button
+              onClick={() => updateAllSelected({ flipV: !(first?.flipV ?? false) })}
+              className={`w-7 h-7 rounded-md flex items-center justify-center transition ${first?.flipV ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground hover:text-foreground"}`}
+              title="Voltear Vertical"
+            ><FlipVertical size={13} /></button>
+          </div>
+          <div className="w-px h-6 bg-border/40" />
+
+          <button
+            onClick={onBgRemove}
+            disabled={bgRemoveProcessing}
+            className="h-7 px-2.5 rounded-md text-[11px] font-semibold flex items-center gap-1.5 bg-cyan-500/10 text-cyan-600 hover:bg-cyan-500/20 border border-cyan-500/20 transition disabled:opacity-50"
+          >
+            {bgRemoveProcessing ? <><Loader2 size={12} className="animate-spin" /> Procesando píxeles...</> : <><Pipette size={12} /> Quitar Fondo</>}
+          </button>
+        </>
+      )}
+
       <div className="flex-1" />
 
-      {/* Delete */}
-      <button
-        onClick={() => selectedIds.forEach((id) => onDelete(id))}
-        className="w-8 h-8 rounded-md flex items-center justify-center text-red-500 hover:bg-red-50 transition"
-        title="Eliminar"
-      >
-        <Trash2 size={14} />
-      </button>
+      <button onClick={() => selectedIds.forEach((id) => onDelete(id))} className="w-8 h-8 rounded-md flex items-center justify-center text-red-500 hover:bg-red-50 transition" title="Eliminar"><Trash2 size={14} /></button>
     </motion.div>
   );
 };
@@ -312,7 +366,7 @@ const FormatBar = ({
 /* ── Interactive Canvas Element with react-rnd ── */
 const RndElement = ({
   el, scale, selected, onSelect, onUpdate, onDelete,
-  onDragMove, onDragEnd: onDragEndCb,
+  onDragMove, onDragEnd: onDragEndCb, eyedropperMode, onImageClick,
 }: {
   el: SlideElement;
   scale: number;
@@ -322,6 +376,8 @@ const RndElement = ({
   onDelete: () => void;
   onDragMove?: (id: string, x: number, y: number, w: number, h: number) => void;
   onDragEnd?: () => void;
+  eyedropperMode?: boolean;
+  onImageClick?: (elId: string, localX: number, localY: number) => void;
 }) => {
   const [editing, setEditing] = useState(false);
   const [localContent, setLocalContent] = useState(el.content);
@@ -337,70 +393,62 @@ const RndElement = ({
   };
 
   const handleStyle: React.CSSProperties = {
-    width: 10, height: 10,
-    background: "#06b6d4",
-    borderRadius: 2,
-    border: "2px solid white",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+    width: 10, height: 10, background: "#06b6d4", borderRadius: 2,
+    border: "2px solid white", boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
   };
 
   const resizeHandles = selected && !editing ? {
-    topLeft: <div style={handleStyle} />,
-    topRight: <div style={handleStyle} />,
-    bottomLeft: <div style={handleStyle} />,
-    bottomRight: <div style={handleStyle} />,
+    topLeft: <div style={handleStyle} />, topRight: <div style={handleStyle} />,
+    bottomLeft: <div style={handleStyle} />, bottomRight: <div style={handleStyle} />,
   } : {};
 
   const w = el.width ?? (el.type === "text" ? 600 : 400);
   const h = el.height ?? (el.type === "text" ? 80 : 400);
+  const transform = buildTransform(el);
 
   return (
     <Rnd
       size={{ width: w, height: h }}
       position={{ x: el.x, y: el.y }}
       onDragStart={() => setDragging(true)}
-      onDrag={(_e, d) => {
-        onDragMove?.(el.id, d.x, d.y, w, h);
-      }}
+      onDrag={(_e, d) => { onDragMove?.(el.id, d.x, d.y, w, h); }}
       onDragStop={(_e, d) => {
         setDragging(false);
         onDragEndCb?.();
         onUpdate({ x: Math.round(d.x), y: Math.round(d.y) });
       }}
       onResizeStop={(_e, _dir, ref, _delta, pos) => {
-        onUpdate({
-          width: parseInt(ref.style.width),
-          height: parseInt(ref.style.height),
-          x: Math.round(pos.x),
-          y: Math.round(pos.y),
-        });
+        onUpdate({ width: parseInt(ref.style.width), height: parseInt(ref.style.height), x: Math.round(pos.x), y: Math.round(pos.y) });
       }}
-      disableDragging={editing}
+      disableDragging={editing || (eyedropperMode && el.type === "image")}
       enableResizing={selected && !editing}
       resizeHandleComponent={resizeHandles}
       scale={scale}
       bounds="parent"
-      onMouseDown={(e: any) => {
-        e.stopPropagation();
-        onSelect(e);
-      }}
-      className={`${selected ? "z-30" : "z-10"}`}
+      onMouseDown={(e: any) => { e.stopPropagation(); onSelect(e); }}
       style={{
+        zIndex: selected ? 9999 : (el.zIndex ?? 0),
         outline: selected ? "2px solid #06b6d4" : "none",
         outlineOffset: 2,
         borderRadius: el.type === "shape" ? 16 : 4,
         willChange: "transform",
         userSelect: dragging ? "none" : "auto",
+        transform,
       }}
     >
       <div
         className={`w-full h-full relative ${!selected && !editing ? "hover:outline hover:outline-2 hover:outline-dashed hover:outline-cyan-400/40" : ""}`}
-        onDoubleClick={(e) => {
-          e.stopPropagation();
-          if (el.type === "text") setEditing(true);
+        onDoubleClick={(e) => { e.stopPropagation(); if (el.type === "text") setEditing(true); }}
+        onClick={(e) => {
+          if (eyedropperMode && el.type === "image" && selected && onImageClick) {
+            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            const localX = (e.clientX - rect.left) / (rect.width / w);
+            const localY = (e.clientY - rect.top) / (rect.height / h);
+            onImageClick(el.id, localX, localY);
+          }
         }}
         style={{
-          cursor: editing ? "text" : dragging ? "grabbing" : "grab",
+          cursor: eyedropperMode && el.type === "image" ? "crosshair" : editing ? "text" : dragging ? "grabbing" : "grab",
           borderRadius: el.type === "shape" ? 16 : 0,
           userSelect: dragging ? "none" : "auto",
         }}
@@ -419,8 +467,8 @@ const RndElement = ({
             style={{
               fontSize: el.fontSize ?? 28, fontWeight: el.fontWeight ?? "400",
               color: el.color ?? "#0f172a", lineHeight: 1.3,
-              fontFamily: (el as any).fontFamily ?? "Inter",
-              textAlign: ((el as any).textAlign ?? "left") as any,
+              fontFamily: el.fontFamily ?? "Inter",
+              textAlign: (el.textAlign ?? "left") as any,
             }}
             className="bg-transparent border-none outline-none resize-none w-full h-full px-2 py-1 ring-2 ring-cyan-400/60 rounded"
           />
@@ -429,8 +477,8 @@ const RndElement = ({
             style={{
               fontSize: el.fontSize ?? 28, fontWeight: el.fontWeight ?? "400",
               color: el.color ?? "#0f172a", lineHeight: 1.3, whiteSpace: "pre-wrap",
-              fontFamily: (el as any).fontFamily ?? "Inter",
-              textAlign: ((el as any).textAlign ?? "left") as any,
+              fontFamily: el.fontFamily ?? "Inter",
+              textAlign: (el.textAlign ?? "left") as any,
               overflow: "hidden",
             }}
             className="px-2 py-1 select-none w-full h-full"
@@ -446,6 +494,7 @@ const RndElement = ({
 /* ── Interactive Canvas with Smart Guides ── */
 const InteractiveCanvas = ({
   elements, bgImage, scale, selectedIds, onSelectElement, onUpdateElement, onDeleteElement, onDeselect,
+  eyedropperMode, onImageClick,
 }: {
   elements: SlideElement[];
   bgImage?: string;
@@ -455,26 +504,20 @@ const InteractiveCanvas = ({
   onUpdateElement: (id: string, patch: Partial<SlideElement>) => void;
   onDeleteElement: (id: string) => void;
   onDeselect: () => void;
+  eyedropperMode?: boolean;
+  onImageClick?: (elId: string, localX: number, localY: number) => void;
 }) => {
   const [guides, setGuides] = useState<GuideLines>({ x: null, y: null });
 
-  const sorted = useMemo(() => [...elements].sort((a, b) => {
-    const order = { image: 0, shape: 1, text: 2 };
-    return (order[a.type] ?? 1) - (order[b.type] ?? 1);
-  }), [elements]);
+  const sorted = useMemo(() => [...elements].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)), [elements]);
 
   const handleDragMove = useCallback((dragId: string, x: number, y: number, w: number, h: number) => {
-    const others = elements
-      .filter((e) => e.id !== dragId)
-      .map((e) => ({ x: e.x, y: e.y, w: e.width ?? 400, h: e.height ?? 80 }));
-
+    const others = elements.filter((e) => e.id !== dragId).map((e) => ({ x: e.x, y: e.y, w: e.width ?? 400, h: e.height ?? 80 }));
     const result = computeSnapAndGuides({ x, y, w, h }, others, 1920, 1080);
     setGuides(result.guides);
   }, [elements]);
 
-  const handleDragEnd = useCallback(() => {
-    setGuides({ x: null, y: null });
-  }, []);
+  const handleDragEnd = useCallback(() => { setGuides({ x: null, y: null }); }, []);
 
   return (
     <div
@@ -491,7 +534,6 @@ const InteractiveCanvas = ({
         >
           {bgImage && <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-[1]" />}
 
-          {/* Smart Guides */}
           {guides.x !== null && (
             <div className="absolute top-0 bottom-0 z-[50] pointer-events-none" style={{ left: guides.x, width: 1, background: "#06b6d4" }}>
               <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 bg-cyan-500 text-white text-[9px] font-bold px-1 rounded">{Math.round(guides.x)}</div>
@@ -515,6 +557,8 @@ const InteractiveCanvas = ({
                 onDelete={() => onDeleteElement(el.id)}
                 onDragMove={handleDragMove}
                 onDragEnd={handleDragEnd}
+                eyedropperMode={eyedropperMode}
+                onImageClick={onImageClick}
               />
             ))}
           </div>
@@ -538,7 +582,7 @@ const PresentationSlide = ({ elements, bgImage }: { elements: SlideElement[]; bg
     window.addEventListener("resize", calc);
     return () => window.removeEventListener("resize", calc);
   }, []);
-  const sorted = [...elements].sort((a, b) => ({ image: 0, shape: 1, text: 2 }[a.type] ?? 1) - ({ image: 0, shape: 1, text: 2 }[b.type] ?? 1));
+  const sorted = [...elements].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
   return (
     <div ref={containerRef} className="w-full h-full flex items-center justify-center">
       <div className="bg-white rounded-lg overflow-hidden shadow-2xl relative" style={{ width: 1920, height: 1080, transform: `scale(${s})`, transformOrigin: "center center" }}>
@@ -572,8 +616,9 @@ const Editor = () => {
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [exportMsg, setExportMsg] = useState("");
-
   const [clipboard, setClipboard] = useState<SlideElement[]>([]);
+  const [eyedropperMode, setEyedropperMode] = useState(false);
+  const [bgRemoveProcessing, setBgRemoveProcessing] = useState(false);
 
   const history = useHistory(slidesElements[activeIdx] ?? []);
 
@@ -587,6 +632,7 @@ const Editor = () => {
       history.reset(slidesElements[activeIdx] ?? []);
       prevActiveRef.current = activeIdx;
       setSelectedIds(new Set());
+      setEyedropperMode(false);
     }
   }, [activeIdx]);
 
@@ -613,8 +659,7 @@ const Editor = () => {
     setSelectedIds((prev) => {
       if (multi) {
         const next = new Set(prev);
-        if (next.has(elId)) next.delete(elId);
-        else next.add(elId);
+        if (next.has(elId)) next.delete(elId); else next.add(elId);
         return next;
       }
       return new Set([elId]);
@@ -632,15 +677,17 @@ const Editor = () => {
   };
 
   const addTextElement = () => {
-    const el: SlideElement = { id: uid(), type: "text", content: "Doble clic para editar", x: 660, y: 440, width: 600, height: 80, fontSize: 48, fontWeight: "600", color: "#0f172a" };
+    const maxZ = Math.max(0, ...currentElements.map((e) => e.zIndex ?? 0));
+    const el: SlideElement = { id: uid(), type: "text", content: "Doble clic para editar", x: 660, y: 440, width: 600, height: 80, fontSize: 48, fontWeight: "600", color: "#0f172a", zIndex: maxZ + 1 };
     history.set((prev) => [...prev, el]);
     setSelectedIds(new Set([el.id]));
     toast({ title: "📝 Texto añadido", description: "Arrastra para posicionar, doble clic para editar." });
   };
 
   const addImageElement = () => {
-    const el: SlideElement = { id: uid(), type: "shape", content: "#e2e8f0", x: 660, y: 340, width: 600, height: 400 };
-    const label: SlideElement = { id: uid(), type: "text", content: "Simulación de Imagen", x: 810, y: 510, width: 300, height: 50, fontSize: 28, fontWeight: "500", color: "#94a3b8" };
+    const maxZ = Math.max(0, ...currentElements.map((e) => e.zIndex ?? 0));
+    const el: SlideElement = { id: uid(), type: "shape", content: "#e2e8f0", x: 660, y: 340, width: 600, height: 400, zIndex: maxZ + 1 };
+    const label: SlideElement = { id: uid(), type: "text", content: "Simulación de Imagen", x: 810, y: 510, width: 300, height: 50, fontSize: 28, fontWeight: "500", color: "#94a3b8", zIndex: maxZ + 2 };
     history.set((prev) => [...prev, el, label]);
     toast({ title: "🖼️ Imagen añadida" });
   };
@@ -655,11 +702,40 @@ const Editor = () => {
     const newId = `new-${Date.now()}`;
     setSlideMeta((prev) => [...prev, { id: newId, type: "content" as const, image: undefined }]);
     setSlidesElements((prev) => [...prev, [
-      { id: uid(), type: "text", content: "Nueva Diapositiva", x: 80, y: 80, width: 800, height: 80, fontSize: 64, fontWeight: "800", color: "#0f172a" },
-      { id: uid(), type: "text", content: "Haz clic para editar", x: 80, y: 200, width: 800, height: 50, fontSize: 32, fontWeight: "400", color: "#64748b" },
+      { id: uid(), type: "text", content: "Nueva Diapositiva", x: 80, y: 80, width: 800, height: 80, fontSize: 64, fontWeight: "800", color: "#0f172a", zIndex: 1 },
+      { id: uid(), type: "text", content: "Haz clic para editar", x: 80, y: 200, width: 800, height: 50, fontSize: 32, fontWeight: "400", color: "#64748b", zIndex: 2 },
     ]]);
     setActiveIdx(slideMeta.length);
   };
+
+  /* ── Background removal via chroma key ── */
+  const handleBgRemoveStart = () => {
+    const imageEls = currentElements.filter((e) => selectedIds.has(e.id) && e.type === "image");
+    if (imageEls.length === 0) return;
+    setEyedropperMode(true);
+    toast({ title: "🎯 Modo Pipeta activo", description: "Haz clic en el color de fondo de la imagen que deseas eliminar." });
+  };
+
+  const handleImageClick = useCallback(async (elId: string, localX: number, localY: number) => {
+    if (!eyedropperMode) return;
+    setEyedropperMode(false);
+    setBgRemoveProcessing(true);
+
+    try {
+      const el = currentElements.find((e) => e.id === elId);
+      if (!el || el.type !== "image") throw new Error("Not an image");
+      const w = el.width ?? 400;
+      const h = el.height ?? 400;
+      const newSrc = await chromaKeyRemove(el.content, localX, localY, w, h);
+      updateElement(elId, { content: newSrc });
+      toast({ title: "✅ Fondo eliminado", description: "Se procesaron los píxeles correctamente." });
+    } catch (err) {
+      console.error(err);
+      toast({ title: "❌ Error al procesar", description: "No se pudo eliminar el fondo. Puede ser un problema CORS." });
+    } finally {
+      setBgRemoveProcessing(false);
+    }
+  }, [eyedropperMode, currentElements]);
 
   /* ── Keyboard shortcuts ── */
   useEffect(() => {
@@ -685,7 +761,8 @@ const Editor = () => {
       }
       if (isMeta && e.key === "v" && clipboard.length > 0) {
         e.preventDefault();
-        const pasted = clipboard.map((el) => ({ ...el, id: uid(), x: el.x + 40, y: el.y + 40 }));
+        const maxZ = Math.max(0, ...currentElements.map((e) => e.zIndex ?? 0));
+        const pasted = clipboard.map((el, i) => ({ ...el, id: uid(), x: el.x + 40, y: el.y + 40, zIndex: maxZ + 1 + i }));
         history.set((prev) => [...prev, ...pasted]);
         setSelectedIds(new Set(pasted.map((p) => p.id)));
         toast({ title: "📌 Pegado" });
@@ -698,18 +775,21 @@ const Editor = () => {
         toast({ title: "🗑️ Eliminado" });
         return;
       }
+      if (e.key === "Escape" && eyedropperMode) {
+        setEyedropperMode(false);
+        toast({ title: "Modo pipeta cancelado" });
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [presenting, selectedIds, currentElements, clipboard, history]);
+  }, [presenting, selectedIds, currentElements, clipboard, history, eyedropperMode]);
 
   /* ── Save ── */
   const handleSave = async () => {
     setSaveState("saving");
     try {
       await fetch("https://webhook.site/b80d309d-86be-445b-9bf5-4f678639f781", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "save_presentation", presentation_id: id ?? campaign.id, title: docTitle, slides: slidesElements, timestamp: new Date().toISOString(), status: "success" }),
       });
     } catch { /* CORS */ }
@@ -734,16 +814,11 @@ const Editor = () => {
         setExportProgress(Math.round(((i + 0.3) / slidesElements.length) * 90));
         setExportMsg(i === 0 ? "Preparando assets..." : `Renderizando diapositiva ${i + 1}...`);
 
-        // Create an offscreen container to render each slide
         const container = document.createElement("div");
         container.style.cssText = "position:fixed;left:-9999px;top:-9999px;width:1920px;height:1080px;background:white;overflow:hidden;";
         document.body.appendChild(container);
 
-        // Render elements statically
-        const elsSorted = [...(slidesElements[i] ?? [])].sort((a, b) =>
-          ({ image: 0, shape: 1, text: 2 }[a.type] ?? 1) - ({ image: 0, shape: 1, text: 2 }[b.type] ?? 1)
-        );
-
+        const elsSorted = [...(slidesElements[i] ?? [])].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
         const meta = slideMeta[i];
         if (meta?.image && meta.type === "cover") {
           const gradient = document.createElement("div");
@@ -756,7 +831,9 @@ const Editor = () => {
           div.style.position = "absolute";
           div.style.left = `${el.x}px`;
           div.style.top = `${el.y}px`;
-          div.style.zIndex = el.type === "text" ? "2" : "0";
+          div.style.zIndex = `${el.zIndex ?? 0}`;
+          const t = buildTransform(el);
+          if (t !== "none") div.style.transform = t;
 
           if (el.type === "image") {
             div.style.width = `${el.width ?? 400}px`;
@@ -779,32 +856,26 @@ const Editor = () => {
             div.style.color = el.color ?? "#0f172a";
             div.style.lineHeight = "1.3";
             div.style.whiteSpace = "pre-wrap";
-            div.style.fontFamily = (el as any).fontFamily ?? "Inter";
+            div.style.fontFamily = el.fontFamily ?? "Inter";
+            if (el.textAlign) div.style.textAlign = el.textAlign;
             div.textContent = el.content;
           }
           container.appendChild(div);
         }
 
-        // Wait for images to load
         await new Promise((r) => setTimeout(r, 200));
-
         const canvas = await html2canvas(container, { scale: 2, useCORS: true, width: 1920, height: 1080, logging: false });
         const imgData = canvas.toDataURL("image/jpeg", 0.92);
-
         if (i > 0) pdf.addPage([1920, 1080], "landscape");
         pdf.addImage(imgData, "JPEG", 0, 0, 1920, 1080);
-
         document.body.removeChild(container);
       }
 
       setExportProgress(100);
       setExportMsg("¡PDF Listo!");
-
-      // Wait a moment for UI feedback then save
       await new Promise((r) => setTimeout(r, 500));
       const fileName = docTitle.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_]/g, "") + ".pdf";
       pdf.save(fileName);
-
     } catch (err) {
       console.error("PDF Export error:", err);
       toast({ title: "❌ Error al exportar", description: "No se pudo generar el PDF. Intenta de nuevo." });
@@ -871,12 +942,8 @@ const Editor = () => {
             className="text-sm font-bold text-foreground bg-transparent border-none outline-none focus:ring-0 w-64 truncate"
           />
           <div className="flex items-center gap-0.5 ml-2">
-            <Button onClick={() => history.undo()} disabled={!history.canUndo} variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground disabled:opacity-30" title="Deshacer (Ctrl+Z)">
-              <Undo2 size={14} />
-            </Button>
-            <Button onClick={() => history.redo()} disabled={!history.canRedo} variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground disabled:opacity-30" title="Rehacer (Ctrl+Shift+Z)">
-              <Redo2 size={14} />
-            </Button>
+            <Button onClick={() => history.undo()} disabled={!history.canUndo} variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground disabled:opacity-30" title="Deshacer (Ctrl+Z)"><Undo2 size={14} /></Button>
+            <Button onClick={() => history.redo()} disabled={!history.canRedo} variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground disabled:opacity-30" title="Rehacer (Ctrl+Shift+Z)"><Redo2 size={14} /></Button>
           </div>
         </div>
 
@@ -885,12 +952,8 @@ const Editor = () => {
             <Cloud size={12} className={saveState === "saved" ? "text-emerald-500" : "text-muted-foreground/50"} />
             {saveState === "saving" ? "Sincronizando..." : saveState === "saved" ? "Guardado" : "Guardado automáticamente"}
           </span>
-          <Button onClick={startPresenting} variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 border-border/40">
-            <Play size={13} /> Presentar
-          </Button>
-          <Button onClick={handleExport} disabled={exporting} variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 border-border/40">
-            <FileDown size={13} /> Exportar PDF
-          </Button>
+          <Button onClick={startPresenting} variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 border-border/40"><Play size={13} /> Presentar</Button>
+          <Button onClick={handleExport} disabled={exporting} variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 border-border/40"><FileDown size={13} /> Exportar PDF</Button>
           <Button
             onClick={handleSave}
             disabled={saveState === "saving"}
@@ -912,9 +975,18 @@ const Editor = () => {
             selectedIds={selectedIds}
             onUpdate={updateElement}
             onDelete={deleteElement}
+            onBgRemove={handleBgRemoveStart}
+            bgRemoveProcessing={bgRemoveProcessing}
           />
         )}
       </AnimatePresence>
+
+      {/* Eyedropper mode indicator */}
+      {eyedropperMode && (
+        <div className="bg-cyan-500 text-white text-xs font-semibold text-center py-1.5 flex items-center justify-center gap-2">
+          <Pipette size={14} /> Modo Pipeta: haz clic en el color de fondo a eliminar · <button onClick={() => setEyedropperMode(false)} className="underline">Cancelar (Esc)</button>
+        </div>
+      )}
 
       <div className="flex-1 flex overflow-hidden">
         {/* ── Left Sidebar ── */}
@@ -926,9 +998,7 @@ const Editor = () => {
               <button
                 key={t.label}
                 onClick={() => handleToolClick(t.action)}
-                className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all duration-150 ${
-                  active ? "bg-white/10 text-cyan-400" : "text-slate-400 hover:text-white hover:bg-white/5"
-                }`}
+                className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all duration-150 ${active ? "bg-white/10 text-cyan-400" : "text-slate-400 hover:text-white hover:bg-white/5"}`}
                 title={t.label}
               >
                 <Icon size={18} />
@@ -967,7 +1037,9 @@ const Editor = () => {
                   onSelectElement={selectElement}
                   onUpdateElement={updateElement}
                   onDeleteElement={deleteElement}
-                  onDeselect={() => setSelectedIds(new Set())}
+                  onDeselect={() => { setSelectedIds(new Set()); setEyedropperMode(false); }}
+                  eyedropperMode={eyedropperMode}
+                  onImageClick={handleImageClick}
                 />
               </motion.div>
             </AnimatePresence>
@@ -985,15 +1057,11 @@ const Editor = () => {
               <button
                 key={meta.id}
                 onClick={() => setActiveIdx(i)}
-                className={`relative flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all duration-150 ${
-                  i === activeIdx ? "border-cyan-500 shadow-lg shadow-cyan-500/15 ring-1 ring-cyan-500/30" : "border-border/30 hover:border-primary/30"
-                }`}
+                className={`relative flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all duration-150 ${i === activeIdx ? "border-cyan-500 shadow-lg shadow-cyan-500/15 ring-1 ring-cyan-500/30" : "border-border/30 hover:border-primary/30"}`}
                 style={{ width: 160, height: 90 }}
               >
                 <SlideThumbnail elements={slidesElements[i] ?? []} bgImage={meta.image} />
-                <div className={`absolute top-1 left-1.5 text-[9px] font-bold rounded px-1 z-10 ${i === activeIdx ? "bg-cyan-500 text-slate-950" : "bg-black/40 text-white/70"}`}>
-                  {i + 1}
-                </div>
+                <div className={`absolute top-1 left-1.5 text-[9px] font-bold rounded px-1 z-10 ${i === activeIdx ? "bg-cyan-500 text-slate-950" : "bg-black/40 text-white/70"}`}>{i + 1}</div>
               </button>
             ))}
             <button
