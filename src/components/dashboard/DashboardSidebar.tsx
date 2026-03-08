@@ -1,4 +1,4 @@
-import { LayoutDashboard, ClipboardList, CalendarRange, MessageSquare, LogOut, User, ChevronLeft, ChevronRight } from "lucide-react";
+import { LayoutDashboard, ClipboardList, CalendarRange, MessageSquare, LogOut, User, ChevronLeft, ChevronRight, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
@@ -8,6 +8,7 @@ type View = "overview" | "briefs" | "parrilla" | "community";
 interface Props {
   activeView: View;
   onViewChange: (view: View) => void;
+  onOpenSettings: () => void;
 }
 
 const navItems: { id: View; label: string; icon: React.ElementType }[] = [
@@ -17,7 +18,7 @@ const navItems: { id: View; label: string; icon: React.ElementType }[] = [
   { id: "community", label: "Community & Social", icon: MessageSquare },
 ];
 
-const DashboardSidebar = ({ activeView, onViewChange }: Props) => {
+const DashboardSidebar = ({ activeView, onViewChange, onOpenSettings }: Props) => {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -68,23 +69,39 @@ const DashboardSidebar = ({ activeView, onViewChange }: Props) => {
         ))}
       </nav>
 
-      {/* User profile & logout */}
-      <div className={cn("mt-auto glass rounded-xl flex items-center gap-3", collapsed ? "p-2 justify-center" : "p-4")}>
-        <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-          <User size={16} className="text-primary" />
-        </div>
-        {!collapsed && (
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-foreground truncate">Admin Nexus</p>
-            <button
-              onClick={() => navigate("/login")}
-              className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-destructive transition-colors duration-200 bg-transparent border-none cursor-pointer mt-0.5"
-            >
-              <LogOut size={11} />
-              Cerrar Sesión
-            </button>
+      {/* Settings + User profile */}
+      <div className="mt-auto space-y-3">
+        {/* Settings button */}
+        <button
+          onClick={onOpenSettings}
+          className={cn(
+            "flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-200 border-none cursor-pointer text-muted-foreground hover:text-foreground hover:bg-secondary/40 bg-transparent w-full",
+            collapsed ? "justify-center px-0 py-3" : "px-3 py-2.5"
+          )}
+          title={collapsed ? "Configuración" : undefined}
+        >
+          <Settings size={18} className="shrink-0" />
+          {!collapsed && "Configuración"}
+        </button>
+
+        {/* User profile & logout */}
+        <div className={cn("glass rounded-xl flex items-center gap-3", collapsed ? "p-2 justify-center" : "p-4")}>
+          <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+            <User size={16} className="text-primary" />
           </div>
-        )}
+          {!collapsed && (
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground truncate">Admin Nexus</p>
+              <button
+                onClick={() => navigate("/login")}
+                className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-destructive transition-colors duration-200 bg-transparent border-none cursor-pointer mt-0.5"
+              >
+                <LogOut size={11} />
+                Cerrar Sesión
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </aside>
   );
