@@ -763,10 +763,6 @@ const InteractiveCanvas = ({
   );
 };
 
-/* ── Presentation Slide ── */
-const PresentationSlide = ({ elements, bgImage }: { elements: SlideElement[]; bgImage?: string }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [s, setS] = useState(1);
 /* ── Presentation Slide (window-aware scaling) ── */
 const PresentationSlide = ({ elements, bgImage }: { elements: SlideElement[]; bgImage?: string }) => {
   const [s, setS] = useState(1);
