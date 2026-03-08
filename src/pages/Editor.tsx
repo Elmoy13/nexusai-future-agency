@@ -1730,6 +1730,8 @@ const Editor = () => {
                   onImageClick={handleImageClick}
                   onMockupDrop={handleMockupDrop}
                   onMockupChildAdjust={handleMockupChildAdjust}
+                  onNativeFileDrop={handleNativeFileDrop}
+                  onMockupNativeFileDrop={handleMockupNativeFileDrop}
                 />
               </motion.div>
             </AnimatePresence>
