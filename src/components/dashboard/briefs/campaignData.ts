@@ -7,6 +7,20 @@ import slideMoodboardImg from "@/assets/slide-moodboard.jpg";
 
 export type SlideStatus = "approved" | "in-progress" | "sent" | "draft";
 
+export interface SlideElement {
+  id: string;
+  type: "text" | "image" | "shape";
+  content: string;
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  fontSize?: number;
+  fontWeight?: string;
+  color?: string;
+  opacity?: number;
+}
+
 export interface SlideData {
   id: string;
   type: "cover" | "content" | "art";
@@ -15,6 +29,7 @@ export interface SlideData {
   image?: string;
   bullets?: string[];
   colors?: { name: string; hex: string }[];
+  elements?: SlideElement[];
 }
 
 export interface Campaign {
