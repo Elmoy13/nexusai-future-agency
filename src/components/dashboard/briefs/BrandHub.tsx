@@ -41,6 +41,7 @@ interface Props {
 }
 
 const BrandHub = ({ brandName, onBack }: Props) => {
+  const navigate = useNavigate();
   const [campaigns, setCampaigns] = useState<Campaign[]>(initialCampaigns);
   const [presenting, setPresenting] = useState<Campaign | null>(null);
   const [editing, setEditing] = useState<Campaign | null>(null);
