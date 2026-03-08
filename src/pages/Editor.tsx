@@ -138,6 +138,57 @@ const TEMPLATE_VISUAL = (): SlideElement[] => [
   { id: uid(), type: "text", content: "Título Visual", x: 1020, y: 120, width: 840, height: 80, fontSize: 56, fontWeight: "800", color: "#0f172a", zIndex: 2 },
   { id: uid(), type: "text", content: "Descripción detallada que acompaña la imagen. Aquí puedes añadir contexto.", x: 1020, y: 260, width: 840, height: 200, fontSize: 28, fontWeight: "400", color: "#64748b", zIndex: 2 },
 ];
+const TEMPLATE_PROMO = (): SlideElement[] => [
+  { id: uid(), type: "shape", content: "#0f172a", x: 0, y: 0, width: 1920, height: 1080, zIndex: 0 },
+  { id: uid(), type: "shape", content: "#06b6d4", x: 0, y: 0, width: 960, height: 1080, zIndex: 1 },
+  { id: uid(), type: "text", content: "50%", x: 980, y: 200, width: 900, height: 300, fontSize: 200, fontWeight: "900", color: "#06b6d4", zIndex: 2, textAlign: "right" },
+  { id: uid(), type: "text", content: "OFF", x: 980, y: 480, width: 900, height: 100, fontSize: 96, fontWeight: "900", color: "#ffffff", zIndex: 2, textAlign: "right" },
+  { id: uid(), type: "text", content: "Solo por tiempo limitado", x: 980, y: 600, width: 900, height: 50, fontSize: 28, fontWeight: "400", color: "rgba(255,255,255,0.6)", zIndex: 2, textAlign: "right" },
+  { id: uid(), type: "shape", content: "#ffffff", x: 1400, y: 720, width: 440, height: 64, zIndex: 3 },
+  { id: uid(), type: "text", content: "COMPRAR AHORA →", x: 1410, y: 730, width: 420, height: 44, fontSize: 24, fontWeight: "800", color: "#0f172a", zIndex: 4, textAlign: "center" },
+  { id: uid(), type: "text", content: "📷 Imagen del\nproducto aquí", x: 160, y: 360, width: 640, height: 200, fontSize: 36, fontWeight: "500", color: "rgba(255,255,255,0.3)", zIndex: 2, textAlign: "center" },
+];
+const TEMPLATE_TESTIMONIAL = (): SlideElement[] => [
+  { id: uid(), type: "shape", content: "#fafafa", x: 0, y: 0, width: 1920, height: 1080, zIndex: 0 },
+  { id: uid(), type: "shape", content: "#06b6d4", x: 860, y: 140, width: 200, height: 200, zIndex: 1 },
+  { id: uid(), type: "text", content: "👤", x: 910, y: 180, width: 100, height: 100, fontSize: 72, fontWeight: "400", color: "#ffffff", zIndex: 2, textAlign: "center" },
+  { id: uid(), type: "text", content: "★ ★ ★ ★ ★", x: 660, y: 380, width: 600, height: 60, fontSize: 36, fontWeight: "400", color: "#f59e0b", zIndex: 2, textAlign: "center" },
+  { id: uid(), type: "text", content: "\"Este producto transformo completamente\nnuestra forma de trabajar. Increible.\"", x: 360, y: 480, width: 1200, height: 160, fontSize: 36, fontWeight: "400", color: "#334155", zIndex: 2, textAlign: "center", fontFamily: "Georgia" },
+  { id: uid(), type: "text", content: "— María García, CEO en TechCorp", x: 460, y: 680, width: 1000, height: 50, fontSize: 24, fontWeight: "600", color: "#94a3b8", zIndex: 2, textAlign: "center" },
+];
+const TEMPLATE_CAROUSEL = (): SlideElement[] => [
+  { id: uid(), type: "shape", content: "#0f172a", x: 0, y: 0, width: 1920, height: 1080, zIndex: 0 },
+  { id: uid(), type: "text", content: "5 Errores que\nEstás Cometiendo\nen tu Estrategia", x: 160, y: 240, width: 1600, height: 400, fontSize: 96, fontWeight: "900", color: "#ffffff", zIndex: 2, textAlign: "center" },
+  { id: uid(), type: "shape", content: "#06b6d4", x: 860, y: 700, width: 200, height: 6, zIndex: 1 },
+  { id: uid(), type: "text", content: "Desliza →", x: 760, y: 780, width: 400, height: 60, fontSize: 32, fontWeight: "600", color: "#06b6d4", zIndex: 2, textAlign: "center" },
+  { id: uid(), type: "text", content: "@aerodynamics", x: 760, y: 920, width: 400, height: 40, fontSize: 22, fontWeight: "500", color: "rgba(255,255,255,0.4)", zIndex: 2, textAlign: "center" },
+];
+const TEMPLATE_QUOTE = (): SlideElement[] => [
+  { id: uid(), type: "shape", content: "#1e293b", x: 0, y: 0, width: 1920, height: 1080, zIndex: 0 },
+  { id: uid(), type: "text", content: "❝", x: 160, y: 60, width: 400, height: 400, fontSize: 320, fontWeight: "900", color: "rgba(6,182,212,0.12)", zIndex: 1, textAlign: "left" },
+  { id: uid(), type: "text", content: "La creatividad es la\ninteligencia divirtiéndose.", x: 260, y: 340, width: 1400, height: 280, fontSize: 64, fontWeight: "400", color: "#e2e8f0", zIndex: 2, textAlign: "center", fontFamily: "Playfair Display" },
+  { id: uid(), type: "shape", content: "#06b6d4", x: 860, y: 680, width: 200, height: 4, zIndex: 1 },
+  { id: uid(), type: "text", content: "— Albert Einstein", x: 660, y: 720, width: 600, height: 50, fontSize: 24, fontWeight: "600", color: "#94a3b8", zIndex: 2, textAlign: "center" },
+];
+const TEMPLATE_COMUNICADO = (): SlideElement[] => [
+  { id: uid(), type: "shape", content: "#ffffff", x: 0, y: 0, width: 1920, height: 1080, zIndex: 0 },
+  { id: uid(), type: "shape", content: "#0f172a", x: 60, y: 60, width: 1800, height: 8, zIndex: 1 },
+  { id: uid(), type: "shape", content: "#0f172a", x: 60, y: 1012, width: 1800, height: 8, zIndex: 1 },
+  { id: uid(), type: "text", content: "⬡ AERO DYNAMICS", x: 660, y: 100, width: 600, height: 60, fontSize: 28, fontWeight: "800", color: "#0f172a", zIndex: 2, textAlign: "center" },
+  { id: uid(), type: "text", content: "COMUNICADO OFICIAL", x: 460, y: 200, width: 1000, height: 60, fontSize: 48, fontWeight: "900", color: "#0f172a", zIndex: 2, textAlign: "center" },
+  { id: uid(), type: "text", content: "Por medio del presente, se comunica a todos nuestros socios y colaboradores que la empresa ha tomado la decisión estratégica de expandir sus operaciones al mercado internacional.\n\nEsta iniciativa forma parte de nuestra visión 2025 de crecimiento sostenible y liderazgo en innovación tecnológica.", x: 260, y: 320, width: 1400, height: 400, fontSize: 26, fontWeight: "400", color: "#334155", zIndex: 2, textAlign: "left" },
+  { id: uid(), type: "text", content: "Firma: ___________________________\nDirector General · Aero Dynamics", x: 260, y: 800, width: 600, height: 100, fontSize: 20, fontWeight: "500", color: "#64748b", zIndex: 2 },
+];
+const TEMPLATE_MEME = (): SlideElement[] => [
+  { id: uid(), type: "shape", content: "#ffffff", x: 0, y: 0, width: 1920, height: 1080, zIndex: 0 },
+  { id: uid(), type: "shape", content: "#e2e8f0", x: 80, y: 0, width: 48, height: 48, zIndex: 1 },
+  { id: uid(), type: "text", content: "Aero Dynamics", x: 148, y: 6, width: 300, height: 22, fontSize: 18, fontWeight: "800", color: "#0f172a", zIndex: 2 },
+  { id: uid(), type: "text", content: "@aerodynamics · 2h", x: 148, y: 28, width: 300, height: 20, fontSize: 15, fontWeight: "400", color: "#94a3b8", zIndex: 2 },
+  { id: uid(), type: "text", content: "Cuando descubres que tu herramienta de IA hace presentaciones sola 🤯🚀\n\nEsto cambia todo. No more templates genéricos.", x: 80, y: 80, width: 1760, height: 160, fontSize: 32, fontWeight: "400", color: "#0f172a", zIndex: 2 },
+  { id: uid(), type: "shape", content: "#f1f5f9", x: 80, y: 280, width: 1760, height: 700, zIndex: 1 },
+  { id: uid(), type: "text", content: "📷 Imagen viral aquí", x: 700, y: 570, width: 520, height: 60, fontSize: 32, fontWeight: "500", color: "#94a3b8", zIndex: 2, textAlign: "center" },
+  { id: uid(), type: "text", content: "♡ 4.2K     💬 328     ↗ 1.1K     🔖", x: 80, y: 1010, width: 800, height: 40, fontSize: 20, fontWeight: "500", color: "#64748b", zIndex: 2 },
+];
 
 /* ── Side Panel: Brand Hub ── */
 const BrandPanel = ({
@@ -211,17 +262,38 @@ const BrandPanel = ({
 };
 
 /* ── Side Panel: Templates ── */
+type TemplateEntry = { name: string; desc: string; factory: () => SlideElement[]; preview: string };
+
+const ALL_TEMPLATES: TemplateEntry[] = [
+  { name: "Portada", desc: "Título grande al centro", factory: TEMPLATE_COVER, preview: "cover" },
+  { name: "Contenido", desc: "Título + 3 viñetas", factory: TEMPLATE_CONTENT, preview: "content" },
+  { name: "Visual", desc: "Imagen + texto lateral", factory: TEMPLATE_VISUAL, preview: "visual" },
+  { name: "Promo 50% Off", desc: "Descuento impactante", factory: TEMPLATE_PROMO, preview: "promo" },
+  { name: "Testimonio", desc: "Cliente + estrellas + cita", factory: TEMPLATE_TESTIMONIAL, preview: "testimonial" },
+  { name: "Carrusel IG", desc: "Hook masivo · Slide 1", factory: TEMPLATE_CAROUSEL, preview: "carousel" },
+  { name: "Frase / Quote", desc: "Cita inspiracional", factory: TEMPLATE_QUOTE, preview: "quote" },
+  { name: "Comunicado", desc: "Oficial corporativo", factory: TEMPLATE_COMUNICADO, preview: "comunicado" },
+  { name: "Meme / Viral", desc: "Layout tipo Twitter/X", factory: TEMPLATE_MEME, preview: "meme" },
+];
+
+const MiniPreview = ({ type }: { type: string }) => {
+  if (type === "cover") return (<div className="w-full h-full flex flex-col items-center justify-center gap-1"><div className="w-3/4 h-3 bg-slate-800 rounded-sm" /><div className="w-1/2 h-2 bg-slate-300 rounded-sm" /><div className="w-8 h-0.5 bg-cyan-500 mt-1" /></div>);
+  if (type === "content") return (<div className="w-full h-full flex flex-col gap-1.5"><div className="w-2/3 h-3 bg-slate-800 rounded-sm" /><div className="w-6 h-0.5 bg-cyan-500" /><div className="w-full h-2 bg-slate-200 rounded-sm mt-1" /><div className="w-full h-2 bg-slate-200 rounded-sm" /><div className="w-3/4 h-2 bg-slate-200 rounded-sm" /></div>);
+  if (type === "visual") return (<div className="w-full h-full flex gap-2"><div className="w-1/2 h-full bg-slate-100 rounded-sm flex items-center justify-center"><div className="w-5 h-5 rounded bg-slate-300" /></div><div className="w-1/2 flex flex-col gap-1 justify-center"><div className="w-full h-2.5 bg-slate-800 rounded-sm" /><div className="w-full h-1.5 bg-slate-200 rounded-sm" /><div className="w-3/4 h-1.5 bg-slate-200 rounded-sm" /></div></div>);
+  if (type === "promo") return (<div className="w-full h-full flex"><div className="w-1/2 h-full bg-cyan-500 rounded-l-sm" /><div className="w-1/2 h-full bg-slate-900 rounded-r-sm flex flex-col items-end justify-center pr-2 gap-0.5"><div className="text-[10px] font-black text-cyan-400 leading-none">50%</div><div className="text-[7px] font-bold text-white leading-none">OFF</div><div className="w-10 h-2 bg-white rounded-sm mt-1" /></div></div>);
+  if (type === "testimonial") return (<div className="w-full h-full bg-slate-50 flex flex-col items-center justify-center gap-1"><div className="w-5 h-5 rounded-full bg-cyan-500" /><div className="text-[6px] text-amber-500">★★★★★</div><div className="w-3/4 h-1.5 bg-slate-300 rounded-sm" /><div className="w-1/2 h-1 bg-slate-200 rounded-sm" /></div>);
+  if (type === "carousel") return (<div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center gap-1"><div className="w-3/4 h-2.5 bg-white rounded-sm" /><div className="w-1/2 h-2 bg-white/60 rounded-sm" /><div className="w-6 h-0.5 bg-cyan-500 mt-0.5" /><div className="text-[6px] text-cyan-400 font-bold">Desliza →</div></div>);
+  if (type === "quote") return (<div className="w-full h-full bg-slate-800 flex flex-col items-center justify-center gap-0.5"><div className="text-[14px] text-cyan-500/20 font-black leading-none">❝</div><div className="w-3/4 h-1.5 bg-slate-400 rounded-sm" /><div className="w-1/2 h-1 bg-slate-400 rounded-sm" /><div className="w-5 h-0.5 bg-cyan-500 mt-1" /></div>);
+  if (type === "comunicado") return (<div className="w-full h-full bg-white flex flex-col gap-1 p-1.5"><div className="w-full h-0.5 bg-slate-800" /><div className="w-1/3 h-1.5 bg-slate-800 rounded-sm mx-auto" /><div className="w-2/3 h-1 bg-slate-300 rounded-sm mx-auto mt-0.5" /><div className="flex-1 flex flex-col gap-0.5 mt-1"><div className="w-full h-1 bg-slate-200 rounded-sm" /><div className="w-full h-1 bg-slate-200 rounded-sm" /><div className="w-3/4 h-1 bg-slate-200 rounded-sm" /></div><div className="w-full h-0.5 bg-slate-800" /></div>);
+  if (type === "meme") return (<div className="w-full h-full bg-white flex flex-col gap-1 p-1"><div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-slate-300" /><div className="w-10 h-1.5 bg-slate-800 rounded-sm" /></div><div className="w-full h-1 bg-slate-300 rounded-sm" /><div className="flex-1 bg-slate-100 rounded-sm" /><div className="flex gap-2 mt-0.5"><div className="w-3 h-1 bg-slate-300 rounded-sm" /><div className="w-3 h-1 bg-slate-300 rounded-sm" /><div className="w-3 h-1 bg-slate-300 rounded-sm" /></div></div>);
+  return <div className="w-full h-full bg-slate-100" />;
+};
+
 const TemplatesPanel = ({
   onApplyTemplate,
 }: {
   onApplyTemplate: (elements: SlideElement[]) => void;
 }) => {
-  const templates = [
-    { name: "Portada", desc: "Título grande al centro", factory: TEMPLATE_COVER, preview: "cover" as const },
-    { name: "Contenido", desc: "Título + 3 viñetas", factory: TEMPLATE_CONTENT, preview: "content" as const },
-    { name: "Visual", desc: "Imagen + texto lateral", factory: TEMPLATE_VISUAL, preview: "visual" as const },
-  ];
-
   const handleApply = (factory: () => SlideElement[]) => {
     if (window.confirm("¿Deseas reemplazar el diseño actual con esta plantilla?")) {
       onApplyTemplate(factory());
@@ -236,42 +308,14 @@ const TemplatesPanel = ({
       </div>
 
       <div className="flex flex-col gap-3">
-        {templates.map((t) => (
+        {ALL_TEMPLATES.map((t) => (
           <button
             key={t.name}
             onDoubleClick={() => handleApply(t.factory)}
             className="group border border-border/40 rounded-lg overflow-hidden hover:border-primary/40 hover:shadow-md transition-all"
           >
-            {/* Mini preview */}
             <div className="aspect-video bg-white relative p-3">
-              {t.preview === "cover" && (
-                <div className="w-full h-full flex flex-col items-center justify-center gap-1">
-                  <div className="w-3/4 h-3 bg-slate-800 rounded-sm" />
-                  <div className="w-1/2 h-2 bg-slate-300 rounded-sm" />
-                  <div className="w-8 h-0.5 bg-cyan-500 mt-1" />
-                </div>
-              )}
-              {t.preview === "content" && (
-                <div className="w-full h-full flex flex-col gap-1.5">
-                  <div className="w-2/3 h-3 bg-slate-800 rounded-sm" />
-                  <div className="w-6 h-0.5 bg-cyan-500" />
-                  <div className="w-full h-2 bg-slate-200 rounded-sm mt-1" />
-                  <div className="w-full h-2 bg-slate-200 rounded-sm" />
-                  <div className="w-3/4 h-2 bg-slate-200 rounded-sm" />
-                </div>
-              )}
-              {t.preview === "visual" && (
-                <div className="w-full h-full flex gap-2">
-                  <div className="w-1/2 h-full bg-slate-100 rounded-sm flex items-center justify-center">
-                    <div className="w-5 h-5 rounded bg-slate-300" />
-                  </div>
-                  <div className="w-1/2 flex flex-col gap-1 justify-center">
-                    <div className="w-full h-2.5 bg-slate-800 rounded-sm" />
-                    <div className="w-full h-1.5 bg-slate-200 rounded-sm" />
-                    <div className="w-3/4 h-1.5 bg-slate-200 rounded-sm" />
-                  </div>
-                </div>
-              )}
+              <MiniPreview type={t.preview} />
             </div>
             <div className="px-3 py-2 border-t border-border/20">
               <span className="text-xs font-semibold text-foreground">{t.name}</span>
@@ -341,11 +385,12 @@ const MOCKUP_DEFS: MockupDef[] = [
 const getMockupDef = (mockupType?: string) => MOCKUP_DEFS.find((m) => m.id === mockupType);
 
 /* ── Mockup Frame Renderer (used in canvas + thumbnails) ── */
-const MockupFrame = ({ el, interactive, onDrop, onChildAdjust }: {
+const MockupFrame = ({ el, interactive, onDrop, onChildAdjust, onNativeFileDrop }: {
   el: SlideElement;
   interactive?: boolean;
   onDrop?: (mockupId: string, imgSrc: string, imgElId: string) => void;
   onChildAdjust?: (patch: Partial<SlideElement>) => void;
+  onNativeFileDrop?: (mockupId: string, src: string) => void;
 }) => {
   const def = getMockupDef(el.mockupType);
   const [dragOver, setDragOver] = useState(false);
@@ -370,6 +415,16 @@ const MockupFrame = ({ el, interactive, onDrop, onChildAdjust }: {
     e.preventDefault();
     e.stopPropagation();
     setDragOver(false);
+    // Native OS file drop
+    if (e.dataTransfer.files?.length) {
+      const file = e.dataTransfer.files[0];
+      if (file.type.startsWith("image/")) {
+        const src = URL.createObjectURL(file);
+        onNativeFileDrop?.(el.id, src);
+        return;
+      }
+    }
+    // Internal mockup drop
     const data = e.dataTransfer.getData("application/mockup-drop");
     if (data && onDrop) {
       try {
@@ -837,7 +892,7 @@ const FormatBar = ({
 const RndElement = ({
   el, scale, selected, onSelect, onUpdate, onDelete,
   onDragMove, onDragEnd: onDragEndCb, eyedropperMode, onImageClick,
-  onMockupDrop, onMockupChildAdjust,
+  onMockupDrop, onMockupChildAdjust, onMockupNativeFileDrop,
 }: {
   el: SlideElement;
   scale: number;
@@ -851,6 +906,7 @@ const RndElement = ({
   onImageClick?: (elId: string, localX: number, localY: number) => void;
   onMockupDrop?: (mockupId: string, imgSrc: string, imgElId: string) => void;
   onMockupChildAdjust?: (id: string, patch: Partial<SlideElement>) => void;
+  onMockupNativeFileDrop?: (mockupId: string, src: string) => void;
 }) => {
   const [editing, setEditing] = useState(false);
   const [localContent, setLocalContent] = useState(el.content);
@@ -914,13 +970,16 @@ const RndElement = ({
         borderRadius: isMockup ? 0 : el.type === "shape" ? 16 : 4,
         willChange: "transform",
         userSelect: dragging ? "none" : "auto",
+        pointerEvents: "auto",
       }}
     >
       <div
         className={`w-full h-full relative ${!selected && !editing ? "hover:outline hover:outline-2 hover:outline-dashed hover:outline-cyan-400/40" : ""}`}
         onDoubleClick={(e) => { e.stopPropagation(); if (el.type === "text") setEditing(true); }}
-        onClick={(e) => {
-          if (eyedropperMode && el.type === "image" && selected && onImageClick) {
+        onMouseDown={(e) => {
+          e.stopPropagation();
+          onSelect(e);
+          if (eyedropperMode && el.type === "image" && onImageClick) {
             const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
             const localX = (e.clientX - rect.left) / (rect.width / w);
             const localY = (e.clientY - rect.top) / (rect.height / h);
@@ -938,6 +997,7 @@ const RndElement = ({
           cursor: eyedropperMode && el.type === "image" ? "crosshair" : editing ? "text" : dragging ? "grabbing" : "grab",
           borderRadius: isMockup ? 0 : el.type === "shape" ? 16 : 0,
           userSelect: dragging ? "none" : "auto",
+          pointerEvents: "auto",
         }}
       >
         {isMockup ? (
@@ -946,6 +1006,7 @@ const RndElement = ({
             interactive
             onDrop={onMockupDrop}
             onChildAdjust={(patch) => onMockupChildAdjust?.(el.id, patch)}
+            onNativeFileDrop={onMockupNativeFileDrop}
           />
         ) : el.type === "image" ? (
           <div
@@ -998,7 +1059,7 @@ const RndElement = ({
 /* ── Interactive Canvas with Smart Guides ── */
 const InteractiveCanvas = ({
   elements, bgImage, scale, selectedIds, onSelectElement, onUpdateElement, onDeleteElement, onDeselect,
-  eyedropperMode, onImageClick, onMockupDrop, onMockupChildAdjust,
+  eyedropperMode, onImageClick, onMockupDrop, onMockupChildAdjust, onNativeFileDrop, onMockupNativeFileDrop,
 }: {
   elements: SlideElement[];
   bgImage?: string;
@@ -1012,8 +1073,12 @@ const InteractiveCanvas = ({
   onImageClick?: (elId: string, localX: number, localY: number) => void;
   onMockupDrop?: (mockupId: string, imgSrc: string, imgElId: string) => void;
   onMockupChildAdjust?: (id: string, patch: Partial<SlideElement>) => void;
+  onNativeFileDrop?: (src: string, x: number, y: number) => void;
+  onMockupNativeFileDrop?: (mockupId: string, src: string) => void;
 }) => {
   const [guides, setGuides] = useState<GuideLines>({ x: null, y: null });
+  const [canvasDragOver, setCanvasDragOver] = useState(false);
+  const canvasRef = useRef<HTMLDivElement>(null);
 
   const sorted = useMemo(() => [...elements].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)), [elements]);
 
@@ -1025,6 +1090,33 @@ const InteractiveCanvas = ({
 
   const handleDragEnd = useCallback(() => { setGuides({ x: null, y: null }); }, []);
 
+  const handleCanvasDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCanvasDragOver(true);
+  }, []);
+
+  const handleCanvasDragLeave = useCallback(() => { setCanvasDragOver(false); }, []);
+
+  const handleCanvasDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCanvasDragOver(false);
+    if (!e.dataTransfer.files?.length) return;
+    const file = e.dataTransfer.files[0];
+    if (!file.type.startsWith("image/")) return;
+    const src = URL.createObjectURL(file);
+    // Calculate drop position in canvas coords
+    if (canvasRef.current) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / scale;
+      const y = (e.clientY - rect.top) / scale;
+      onNativeFileDrop?.(src, Math.round(x - 200), Math.round(y - 150));
+    } else {
+      onNativeFileDrop?.(src, 400, 200);
+    }
+  }, [scale, onNativeFileDrop]);
+
   return (
     <div
       className="absolute inset-0 flex items-center justify-center"
@@ -1032,13 +1124,25 @@ const InteractiveCanvas = ({
     >
       <div style={{ transform: `scale(${scale})`, transformOrigin: "center center", willChange: "transform" }}>
         <div
-          className="bg-white shadow-2xl shadow-black/10 ring-1 ring-border/20 rounded-lg overflow-hidden"
+          ref={canvasRef}
+          className={`bg-white shadow-2xl shadow-black/10 ring-1 ring-border/20 rounded-lg overflow-hidden transition-shadow ${canvasDragOver ? "ring-4 ring-cyan-500/60 shadow-cyan-500/20" : ""}`}
           style={{ width: 1920, height: 1080, position: "relative" }}
           onMouseDown={(e) => {
             if (e.target === e.currentTarget || (e.target as HTMLElement).dataset.canvas) onDeselect();
           }}
+          onDragOver={handleCanvasDragOver}
+          onDragLeave={handleCanvasDragLeave}
+          onDrop={handleCanvasDrop}
         >
           {bgImage && <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-[1]" />}
+
+          {canvasDragOver && (
+            <div className="absolute inset-0 z-[60] pointer-events-none flex items-center justify-center bg-cyan-500/5 border-2 border-dashed border-cyan-500/40 rounded-lg">
+              <div className="bg-slate-900/80 backdrop-blur-sm text-white text-sm font-semibold px-4 py-2 rounded-full flex items-center gap-2">
+                <Image size={16} /> Soltar imagen aquí
+              </div>
+            </div>
+          )}
 
           {guides.x !== null && (
             <div className="absolute top-0 bottom-0 z-[50] pointer-events-none" style={{ left: guides.x, width: 1, background: "#06b6d4" }}>
@@ -1051,7 +1155,7 @@ const InteractiveCanvas = ({
             </div>
           )}
 
-          <div className="absolute inset-0 z-[2]" data-canvas="true" style={{ position: "relative", width: 1920, height: 1080 }}>
+          <div className="absolute inset-0 z-[2]" data-canvas="true" style={{ position: "relative", width: 1920, height: 1080, pointerEvents: "none" }}>
             {sorted.map((el) => (
               <RndElement
                 key={el.id}
@@ -1067,6 +1171,7 @@ const InteractiveCanvas = ({
                 onImageClick={onImageClick}
                 onMockupDrop={onMockupDrop}
                 onMockupChildAdjust={onMockupChildAdjust}
+                onMockupNativeFileDrop={onMockupNativeFileDrop}
               />
             ))}
           </div>
@@ -1237,6 +1342,21 @@ const Editor = () => {
 
   const handleMockupChildAdjust = useCallback((id: string, patch: Partial<SlideElement>) => {
     history.set((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+  }, [history]);
+
+  const handleNativeFileDrop = useCallback((src: string, x: number, y: number) => {
+    const maxZ = Math.max(0, ...currentElements.map((e) => e.zIndex ?? 0));
+    const el: SlideElement = { id: uid(), type: "image", content: src, x, y, width: 400, height: 300, zIndex: maxZ + 1 };
+    history.set((prev) => [...prev, el]);
+    setSelectedIds(new Set([el.id]));
+    toast({ title: "🖼️ Imagen importada", description: "Arrastra y redimensiona." });
+  }, [currentElements, history]);
+
+  const handleMockupNativeFileDrop = useCallback((mockupId: string, src: string) => {
+    history.set((prev) => prev.map((e) =>
+      e.id === mockupId ? { ...e, mockupChild: src, mockupChildScale: 1, mockupChildX: 0, mockupChildY: 0 } : e
+    ));
+    toast({ title: "🎯 Imagen insertada en Mockup" });
   }, [history]);
 
   const addSlide = () => {
@@ -1610,6 +1730,8 @@ const Editor = () => {
                   onImageClick={handleImageClick}
                   onMockupDrop={handleMockupDrop}
                   onMockupChildAdjust={handleMockupChildAdjust}
+                  onNativeFileDrop={handleNativeFileDrop}
+                  onMockupNativeFileDrop={handleMockupNativeFileDrop}
                 />
               </motion.div>
             </AnimatePresence>
