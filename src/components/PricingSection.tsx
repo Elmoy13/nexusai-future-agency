@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Zap, Rocket, Shield, Check } from "lucide-react";
+import { Rocket, Shield, Check } from "lucide-react";
 
 interface PricingSectionProps {
   onOpenModal?: () => void;
@@ -7,50 +7,31 @@ interface PricingSectionProps {
 
 const tiers = [
   {
-    name: "Piloto",
-    description: "Para probar el sistema",
-    price: "$499",
-    period: "/mes",
-    icon: Zap,
-    features: [
-      "1 Agente activo",
-      "5 campañas/mes",
-      "Soporte por email",
-      "Dashboard básico",
-    ],
-    cta: "Comenzar Prueba",
-    featured: false,
-  },
-  {
-    name: "Agencia Autónoma",
-    description: "El ecosistema completo",
-    price: "$1,499",
-    period: "/mes",
+    name: "Despliegue de Agentes",
+    description: "Para agencias que quieren escalar su operación con IA.",
     icon: Rocket,
     features: [
-      "3 Agentes en sincronía",
-      "Campañas ilimitadas",
-      "Integración de Webhooks",
-      "Soporte prioritario 24/7",
-      "Analytics avanzados",
+      "Auditoría completa de tu marca",
+      "Entrenamiento de IA con tu Look & Feel",
+      "Automatización de parrillas de contenido",
+      "Agentes de moderación 24/7",
+      "Soporte prioritario dedicado",
     ],
-    cta: "Iniciar Despliegue",
+    cta: "Agendar Llamada de Viabilidad",
     featured: true,
   },
   {
-    name: "Enterprise",
-    description: "Para corporativos",
-    price: "Custom",
-    period: "",
+    name: "Enterprise & Custom",
+    description: "Para corporativos con necesidades a medida.",
     icon: Shield,
     features: [
       "Modelos LLM privados (Llama 3 local)",
-      "SLA 99.9%",
-      "Agentes ilimitados",
+      "SLA 99.9% garantizado",
       "Infraestructura dedicada",
+      "Agentes ilimitados",
       "Onboarding personalizado",
     ],
-    cta: "Agendar Llamada",
+    cta: "Contactar Equipo",
     featured: false,
   },
 ];
@@ -60,7 +41,7 @@ const PricingSection = ({ onOpenModal }: PricingSectionProps) => {
     <section id="pricing" className="py-32 px-6 relative">
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/[0.02] to-transparent" />
 
-      <div className="max-w-6xl mx-auto relative z-10">
+      <div className="max-w-4xl mx-auto relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -69,18 +50,18 @@ const PricingSection = ({ onOpenModal }: PricingSectionProps) => {
           className="text-center mb-20"
         >
           <span className="text-primary text-sm font-mono tracking-widest uppercase">
-            Planes & Precios
+            Planes
           </span>
           <h2 className="text-4xl md:text-5xl font-bold text-foreground mt-4">
-            Escala tu agencia.{" "}
-            <span className="text-gradient-cyan">Sin fricción.</span>
+            Soluciones a la Medida{" "}
+            <span className="text-gradient-cyan">de tu Agencia</span>
           </h2>
           <p className="text-muted-foreground mt-4 max-w-xl mx-auto">
-            Elige el plan que se adapte a tu operación. Sin contratos largos, cancela cuando quieras.
+            Cada despliegue se adapta a tu operación. Sin planes genéricos.
           </p>
         </motion.div>
 
-        <div className="grid md:grid-cols-3 gap-6 lg:gap-8 items-center">
+        <div className="grid md:grid-cols-2 gap-8 items-stretch">
           {tiers.map((tier, i) => {
             const Icon = tier.icon;
             return (
@@ -91,20 +72,18 @@ const PricingSection = ({ onOpenModal }: PricingSectionProps) => {
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: i * 0.15 }}
                 className={`relative rounded-2xl p-8 flex flex-col ${
-                  tier.featured
-                    ? "md:-mt-4 md:mb-4 glass-strong glow-border scale-[1.02]"
-                    : "glass"
+                  tier.featured ? "glass-strong glow-border" : "glass"
                 }`}
               >
                 {tier.featured && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                     <span className="bg-primary text-primary-foreground text-xs font-bold px-4 py-1 rounded-full tracking-wide">
-                      MÁS POPULAR
+                      RECOMENDADO
                     </span>
                   </div>
                 )}
 
-                <div className="flex items-center gap-3 mb-4">
+                <div className="flex items-center gap-3 mb-6">
                   <div className={`p-2 rounded-lg ${tier.featured ? "bg-primary/20" : "bg-secondary"}`}>
                     <Icon size={20} className={tier.featured ? "text-primary icon-neon" : "text-muted-foreground"} />
                   </div>
@@ -112,13 +91,6 @@ const PricingSection = ({ onOpenModal }: PricingSectionProps) => {
                     <h3 className="text-lg font-bold text-foreground">{tier.name}</h3>
                     <p className="text-xs text-muted-foreground">{tier.description}</p>
                   </div>
-                </div>
-
-                <div className="mb-6">
-                  <span className={`text-4xl font-black ${tier.featured ? "text-gradient-cyan" : "text-foreground"}`}>
-                    {tier.price}
-                  </span>
-                  <span className="text-muted-foreground text-sm">{tier.period}</span>
                 </div>
 
                 <ul className="space-y-3 mb-8 flex-1">
