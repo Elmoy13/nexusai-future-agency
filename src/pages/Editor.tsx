@@ -309,6 +309,9 @@ const Editor = () => {
             <Cloud size={12} className={saveState === "saved" ? "text-emerald-500" : "text-muted-foreground/50"} />
             {saveState === "saving" ? "Sincronizando..." : saveState === "saved" ? "Guardado" : "Guardado automáticamente"}
           </span>
+          <Button onClick={() => setPresenting(true)} variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 border-border/40">
+            <Play size={13} /> Presentar
+          </Button>
           <Button onClick={handleExport} variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 border-border/40">
             <FileDown size={13} /> Exportar PDF
           </Button>
