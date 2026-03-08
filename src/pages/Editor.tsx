@@ -767,11 +767,12 @@ const InteractiveCanvas = ({
 const PresentationSlide = ({ elements, bgImage }: { elements: SlideElement[]; bgImage?: string }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [s, setS] = useState(1);
+/* ── Presentation Slide (window-aware scaling) ── */
+const PresentationSlide = ({ elements, bgImage }: { elements: SlideElement[]; bgImage?: string }) => {
+  const [s, setS] = useState(1);
   useEffect(() => {
     const calc = () => {
-      if (!containerRef.current?.parentElement) return;
-      const p = containerRef.current.parentElement;
-      setS(Math.min(p.clientWidth / 1920, p.clientHeight / 1080));
+      setS(Math.min(window.innerWidth / CANVAS_W, window.innerHeight / CANVAS_H));
     };
     calc();
     window.addEventListener("resize", calc);
@@ -779,8 +780,8 @@ const PresentationSlide = ({ elements, bgImage }: { elements: SlideElement[]; bg
   }, []);
   const sorted = [...elements].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
   return (
-    <div ref={containerRef} className="w-full h-full flex items-center justify-center">
-      <div className="bg-white rounded-lg overflow-hidden shadow-2xl relative" style={{ width: 1920, height: 1080, transform: `scale(${s})`, transformOrigin: "center center" }}>
+    <div className="w-full h-full flex items-center justify-center overflow-hidden">
+      <div className="bg-white overflow-hidden relative" style={{ width: CANVAS_W, height: CANVAS_H, transform: `scale(${s})`, transformOrigin: "center center" }}>
         {bgImage && <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-[1]" />}
         <div className="absolute inset-0 z-[2]">{sorted.map((el) => <StaticElement key={el.id} el={el} />)}</div>
       </div>
