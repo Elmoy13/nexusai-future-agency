@@ -1,7 +1,7 @@
 import { useState } from "react";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import DashboardOverview from "@/components/dashboard/DashboardOverview";
-
+import BriefsModule from "@/components/dashboard/BriefsModule";
 type View = "overview" | "briefs" | "parrilla" | "community";
 
 const Dashboard = () => {
