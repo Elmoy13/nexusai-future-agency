@@ -536,12 +536,24 @@ const MockupFrame = ({ el, interactive, onDrop, onChildAdjust, onNativeFileDrop 
 
         {/* Pan & Zoom controls */}
         {adjusting && interactive && el.mockupChild && (
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-slate-900/90 backdrop-blur-sm text-white text-[10px] px-3 py-1.5 rounded-full" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => { const s = Math.max(0.5, localScale - 0.1); setLocalScale(s); onChildAdjust?.({ mockupChildScale: s }); }} className="hover:text-cyan-400">−</button>
-            <span className="tabular-nums w-10 text-center">{Math.round(localScale * 100)}%</span>
-            <button onClick={() => { const s = Math.min(3, localScale + 0.1); setLocalScale(s); onChildAdjust?.({ mockupChildScale: s }); }} className="hover:text-cyan-400">+</button>
-            <div className="w-px h-3 bg-white/20" />
-            <button onClick={() => { setLocalScale(1); setLocalX(0); setLocalY(0); onChildAdjust?.({ mockupChildScale: 1, mockupChildX: 0, mockupChildY: 0 }); }} className="hover:text-cyan-400">Reset</button>
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+            {/* Pan arrows */}
+            <div className="flex items-center gap-1">
+              <button onClick={() => { const v = localX - 10; setLocalX(v); onChildAdjust?.({ mockupChildX: v }); }} className="w-7 h-7 rounded-full bg-slate-900/90 backdrop-blur-sm text-white hover:text-cyan-400 flex items-center justify-center text-xs">←</button>
+              <div className="flex flex-col gap-1">
+                <button onClick={() => { const v = localY - 10; setLocalY(v); onChildAdjust?.({ mockupChildY: v }); }} className="w-7 h-7 rounded-full bg-slate-900/90 backdrop-blur-sm text-white hover:text-cyan-400 flex items-center justify-center text-xs">↑</button>
+                <button onClick={() => { const v = localY + 10; setLocalY(v); onChildAdjust?.({ mockupChildY: v }); }} className="w-7 h-7 rounded-full bg-slate-900/90 backdrop-blur-sm text-white hover:text-cyan-400 flex items-center justify-center text-xs">↓</button>
+              </div>
+              <button onClick={() => { const v = localX + 10; setLocalX(v); onChildAdjust?.({ mockupChildX: v }); }} className="w-7 h-7 rounded-full bg-slate-900/90 backdrop-blur-sm text-white hover:text-cyan-400 flex items-center justify-center text-xs">→</button>
+            </div>
+            {/* Zoom + Reset */}
+            <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-sm text-white text-[10px] px-3 py-1.5 rounded-full">
+              <button onClick={() => { const s = Math.max(0.5, localScale - 0.1); setLocalScale(s); onChildAdjust?.({ mockupChildScale: s }); }} className="hover:text-cyan-400 font-bold">−</button>
+              <span className="tabular-nums w-10 text-center">{Math.round(localScale * 100)}%</span>
+              <button onClick={() => { const s = Math.min(3, localScale + 0.1); setLocalScale(s); onChildAdjust?.({ mockupChildScale: s }); }} className="hover:text-cyan-400 font-bold">+</button>
+              <div className="w-px h-3 bg-white/20" />
+              <button onClick={() => { setLocalScale(1); setLocalX(0); setLocalY(0); onChildAdjust?.({ mockupChildScale: 1, mockupChildX: 0, mockupChildY: 0 }); }} className="hover:text-cyan-400">Reset</button>
+            </div>
           </div>
         )}
       </div>
