@@ -1111,6 +1111,8 @@ const InteractiveCanvas = ({
     <div
       className="absolute inset-0 flex items-center justify-center"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onDeselect(); }}
+      onDragOver={(e) => { e.preventDefault(); }}
+      onDrop={handleCanvasDrop}
     >
       <div style={{ transform: `scale(${scale})`, transformOrigin: "center center", willChange: "transform" }}>
         <div
