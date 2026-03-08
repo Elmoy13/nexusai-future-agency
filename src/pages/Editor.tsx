@@ -258,8 +258,31 @@ const Editor = () => {
   };
 
   const handleExport = () => {
-    toast({ title: "📋 Exportando PDF", description: "Generando archivo de alta resolución… (Simulado)" });
+    setExporting(true);
+    setExportProgress(0);
+    setExportMsg("Preparando assets...");
+    const steps = [
+      { at: 600, progress: 35, msg: "Preparando assets..." },
+      { at: 1200, progress: 65, msg: "Renderizando tipografías..." },
+      { at: 2000, progress: 90, msg: "Optimizando resolución..." },
+      { at: 2500, progress: 100, msg: "¡PDF Listo!" },
+    ];
+    steps.forEach(({ at, progress, msg }) =>
+      setTimeout(() => { setExportProgress(progress); setExportMsg(msg); }, at)
+    );
   };
+
+  /* Presenting keyboard */
+  useEffect(() => {
+    if (!presenting) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPresenting(false);
+      if (e.key === "ArrowRight" || e.key === " ") setActiveIdx((i) => Math.min(slides.length - 1, i + 1));
+      if (e.key === "ArrowLeft") setActiveIdx((i) => Math.max(0, i - 1));
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [presenting, slides.length]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-slate-100 overflow-hidden">
