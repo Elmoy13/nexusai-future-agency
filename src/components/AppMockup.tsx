@@ -1,17 +1,14 @@
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 
-const lines = [
-  { text: '$ nexus-ai start-campaign --brand="Acme Corp"', color: "text-muted-foreground", delay: 0 },
-  { text: "→ Ejecutando Agente Entrevistador... Brief completado.", color: "text-muted-foreground", delay: 0.4 },
-  { text: "→ Definiendo Look & Feel y Públicos Digitales...", color: "text-muted-foreground", delay: 0.8 },
-  { text: "→ Generando 30 posts alineados a la estrategia...", color: "text-cyan-glow", delay: 1.2 },
-  { text: "", color: "", delay: 1.6 },
-  {
-    text: "[NexusAI] > Parrilla lista para revisión humana. Tiempo: 4.2s",
-    color: "text-emerald-accent",
-    delay: 2.0,
-  },
+const typedLine = { text: '$ nexus-ai start-campaign --brand="{Tu_Marca_Aquí}"', color: "text-muted-foreground" };
+
+const instantLines = [
+  { text: "→ Ejecutando Agente Entrevistador... Brief completado.", color: "text-muted-foreground", delay: 0.8 },
+  { text: "→ Definiendo Look & Feel y Públicos Digitales...", color: "text-muted-foreground", delay: 1.6 },
+  { text: "→ Generando 30 posts alineados a la estrategia...", color: "text-cyan-glow", delay: 2.4 },
+  { text: "", color: "", delay: 3.2 },
+  { text: "[NexusAI] > Parrilla multimodal lista. Tiempo de ejecución: 3.8s", color: "text-emerald-accent", delay: 4.0 },
 ];
 
 const TypingText = ({ text, color, startDelay }: { text: string; color: string; startDelay: number }) => {
@@ -38,6 +35,22 @@ const TypingText = ({ text, color, startDelay }: { text: string; color: string; 
   return <div className={color}>{displayed}<span className="inline-block w-1.5 h-4 bg-cyan-glow/70 animate-pulse ml-0.5 align-middle" style={{ opacity: displayed.length < text.length ? 1 : 0 }} /></div>;
 };
 
+const InstantLine = ({ text, color, delay }: { text: string; color: string; delay: number }) => {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    // Wait for typed line to finish (~50 chars * 18ms ≈ 0.9s) + delay
+    const t = setTimeout(() => setVisible(true), (1.0 + delay) * 1000);
+    return () => clearTimeout(t);
+  }, [delay]);
+  if (!visible) return null;
+  if (!text) return <div className="h-4" />;
+  return (
+    <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }} className={color}>
+      {text}
+    </motion.div>
+  );
+};
+
 const AppMockup = () => {
   return (
     <section className="relative py-32 px-6">
@@ -61,13 +74,10 @@ const AppMockup = () => {
 
           {/* Terminal content */}
           <div className="p-6 md:p-8 font-mono text-sm md:text-base space-y-1.5 min-h-[280px]">
-            {lines.map((line, i) =>
-              line.text ? (
-                <TypingText key={i} text={line.text} color={line.color} startDelay={line.delay + 0.5} />
-              ) : (
-                <div key={i} className="h-4" />
-              )
-            )}
+            <TypingText text={typedLine.text} color={typedLine.color} startDelay={0.5} />
+            {instantLines.map((line, i) => (
+              <InstantLine key={i} text={line.text} color={line.color} delay={line.delay} />
+            ))}
           </div>
         </motion.div>
       </div>
