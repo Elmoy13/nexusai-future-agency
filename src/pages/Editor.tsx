@@ -262,17 +262,38 @@ const BrandPanel = ({
 };
 
 /* ── Side Panel: Templates ── */
+type TemplateEntry = { name: string; desc: string; factory: () => SlideElement[]; preview: string };
+
+const ALL_TEMPLATES: TemplateEntry[] = [
+  { name: "Portada", desc: "Título grande al centro", factory: TEMPLATE_COVER, preview: "cover" },
+  { name: "Contenido", desc: "Título + 3 viñetas", factory: TEMPLATE_CONTENT, preview: "content" },
+  { name: "Visual", desc: "Imagen + texto lateral", factory: TEMPLATE_VISUAL, preview: "visual" },
+  { name: "Promo 50% Off", desc: "Descuento impactante", factory: TEMPLATE_PROMO, preview: "promo" },
+  { name: "Testimonio", desc: "Cliente + estrellas + cita", factory: TEMPLATE_TESTIMONIAL, preview: "testimonial" },
+  { name: "Carrusel IG", desc: "Hook masivo · Slide 1", factory: TEMPLATE_CAROUSEL, preview: "carousel" },
+  { name: "Frase / Quote", desc: "Cita inspiracional", factory: TEMPLATE_QUOTE, preview: "quote" },
+  { name: "Comunicado", desc: "Oficial corporativo", factory: TEMPLATE_COMUNICADO, preview: "comunicado" },
+  { name: "Meme / Viral", desc: "Layout tipo Twitter/X", factory: TEMPLATE_MEME, preview: "meme" },
+];
+
+const MiniPreview = ({ type }: { type: string }) => {
+  if (type === "cover") return (<div className="w-full h-full flex flex-col items-center justify-center gap-1"><div className="w-3/4 h-3 bg-slate-800 rounded-sm" /><div className="w-1/2 h-2 bg-slate-300 rounded-sm" /><div className="w-8 h-0.5 bg-cyan-500 mt-1" /></div>);
+  if (type === "content") return (<div className="w-full h-full flex flex-col gap-1.5"><div className="w-2/3 h-3 bg-slate-800 rounded-sm" /><div className="w-6 h-0.5 bg-cyan-500" /><div className="w-full h-2 bg-slate-200 rounded-sm mt-1" /><div className="w-full h-2 bg-slate-200 rounded-sm" /><div className="w-3/4 h-2 bg-slate-200 rounded-sm" /></div>);
+  if (type === "visual") return (<div className="w-full h-full flex gap-2"><div className="w-1/2 h-full bg-slate-100 rounded-sm flex items-center justify-center"><div className="w-5 h-5 rounded bg-slate-300" /></div><div className="w-1/2 flex flex-col gap-1 justify-center"><div className="w-full h-2.5 bg-slate-800 rounded-sm" /><div className="w-full h-1.5 bg-slate-200 rounded-sm" /><div className="w-3/4 h-1.5 bg-slate-200 rounded-sm" /></div></div>);
+  if (type === "promo") return (<div className="w-full h-full flex"><div className="w-1/2 h-full bg-cyan-500 rounded-l-sm" /><div className="w-1/2 h-full bg-slate-900 rounded-r-sm flex flex-col items-end justify-center pr-2 gap-0.5"><div className="text-[10px] font-black text-cyan-400 leading-none">50%</div><div className="text-[7px] font-bold text-white leading-none">OFF</div><div className="w-10 h-2 bg-white rounded-sm mt-1" /></div></div>);
+  if (type === "testimonial") return (<div className="w-full h-full bg-slate-50 flex flex-col items-center justify-center gap-1"><div className="w-5 h-5 rounded-full bg-cyan-500" /><div className="text-[6px] text-amber-500">★★★★★</div><div className="w-3/4 h-1.5 bg-slate-300 rounded-sm" /><div className="w-1/2 h-1 bg-slate-200 rounded-sm" /></div>);
+  if (type === "carousel") return (<div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center gap-1"><div className="w-3/4 h-2.5 bg-white rounded-sm" /><div className="w-1/2 h-2 bg-white/60 rounded-sm" /><div className="w-6 h-0.5 bg-cyan-500 mt-0.5" /><div className="text-[6px] text-cyan-400 font-bold">Desliza →</div></div>);
+  if (type === "quote") return (<div className="w-full h-full bg-slate-800 flex flex-col items-center justify-center gap-0.5"><div className="text-[14px] text-cyan-500/20 font-black leading-none">❝</div><div className="w-3/4 h-1.5 bg-slate-400 rounded-sm" /><div className="w-1/2 h-1 bg-slate-400 rounded-sm" /><div className="w-5 h-0.5 bg-cyan-500 mt-1" /></div>);
+  if (type === "comunicado") return (<div className="w-full h-full bg-white flex flex-col gap-1 p-1.5"><div className="w-full h-0.5 bg-slate-800" /><div className="w-1/3 h-1.5 bg-slate-800 rounded-sm mx-auto" /><div className="w-2/3 h-1 bg-slate-300 rounded-sm mx-auto mt-0.5" /><div className="flex-1 flex flex-col gap-0.5 mt-1"><div className="w-full h-1 bg-slate-200 rounded-sm" /><div className="w-full h-1 bg-slate-200 rounded-sm" /><div className="w-3/4 h-1 bg-slate-200 rounded-sm" /></div><div className="w-full h-0.5 bg-slate-800" /></div>);
+  if (type === "meme") return (<div className="w-full h-full bg-white flex flex-col gap-1 p-1"><div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-slate-300" /><div className="w-10 h-1.5 bg-slate-800 rounded-sm" /></div><div className="w-full h-1 bg-slate-300 rounded-sm" /><div className="flex-1 bg-slate-100 rounded-sm" /><div className="flex gap-2 mt-0.5"><div className="w-3 h-1 bg-slate-300 rounded-sm" /><div className="w-3 h-1 bg-slate-300 rounded-sm" /><div className="w-3 h-1 bg-slate-300 rounded-sm" /></div></div>);
+  return <div className="w-full h-full bg-slate-100" />;
+};
+
 const TemplatesPanel = ({
   onApplyTemplate,
 }: {
   onApplyTemplate: (elements: SlideElement[]) => void;
 }) => {
-  const templates = [
-    { name: "Portada", desc: "Título grande al centro", factory: TEMPLATE_COVER, preview: "cover" as const },
-    { name: "Contenido", desc: "Título + 3 viñetas", factory: TEMPLATE_CONTENT, preview: "content" as const },
-    { name: "Visual", desc: "Imagen + texto lateral", factory: TEMPLATE_VISUAL, preview: "visual" as const },
-  ];
-
   const handleApply = (factory: () => SlideElement[]) => {
     if (window.confirm("¿Deseas reemplazar el diseño actual con esta plantilla?")) {
       onApplyTemplate(factory());
@@ -287,42 +308,14 @@ const TemplatesPanel = ({
       </div>
 
       <div className="flex flex-col gap-3">
-        {templates.map((t) => (
+        {ALL_TEMPLATES.map((t) => (
           <button
             key={t.name}
             onDoubleClick={() => handleApply(t.factory)}
             className="group border border-border/40 rounded-lg overflow-hidden hover:border-primary/40 hover:shadow-md transition-all"
           >
-            {/* Mini preview */}
             <div className="aspect-video bg-white relative p-3">
-              {t.preview === "cover" && (
-                <div className="w-full h-full flex flex-col items-center justify-center gap-1">
-                  <div className="w-3/4 h-3 bg-slate-800 rounded-sm" />
-                  <div className="w-1/2 h-2 bg-slate-300 rounded-sm" />
-                  <div className="w-8 h-0.5 bg-cyan-500 mt-1" />
-                </div>
-              )}
-              {t.preview === "content" && (
-                <div className="w-full h-full flex flex-col gap-1.5">
-                  <div className="w-2/3 h-3 bg-slate-800 rounded-sm" />
-                  <div className="w-6 h-0.5 bg-cyan-500" />
-                  <div className="w-full h-2 bg-slate-200 rounded-sm mt-1" />
-                  <div className="w-full h-2 bg-slate-200 rounded-sm" />
-                  <div className="w-3/4 h-2 bg-slate-200 rounded-sm" />
-                </div>
-              )}
-              {t.preview === "visual" && (
-                <div className="w-full h-full flex gap-2">
-                  <div className="w-1/2 h-full bg-slate-100 rounded-sm flex items-center justify-center">
-                    <div className="w-5 h-5 rounded bg-slate-300" />
-                  </div>
-                  <div className="w-1/2 flex flex-col gap-1 justify-center">
-                    <div className="w-full h-2.5 bg-slate-800 rounded-sm" />
-                    <div className="w-full h-1.5 bg-slate-200 rounded-sm" />
-                    <div className="w-3/4 h-1.5 bg-slate-200 rounded-sm" />
-                  </div>
-                </div>
-              )}
+              <MiniPreview type={t.preview} />
             </div>
             <div className="px-3 py-2 border-t border-border/20">
               <span className="text-xs font-semibold text-foreground">{t.name}</span>
