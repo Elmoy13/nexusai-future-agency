@@ -272,7 +272,11 @@ const BrandHub = ({ brandName, onBack }: Props) => {
                       <button className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors" title="Cambiar imagen">
                         <ImagePlus size={14} />
                       </button>
-                      <button className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" title="Ver presentación">
+                      <button
+                        onClick={() => setPresentingSlide(slide)}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                        title="Ver presentación"
+                      >
                         <Play size={14} />
                       </button>
                     </div>
