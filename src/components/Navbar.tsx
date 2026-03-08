@@ -1,7 +1,7 @@
-import { motion } from "framer-motion";
-import { Sparkles, Lock } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Sparkles, ChevronDown, Building2, Megaphone } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { toast } from "sonner";
+import { useState, useRef } from "react";
 
 interface NavbarProps {
   onOpenModal?: () => void;
@@ -10,6 +10,8 @@ interface NavbarProps {
 const Navbar = ({ onOpenModal }: NavbarProps) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const scrollToSection = (id: string) => {
     if (location.pathname !== "/") {
@@ -30,18 +32,18 @@ const Navbar = ({ onOpenModal }: NavbarProps) => {
     }
   };
 
-  const handleDocsClick = () => {
-    toast("Documentación encriptada", {
-      description: "Acceso disponible en la v1.0",
-      icon: <Lock size={16} />,
-    });
+  const openDropdown = () => {
+    clearTimeout(timeoutRef.current);
+    setDropdownOpen(true);
   };
 
-  const navItems = [
-    { label: "Producto", action: () => scrollToSection("onboarding-chat") },
-    { label: "Agentes", action: () => scrollToSection("bento-features") },
-    { label: "Precios", action: () => scrollToSection("pricing") },
-    { label: "Docs", action: handleDocsClick },
+  const closeDropdown = () => {
+    timeoutRef.current = setTimeout(() => setDropdownOpen(false), 150);
+  };
+
+  const useCases = [
+    { icon: Building2, label: "Para Agencias de Marketing", sub: "Escala tus operaciones x10" },
+    { icon: Megaphone, label: "Para Marcas Directas", sub: "Tu equipo in-house autónomo" },
   ];
 
   return (
@@ -54,21 +56,63 @@ const Navbar = ({ onOpenModal }: NavbarProps) => {
       <div className="glass-strong rounded-full px-6 py-3 flex items-center gap-8">
         <button onClick={handleLogoClick} className="flex items-center gap-2 cursor-pointer">
           <span className="w-2 h-2 rounded-full bg-accent pulse-dot" />
-          <span className="text-foreground font-bold text-lg tracking-tight">
-            NexusAI
-          </span>
+          <span className="text-foreground font-bold text-lg tracking-tight">NexusAI</span>
         </button>
 
         <div className="hidden md:flex items-center gap-6">
-          {navItems.map((item) => (
-            <button
-              key={item.label}
-              onClick={item.action}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 bg-transparent border-none cursor-pointer"
-            >
-              {item.label}
+          <button
+            onClick={() => scrollToSection("onboarding-chat")}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 bg-transparent border-none cursor-pointer"
+          >
+            El Sistema
+          </button>
+          <button
+            onClick={() => scrollToSection("bento-features")}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 bg-transparent border-none cursor-pointer"
+          >
+            Metodología
+          </button>
+
+          {/* Casos de Uso dropdown */}
+          <div className="relative" onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>
+            <button className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 bg-transparent border-none cursor-pointer flex items-center gap-1">
+              Casos de Uso
+              <ChevronDown size={12} className={`transition-transform duration-200 ${dropdownOpen ? "rotate-180" : ""}`} />
             </button>
-          ))}
+
+            <AnimatePresence>
+              {dropdownOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-64 glass-strong rounded-xl border border-cyan-glow/10 overflow-hidden"
+                >
+                  {useCases.map((item) => (
+                    <button
+                      key={item.label}
+                      onClick={() => setDropdownOpen(false)}
+                      className="w-full flex items-start gap-3 px-4 py-3 hover:bg-primary/5 transition-colors duration-200 text-left border-none bg-transparent cursor-pointer"
+                    >
+                      <item.icon size={16} className="text-primary mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{item.label}</p>
+                        <p className="text-xs text-muted-foreground">{item.sub}</p>
+                      </div>
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <button
+            onClick={() => scrollToSection("pricing")}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 bg-transparent border-none cursor-pointer"
+          >
+            Precios
+          </button>
         </div>
 
         <button
