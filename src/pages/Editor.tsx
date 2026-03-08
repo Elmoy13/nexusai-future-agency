@@ -1,47 +1,48 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, forwardRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { Rnd } from "react-rnd";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
+import { Progress } from "@/components/ui/progress";
+import { useHistory } from "@/hooks/useHistory";
 import {
   ArrowLeft, Save, FileDown, Check, Loader2,
   LayoutTemplate, Type, Image, Hexagon, Sparkles,
   Plus, ChevronLeft, ChevronRight, Cloud, Palette,
-  Play, X
+  Play, X, Undo2, Redo2, AlignLeft, AlignCenter, AlignRight, Minus,
 } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
 import { initialCampaigns } from "@/components/dashboard/briefs/campaignData";
 import type { SlideData, SlideElement } from "@/components/dashboard/briefs/campaignData";
 
 /* ── helpers ── */
 const uid = () => `el-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
-/** Convert legacy slide fields into an elements array for the free canvas */
+const FONTS = ["Inter", "Playfair Display", "Montserrat", "Roboto", "Georgia", "Courier New"];
+const COLORS_PALETTE = ["#0f172a", "#ffffff", "#06b6d4", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899", "#64748b"];
+
 function slideToElements(slide: SlideData): SlideElement[] {
   if (slide.elements?.length) return slide.elements;
-
   const els: SlideElement[] = [];
-
   if (slide.type === "cover") {
-    els.push({ id: uid(), type: "text", content: slide.title, x: 80, y: 680, fontSize: 96, fontWeight: "900", color: "#ffffff" });
-    if (slide.body) els.push({ id: uid(), type: "text", content: slide.body, x: 80, y: 820, fontSize: 28, fontWeight: "400", color: "rgba(255,255,255,0.5)" });
+    els.push({ id: uid(), type: "text", content: slide.title, x: 80, y: 680, width: 1760, height: 120, fontSize: 96, fontWeight: "900", color: "#ffffff" });
+    if (slide.body) els.push({ id: uid(), type: "text", content: slide.body, x: 80, y: 820, width: 1400, height: 60, fontSize: 28, fontWeight: "400", color: "rgba(255,255,255,0.5)" });
     if (slide.image) els.push({ id: uid(), type: "image", content: slide.image, x: 0, y: 0, width: 1920, height: 1080, opacity: 0.7 });
   } else if (slide.type === "content") {
-    els.push({ id: uid(), type: "text", content: slide.title, x: 860, y: 80, fontSize: 56, fontWeight: "800", color: "#0f172a" });
+    els.push({ id: uid(), type: "text", content: slide.title, x: 860, y: 80, width: 980, height: 80, fontSize: 56, fontWeight: "800", color: "#0f172a" });
     if (slide.image) els.push({ id: uid(), type: "image", content: slide.image, x: 100, y: 200, width: 600, height: 600 });
     slide.bullets?.forEach((b, i) => {
-      els.push({ id: uid(), type: "text", content: b, x: 860, y: 220 + i * 120, fontSize: 28, fontWeight: "400", color: "#475569" });
+      els.push({ id: uid(), type: "text", content: b, x: 860, y: 220 + i * 120, width: 980, height: 100, fontSize: 28, fontWeight: "400", color: "#475569" });
     });
   } else {
-    els.push({ id: uid(), type: "text", content: slide.title, x: 80, y: 80, fontSize: 56, fontWeight: "800", color: "#0f172a" });
-    if (slide.body) els.push({ id: uid(), type: "text", content: slide.body, x: 80, y: 180, fontSize: 32, fontWeight: "400", color: "#64748b" });
+    els.push({ id: uid(), type: "text", content: slide.title, x: 80, y: 80, width: 1000, height: 80, fontSize: 56, fontWeight: "800", color: "#0f172a" });
+    if (slide.body) els.push({ id: uid(), type: "text", content: slide.body, x: 80, y: 180, width: 1000, height: 50, fontSize: 32, fontWeight: "400", color: "#64748b" });
     if (slide.image) els.push({ id: uid(), type: "image", content: slide.image, x: 80, y: 280, width: 1000, height: 600 });
     slide.colors?.forEach((c, i) => {
       els.push({ id: uid(), type: "shape", content: c.hex, x: 1200 + (i % 2) * 200, y: 280 + Math.floor(i / 2) * 200, width: 160, height: 160 });
-      els.push({ id: uid(), type: "text", content: `${c.name}\n${c.hex}`, x: 1200 + (i % 2) * 200, y: 460 + Math.floor(i / 2) * 200, fontSize: 18, fontWeight: "500", color: "#475569" });
+      els.push({ id: uid(), type: "text", content: `${c.name}\n${c.hex}`, x: 1200 + (i % 2) * 200, y: 460 + Math.floor(i / 2) * 200, width: 180, height: 50, fontSize: 18, fontWeight: "500", color: "#475569" });
     });
   }
-
   return els;
 }
 
@@ -53,12 +54,150 @@ const tools = [
   { icon: Palette, label: "Brand Hub", action: "brand" },
 ];
 
-/* ── Draggable Element ── */
-const CanvasElement = ({
-  el, scale, onUpdate, onDelete,
+/* ── Static element renderer (for filmstrip & presentation) ── */
+const StaticElement = ({ el }: { el: SlideElement }) => {
+  if (el.type === "image") {
+    return (
+      <div style={{ position: "absolute", left: el.x, top: el.y, width: el.width ?? 400, height: el.height ?? 400, opacity: el.opacity ?? 1 }}>
+        <img src={el.content} alt="" className="w-full h-full object-cover" draggable={false} />
+      </div>
+    );
+  }
+  if (el.type === "shape") {
+    return (
+      <div style={{ position: "absolute", left: el.x, top: el.y, width: el.width ?? 160, height: el.height ?? 160, background: el.content, borderRadius: 16 }} />
+    );
+  }
+  return (
+    <div style={{
+      position: "absolute", left: el.x, top: el.y,
+      width: el.width ?? "auto",
+      fontSize: el.fontSize ?? 28, fontWeight: el.fontWeight ?? "400",
+      color: el.color ?? "#0f172a", lineHeight: 1.3, whiteSpace: "pre-wrap",
+      fontFamily: (el as any).fontFamily ?? "Inter",
+      textAlign: ((el as any).textAlign ?? "left") as any,
+    }}>
+      {el.content}
+    </div>
+  );
+};
+
+/* ── Slide renderer for filmstrip thumbnails ── */
+const SlideThumbnail = ({ elements, bgImage }: { elements: SlideElement[]; bgImage?: string }) => {
+  const sorted = [...elements].sort((a, b) => {
+    const order = { image: 0, shape: 1, text: 2 };
+    return (order[a.type] ?? 1) - (order[b.type] ?? 1);
+  });
+
+  return (
+    <div className="absolute inset-0 overflow-hidden bg-white">
+      <div style={{
+        width: 1920, height: 1080,
+        transform: "scale(0.0833)",
+        transformOrigin: "top left",
+        position: "relative",
+      }}>
+        {bgImage && <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-[1]" />}
+        <div className="absolute inset-0 z-[2]">
+          {sorted.map((el) => <StaticElement key={el.id} el={el} />)}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ── Floating Format Toolbar ── */
+const FormatToolbar = ({
+  el,
+  onUpdate,
+}: {
+  el: SlideElement;
+  onUpdate: (patch: Partial<SlideElement>) => void;
+}) => {
+  const fontFamily = (el as any).fontFamily ?? "Inter";
+  const textAlign = (el as any).textAlign ?? "left";
+  const fontSize = el.fontSize ?? 28;
+  const color = el.color ?? "#0f172a";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 8 }}
+      className="absolute -top-12 left-0 z-50 flex items-center gap-1 bg-slate-900 text-white rounded-lg px-2 py-1.5 shadow-xl shadow-black/30"
+      style={{ pointerEvents: "auto" }}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      {/* Font family */}
+      <select
+        value={fontFamily}
+        onChange={(e) => onUpdate({ fontFamily: e.target.value } as any)}
+        className="bg-white/10 text-white text-[11px] rounded px-1.5 py-1 border-none outline-none cursor-pointer h-7"
+      >
+        {FONTS.map((f) => (
+          <option key={f} value={f} className="bg-slate-900 text-white">{f}</option>
+        ))}
+      </select>
+
+      <div className="w-px h-5 bg-white/20 mx-0.5" />
+
+      {/* Font size */}
+      <button onClick={() => onUpdate({ fontSize: Math.max(10, fontSize - 2) })} className="w-6 h-6 rounded hover:bg-white/10 flex items-center justify-center"><Minus size={12} /></button>
+      <span className="text-[11px] tabular-nums w-6 text-center">{fontSize}</span>
+      <button onClick={() => onUpdate({ fontSize: Math.min(200, fontSize + 2) })} className="w-6 h-6 rounded hover:bg-white/10 flex items-center justify-center"><Plus size={12} /></button>
+
+      <div className="w-px h-5 bg-white/20 mx-0.5" />
+
+      {/* Color picker */}
+      <div className="flex items-center gap-0.5">
+        {COLORS_PALETTE.slice(0, 5).map((c) => (
+          <button
+            key={c}
+            onClick={() => onUpdate({ color: c })}
+            className={`w-5 h-5 rounded-full border-2 transition-transform ${color === c ? "border-cyan-400 scale-110" : "border-white/20"}`}
+            style={{ background: c }}
+          />
+        ))}
+        <label className="w-5 h-5 rounded-full overflow-hidden cursor-pointer border-2 border-white/20 relative">
+          <input
+            type="color"
+            value={color}
+            onChange={(e) => onUpdate({ color: e.target.value })}
+            className="absolute inset-0 opacity-0 cursor-pointer"
+          />
+          <div className="w-full h-full" style={{ background: `conic-gradient(red, yellow, lime, aqua, blue, magenta, red)` }} />
+        </label>
+      </div>
+
+      <div className="w-px h-5 bg-white/20 mx-0.5" />
+
+      {/* Alignment */}
+      {([["left", AlignLeft], ["center", AlignCenter], ["right", AlignRight]] as const).map(([align, Icon]) => (
+        <button
+          key={align}
+          onClick={() => onUpdate({ textAlign: align } as any)}
+          className={`w-6 h-6 rounded flex items-center justify-center transition ${textAlign === align ? "bg-cyan-500/30 text-cyan-400" : "hover:bg-white/10"}`}
+        >
+          <Icon size={13} />
+        </button>
+      ))}
+    </motion.div>
+  );
+};
+
+/* ── Interactive Canvas Element with react-rnd ── */
+const RndElement = ({
+  el,
+  scale,
+  selected,
+  onSelect,
+  onUpdate,
+  onDelete,
 }: {
   el: SlideElement;
   scale: number;
+  selected: boolean;
+  onSelect: () => void;
   onUpdate: (patch: Partial<SlideElement>) => void;
   onDelete: () => void;
 }) => {
@@ -67,152 +206,145 @@ const CanvasElement = ({
   const textRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { setLocalContent(el.content); }, [el.content]);
-  useEffect(() => { if (editing && textRef.current) textRef.current.focus(); }, [editing]);
+  useEffect(() => { if (editing && textRef.current) { textRef.current.focus(); textRef.current.select(); } }, [editing]);
 
   const commitEdit = () => {
     setEditing(false);
     if (localContent !== el.content) onUpdate({ content: localContent });
   };
 
-  if (el.type === "image") {
-    return (
-      <motion.div
-        drag
-        dragMomentum={false}
-        onDragEnd={(_, info) => {
-          onUpdate({ x: el.x + info.offset.x / scale, y: el.y + info.offset.y / scale });
-        }}
-        style={{
-          position: "absolute",
-          left: el.x,
-          top: el.y,
-          width: el.width ?? 400,
-          height: el.height ?? 400,
-          opacity: el.opacity ?? 1,
-          cursor: "grab",
-        }}
-        whileDrag={{ cursor: "grabbing", boxShadow: "0 0 0 3px rgba(6,182,212,0.5)" }}
-        className="group rounded-lg overflow-hidden hover:outline hover:outline-2 hover:outline-dashed hover:outline-cyan-400/50"
-      >
-        <img src={el.content} alt="" className="w-full h-full object-cover pointer-events-none" />
-      </motion.div>
-    );
-  }
+  const handleStyle: React.CSSProperties = {
+    width: 10, height: 10,
+    background: "#06b6d4",
+    borderRadius: 2,
+    border: "2px solid white",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+  };
 
-  if (el.type === "shape") {
-    return (
-      <motion.div
-        drag
-        dragMomentum={false}
-        onDragEnd={(_, info) => {
-          onUpdate({ x: el.x + info.offset.x / scale, y: el.y + info.offset.y / scale });
-        }}
-        style={{
-          position: "absolute",
-          left: el.x,
-          top: el.y,
-          width: el.width ?? 160,
-          height: el.height ?? 160,
-          background: el.content,
-          borderRadius: 16,
-          cursor: "grab",
-        }}
-        whileDrag={{ cursor: "grabbing", boxShadow: "0 0 0 3px rgba(6,182,212,0.5)" }}
-        className="shadow-sm border border-black/10 hover:outline hover:outline-2 hover:outline-dashed hover:outline-cyan-400/50"
-      />
-    );
-  }
+  const resizeHandles = selected && !editing ? {
+    topLeft: <div style={{ ...handleStyle }} />,
+    topRight: <div style={{ ...handleStyle }} />,
+    bottomLeft: <div style={{ ...handleStyle }} />,
+    bottomRight: <div style={{ ...handleStyle }} />,
+  } : {};
 
-  /* text element */
+  const w = el.width ?? (el.type === "text" ? 600 : 400);
+  const h = el.height ?? (el.type === "text" ? 80 : 400);
+
   return (
-    <motion.div
-      drag={!editing}
-      dragMomentum={false}
-      onDragEnd={(_, info) => {
-        if (!editing) {
-          onUpdate({ x: el.x + info.offset.x / scale, y: el.y + info.offset.y / scale });
-        }
+    <Rnd
+      size={{ width: w, height: h }}
+      position={{ x: el.x, y: el.y }}
+      onDragStop={(_e, d) => {
+        onUpdate({ x: d.x, y: d.y });
       }}
-      onDoubleClick={() => setEditing(true)}
+      onResizeStop={(_e, _dir, ref, _delta, pos) => {
+        onUpdate({
+          width: parseInt(ref.style.width),
+          height: parseInt(ref.style.height),
+          x: pos.x,
+          y: pos.y,
+        });
+      }}
+      disableDragging={editing}
+      enableResizing={selected && !editing}
+      resizeHandleComponent={resizeHandles}
+      scale={scale}
+      bounds="parent"
+      onMouseDown={(e: any) => {
+        e.stopPropagation();
+        onSelect();
+      }}
+      className={`${selected ? "z-30" : "z-10"}`}
       style={{
-        position: "absolute",
-        left: el.x,
-        top: el.y,
-        cursor: editing ? "text" : "grab",
-        maxWidth: 1400,
+        outline: selected ? "2px solid #06b6d4" : "none",
+        outlineOffset: 2,
+        borderRadius: el.type === "shape" ? 16 : 4,
       }}
-      whileDrag={{ cursor: "grabbing", boxShadow: "0 0 0 3px rgba(6,182,212,0.5)" }}
-      className={`group rounded-md transition-all duration-150 ${
-        editing
-          ? "ring-2 ring-cyan-400/60 bg-white/10"
-          : "hover:outline hover:outline-2 hover:outline-dashed hover:outline-cyan-400/40 hover:bg-white/5"
-      }`}
     >
-      {editing ? (
-        <textarea
-          ref={textRef}
-          value={localContent}
-          onChange={(e) => setLocalContent(e.target.value)}
-          onBlur={commitEdit}
-          onKeyDown={(e) => { if (e.key === "Escape") commitEdit(); }}
-          style={{
-            fontSize: el.fontSize ?? 28,
-            fontWeight: el.fontWeight ?? "400",
-            color: el.color ?? "#0f172a",
-            lineHeight: 1.3,
-          }}
-          className="bg-transparent border-none outline-none resize-none w-full min-w-[200px] px-2 py-1"
-          rows={localContent.split("\n").length}
-        />
-      ) : (
-        <div
-          style={{
-            fontSize: el.fontSize ?? 28,
-            fontWeight: el.fontWeight ?? "400",
-            color: el.color ?? "#0f172a",
-            lineHeight: 1.3,
-            whiteSpace: "pre-wrap",
-          }}
-          className="px-2 py-1 select-none"
-        >
-          {el.content}
-        </div>
-      )}
-    </motion.div>
+      <div
+        className={`w-full h-full relative ${!selected && !editing ? "hover:outline hover:outline-2 hover:outline-dashed hover:outline-cyan-400/40" : ""}`}
+        onDoubleClick={() => {
+          if (el.type === "text") setEditing(true);
+        }}
+        style={{ cursor: editing ? "text" : "grab", borderRadius: el.type === "shape" ? 16 : 0 }}
+      >
+        {/* Format toolbar */}
+        {selected && el.type === "text" && !editing && (
+          <AnimatePresence>
+            <FormatToolbar el={el} onUpdate={onUpdate} />
+          </AnimatePresence>
+        )}
+
+        {el.type === "image" ? (
+          <img
+            src={el.content}
+            alt=""
+            className="w-full h-full object-cover rounded-lg pointer-events-none"
+            style={{ opacity: el.opacity ?? 1 }}
+            draggable={false}
+          />
+        ) : el.type === "shape" ? (
+          <div className="w-full h-full" style={{ background: el.content, borderRadius: 16 }} />
+        ) : editing ? (
+          <textarea
+            ref={textRef}
+            value={localContent}
+            onChange={(e) => setLocalContent(e.target.value)}
+            onBlur={commitEdit}
+            onKeyDown={(e) => { if (e.key === "Escape") commitEdit(); }}
+            style={{
+              fontSize: el.fontSize ?? 28,
+              fontWeight: el.fontWeight ?? "400",
+              color: el.color ?? "#0f172a",
+              lineHeight: 1.3,
+              fontFamily: (el as any).fontFamily ?? "Inter",
+              textAlign: ((el as any).textAlign ?? "left") as any,
+            }}
+            className="bg-transparent border-none outline-none resize-none w-full h-full px-2 py-1 ring-2 ring-cyan-400/60 rounded"
+          />
+        ) : (
+          <div
+            style={{
+              fontSize: el.fontSize ?? 28,
+              fontWeight: el.fontWeight ?? "400",
+              color: el.color ?? "#0f172a",
+              lineHeight: 1.3,
+              whiteSpace: "pre-wrap",
+              fontFamily: (el as any).fontFamily ?? "Inter",
+              textAlign: ((el as any).textAlign ?? "left") as any,
+              overflow: "hidden",
+            }}
+            className="px-2 py-1 select-none w-full h-full"
+          >
+            {el.content}
+          </div>
+        )}
+      </div>
+    </Rnd>
   );
 };
 
-/* ── Scaled Slide (used in canvas, filmstrip, presentation) ── */
-const ScaledSlide = ({
-  elements, bgImage, interactive, scale: forcedScale, onUpdateElement, onDeleteElement,
+/* ── Scaled Slide (canvas main view) ── */
+const InteractiveCanvas = ({
+  elements,
+  bgImage,
+  scale,
+  selectedId,
+  onSelectElement,
+  onUpdateElement,
+  onDeleteElement,
+  onDeselect,
 }: {
   elements: SlideElement[];
   bgImage?: string;
-  interactive?: boolean;
-  scale?: number;
-  onUpdateElement?: (id: string, patch: Partial<SlideElement>) => void;
-  onDeleteElement?: (id: string) => void;
+  scale: number;
+  selectedId: string | null;
+  onSelectElement: (id: string) => void;
+  onUpdateElement: (id: string, patch: Partial<SlideElement>) => void;
+  onDeleteElement: (id: string) => void;
+  onDeselect: () => void;
 }) => {
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const [autoScale, setAutoScale] = useState(1);
-
-  const recalc = useCallback(() => {
-    if (!wrapperRef.current) return;
-    const p = wrapperRef.current.parentElement;
-    if (!p) return;
-    setAutoScale(Math.min(p.clientWidth / 1920, p.clientHeight / 1080, 1));
-  }, []);
-
-  useEffect(() => {
-    if (forcedScale != null) return;
-    recalc();
-    window.addEventListener("resize", recalc);
-    return () => window.removeEventListener("resize", recalc);
-  }, [recalc, forcedScale]);
-
-  const s = forcedScale ?? autoScale;
-
-  // Sort: images/shapes first (z-order), then text on top
   const sorted = [...elements].sort((a, b) => {
     const order = { image: 0, shape: 1, text: 2 };
     return (order[a.type] ?? 1) - (order[b.type] ?? 1);
@@ -220,48 +352,68 @@ const ScaledSlide = ({
 
   return (
     <div
-      ref={wrapperRef}
       className="absolute bg-white shadow-2xl shadow-black/10 ring-1 ring-border/20 rounded-lg overflow-hidden"
       style={{
         width: 1920, height: 1080,
         left: "50%", top: "50%",
-        marginLeft: -960, marginTop: -540,
-        transform: `scale(${s})`,
+        transform: `translate(-50%, -50%) scale(${scale})`,
         transformOrigin: "center center",
       }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget || (e.target as HTMLElement).dataset.canvas) {
+          onDeselect();
+        }
+      }}
     >
-      {/* Background gradient for cover slides */}
-      {bgImage && (
-        <>
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-[1]" />
-        </>
-      )}
+      {bgImage && <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-[1]" />}
+      <div className="absolute inset-0 z-[2]" data-canvas="true" style={{ position: "relative" }}>
+        {sorted.map((el) => (
+          <RndElement
+            key={el.id}
+            el={el}
+            scale={scale}
+            selected={selectedId === el.id}
+            onSelect={() => onSelectElement(el.id)}
+            onUpdate={(patch) => onUpdateElement(el.id, patch)}
+            onDelete={() => onDeleteElement(el.id)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
 
-      <div className="absolute inset-0 z-[2]">
-        {sorted.map((el) =>
-          interactive ? (
-            <CanvasElement
-              key={el.id}
-              el={el}
-              scale={s}
-              onUpdate={(patch) => onUpdateElement?.(el.id, patch)}
-              onDelete={() => onDeleteElement?.(el.id)}
-            />
-          ) : (
-            /* Static render for filmstrip / presentation */
-            el.type === "image" ? (
-              <div key={el.id} style={{ position: "absolute", left: el.x, top: el.y, width: el.width ?? 400, height: el.height ?? 400, opacity: el.opacity ?? 1 }}>
-                <img src={el.content} alt="" className="w-full h-full object-cover rounded-lg" />
-              </div>
-            ) : el.type === "shape" ? (
-              <div key={el.id} style={{ position: "absolute", left: el.x, top: el.y, width: el.width ?? 160, height: el.height ?? 160, background: el.content, borderRadius: 16 }} />
-            ) : (
-              <div key={el.id} style={{ position: "absolute", left: el.x, top: el.y, fontSize: el.fontSize ?? 28, fontWeight: el.fontWeight ?? "400", color: el.color ?? "#0f172a", lineHeight: 1.3, whiteSpace: "pre-wrap", maxWidth: 1400 }} className="px-2 py-1">
-                {el.content}
-              </div>
-            )
-          )
-        )}
+/* ── Presentation Slide (non-interactive, properly scaled) ── */
+const PresentationSlide = ({ elements, bgImage }: { elements: SlideElement[]; bgImage?: string }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [s, setS] = useState(1);
+
+  useEffect(() => {
+    const calc = () => {
+      if (!containerRef.current?.parentElement) return;
+      const p = containerRef.current.parentElement;
+      setS(Math.min(p.clientWidth / 1920, p.clientHeight / 1080));
+    };
+    calc();
+    window.addEventListener("resize", calc);
+    return () => window.removeEventListener("resize", calc);
+  }, []);
+
+  const sorted = [...elements].sort((a, b) => {
+    const order = { image: 0, shape: 1, text: 2 };
+    return (order[a.type] ?? 1) - (order[b.type] ?? 1);
+  });
+
+  return (
+    <div ref={containerRef} className="w-full h-full flex items-center justify-center">
+      <div
+        className="bg-white rounded-lg overflow-hidden shadow-2xl relative"
+        style={{ width: 1920, height: 1080, transform: `scale(${s})`, transformOrigin: "center center" }}
+      >
+        {bgImage && <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-[1]" />}
+        <div className="absolute inset-0 z-[2]">
+          {sorted.map((el) => <StaticElement key={el.id} el={el} />)}
+        </div>
       </div>
     </div>
   );
@@ -274,7 +426,6 @@ const Editor = () => {
 
   const campaign = initialCampaigns.find((c) => c.id === id) ?? initialCampaigns[0];
 
-  // Convert legacy slides to element-based
   const [slidesElements, setSlidesElements] = useState<SlideElement[][]>(() =>
     campaign.slides.map(slideToElements)
   );
@@ -283,6 +434,7 @@ const Editor = () => {
   );
 
   const [activeIdx, setActiveIdx] = useState(0);
+  const [selectedElId, setSelectedElId] = useState<string | null>(null);
   const [docTitle, setDocTitle] = useState(campaign.title);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [activeTool, setActiveTool] = useState<string | null>(null);
@@ -291,33 +443,68 @@ const Editor = () => {
   const [exportProgress, setExportProgress] = useState(0);
   const [exportMsg, setExportMsg] = useState("");
 
-  const currentElements = slidesElements[activeIdx] ?? [];
+  // Clipboard for copy/paste
+  const [clipboard, setClipboard] = useState<SlideElement | null>(null);
+
+  // History for current slide
+  const history = useHistory(slidesElements[activeIdx] ?? []);
+
+  // Sync history state back to slidesElements
+  useEffect(() => {
+    setSlidesElements((prev) => prev.map((els, i) => (i === activeIdx ? history.state : els)));
+  }, [history.state, activeIdx]);
+
+  // When switching slides, reset history
+  const prevActiveRef = useRef(activeIdx);
+  useEffect(() => {
+    if (prevActiveRef.current !== activeIdx) {
+      history.reset(slidesElements[activeIdx] ?? []);
+      prevActiveRef.current = activeIdx;
+      setSelectedElId(null);
+    }
+  }, [activeIdx]);
+
+  const currentElements = history.state;
+
+  // Canvas scale
+  const canvasAreaRef = useRef<HTMLDivElement>(null);
+  const [canvasScale, setCanvasScale] = useState(0.5);
+
+  const recalcScale = useCallback(() => {
+    if (!canvasAreaRef.current) return;
+    const p = canvasAreaRef.current;
+    const sx = (p.clientWidth - 80) / 1920;
+    const sy = (p.clientHeight - 80) / 1080;
+    setCanvasScale(Math.min(sx, sy, 1));
+  }, []);
+
+  useEffect(() => {
+    recalcScale();
+    window.addEventListener("resize", recalcScale);
+    return () => window.removeEventListener("resize", recalcScale);
+  }, [recalcScale]);
 
   const updateElement = (elId: string, patch: Partial<SlideElement>) => {
-    setSlidesElements((prev) =>
-      prev.map((els, i) =>
-        i === activeIdx ? els.map((e) => (e.id === elId ? { ...e, ...patch } : e)) : els
-      )
+    history.set((prev) =>
+      prev.map((e) => (e.id === elId ? { ...e, ...patch } : e))
     );
     setSaveState("idle");
   };
 
   const deleteElement = (elId: string) => {
-    setSlidesElements((prev) =>
-      prev.map((els, i) => (i === activeIdx ? els.filter((e) => e.id !== elId) : els))
-    );
+    history.set((prev) => prev.filter((e) => e.id !== elId));
+    if (selectedElId === elId) setSelectedElId(null);
   };
 
   const addTextElement = () => {
     const el: SlideElement = {
       id: uid(), type: "text",
       content: "Doble clic para editar",
-      x: 760, y: 440,
+      x: 660, y: 440, width: 600, height: 80,
       fontSize: 48, fontWeight: "600", color: "#0f172a",
     };
-    setSlidesElements((prev) =>
-      prev.map((els, i) => (i === activeIdx ? [...els, el] : els))
-    );
+    history.set((prev) => [...prev, el]);
+    setSelectedElId(el.id);
     toast({ title: "📝 Texto añadido", description: "Arrastra para posicionar, doble clic para editar." });
   };
 
@@ -325,20 +512,16 @@ const Editor = () => {
     const el: SlideElement = {
       id: uid(), type: "shape",
       content: "#e2e8f0",
-      x: 660, y: 340,
-      width: 600, height: 400,
+      x: 660, y: 340, width: 600, height: 400,
     };
-    // Also add a label
     const label: SlideElement = {
       id: uid(), type: "text",
       content: "Simulación de Imagen",
-      x: 810, y: 510,
+      x: 810, y: 510, width: 300, height: 50,
       fontSize: 28, fontWeight: "500", color: "#94a3b8",
     };
-    setSlidesElements((prev) =>
-      prev.map((els, i) => (i === activeIdx ? [...els, el, label] : els))
-    );
-    toast({ title: "🖼️ Imagen añadida", description: "Placeholder de imagen insertado en el lienzo." });
+    history.set((prev) => [...prev, el, label]);
+    toast({ title: "🖼️ Imagen añadida", description: "Placeholder de imagen insertado." });
   };
 
   const handleToolClick = (action: string) => {
@@ -350,15 +533,77 @@ const Editor = () => {
   const addSlide = () => {
     const newId = `new-${Date.now()}`;
     setSlideMeta((prev) => [...prev, { id: newId, type: "content" as const, image: undefined }]);
-    setSlidesElements((prev) => [
-      ...prev,
-      [
-        { id: uid(), type: "text", content: "Nueva Diapositiva", x: 80, y: 80, fontSize: 64, fontWeight: "800", color: "#0f172a" },
-        { id: uid(), type: "text", content: "Haz clic para editar este contenido", x: 80, y: 200, fontSize: 32, fontWeight: "400", color: "#64748b" },
-      ],
-    ]);
+    const newEls: SlideElement[] = [
+      { id: uid(), type: "text", content: "Nueva Diapositiva", x: 80, y: 80, width: 800, height: 80, fontSize: 64, fontWeight: "800", color: "#0f172a" },
+      { id: uid(), type: "text", content: "Haz clic para editar este contenido", x: 80, y: 200, width: 800, height: 50, fontSize: 32, fontWeight: "400", color: "#64748b" },
+    ];
+    setSlidesElements((prev) => [...prev, newEls]);
     setActiveIdx(slideMeta.length);
   };
+
+  /* ── Keyboard shortcuts (global) ── */
+  useEffect(() => {
+    if (presenting) return;
+
+    const handler = (e: KeyboardEvent) => {
+      const isMeta = e.ctrlKey || e.metaKey;
+
+      // Undo
+      if (isMeta && e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        history.undo();
+        return;
+      }
+      // Redo
+      if ((isMeta && e.shiftKey && e.key === "z") || (isMeta && e.key === "y")) {
+        e.preventDefault();
+        history.redo();
+        return;
+      }
+
+      // Don't handle shortcuts when editing text
+      if (document.activeElement?.tagName === "TEXTAREA" || document.activeElement?.tagName === "INPUT") return;
+
+      // Copy
+      if (isMeta && e.key === "c" && selectedElId) {
+        e.preventDefault();
+        const found = currentElements.find((el) => el.id === selectedElId);
+        if (found) setClipboard({ ...found });
+        toast({ title: "📋 Copiado", description: "Elemento copiado al portapapeles." });
+        return;
+      }
+      // Cut
+      if (isMeta && e.key === "x" && selectedElId) {
+        e.preventDefault();
+        const found = currentElements.find((el) => el.id === selectedElId);
+        if (found) {
+          setClipboard({ ...found });
+          deleteElement(selectedElId);
+          toast({ title: "✂️ Cortado", description: "Elemento cortado." });
+        }
+        return;
+      }
+      // Paste
+      if (isMeta && e.key === "v" && clipboard) {
+        e.preventDefault();
+        const pasted = { ...clipboard, id: uid(), x: clipboard.x + 40, y: clipboard.y + 40 };
+        history.set((prev) => [...prev, pasted]);
+        setSelectedElId(pasted.id);
+        toast({ title: "📌 Pegado", description: "Elemento pegado." });
+        return;
+      }
+      // Delete
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedElId) {
+        e.preventDefault();
+        deleteElement(selectedElId);
+        toast({ title: "🗑️ Eliminado", description: "Elemento eliminado." });
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [presenting, selectedElId, currentElements, clipboard, history]);
 
   /* ── Save ── */
   const handleSave = async () => {
@@ -399,7 +644,7 @@ const Editor = () => {
     );
   };
 
-  /* ── Presentation keyboard (always active for presenting) ── */
+  /* ── Presentation keyboard ── */
   useEffect(() => {
     if (!presenting) return;
     const handler = (e: KeyboardEvent) => {
@@ -415,9 +660,7 @@ const Editor = () => {
   const presRef = useRef<HTMLDivElement>(null);
   const startPresenting = () => {
     setPresenting(true);
-    setTimeout(() => {
-      presRef.current?.requestFullscreen?.().catch(() => {});
-    }, 100);
+    setTimeout(() => { presRef.current?.requestFullscreen?.().catch(() => {}); }, 100);
   };
 
   return (
@@ -458,6 +701,27 @@ const Editor = () => {
             onChange={(e) => { setDocTitle(e.target.value); setSaveState("idle"); }}
             className="text-sm font-bold text-foreground bg-transparent border-none outline-none focus:ring-0 w-64 truncate"
           />
+          {/* Undo/Redo buttons */}
+          <div className="flex items-center gap-0.5 ml-2">
+            <Button
+              onClick={() => history.undo()}
+              disabled={!history.canUndo}
+              variant="ghost" size="sm"
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground disabled:opacity-30"
+              title="Deshacer (Ctrl+Z)"
+            >
+              <Undo2 size={14} />
+            </Button>
+            <Button
+              onClick={() => history.redo()}
+              disabled={!history.canRedo}
+              variant="ghost" size="sm"
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground disabled:opacity-30"
+              title="Rehacer (Ctrl+Shift+Z)"
+            >
+              <Redo2 size={14} />
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
@@ -521,22 +785,25 @@ const Editor = () => {
 
         {/* ── Canvas Area ── */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 relative overflow-hidden">
+          <div ref={canvasAreaRef} className="flex-1 relative overflow-hidden bg-slate-100">
             <AnimatePresence mode="wait">
               <motion.div
                 key={slideMeta[activeIdx]?.id}
-                initial={{ opacity: 0, scale: 0.96 }}
+                initial={{ opacity: 0, scale: 0.97 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.96 }}
-                transition={{ duration: 0.25 }}
+                exit={{ opacity: 0, scale: 0.97 }}
+                transition={{ duration: 0.2 }}
                 className="absolute inset-0"
               >
-                <ScaledSlide
+                <InteractiveCanvas
                   elements={currentElements}
                   bgImage={slideMeta[activeIdx]?.image}
-                  interactive
+                  scale={canvasScale}
+                  selectedId={selectedElId}
+                  onSelectElement={setSelectedElId}
                   onUpdateElement={updateElement}
                   onDeleteElement={deleteElement}
+                  onDeselect={() => setSelectedElId(null)}
                 />
               </motion.div>
             </AnimatePresence>
@@ -555,29 +822,14 @@ const Editor = () => {
               <button
                 key={meta.id}
                 onClick={() => setActiveIdx(i)}
-                className={`relative flex-shrink-0 w-40 h-[88px] rounded-lg overflow-hidden border-2 transition-all duration-150 ${
+                className={`relative flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all duration-150 ${
                   i === activeIdx
                     ? "border-cyan-500 shadow-lg shadow-cyan-500/15 ring-1 ring-cyan-500/30"
                     : "border-border/30 hover:border-primary/30"
                 }`}
+                style={{ width: 160, height: 90 }}
               >
-                <div className="absolute inset-0 bg-slate-50">
-                  <div className="absolute inset-0" style={{ transform: `scale(${40 / 1920})`, transformOrigin: "top left", width: 1920, height: 1080 }}>
-                    {(slidesElements[i] ?? []).map((el) =>
-                      el.type === "image" ? (
-                        <div key={el.id} style={{ position: "absolute", left: el.x, top: el.y, width: el.width ?? 400, height: el.height ?? 400, opacity: el.opacity ?? 1 }}>
-                          <img src={el.content} alt="" className="w-full h-full object-cover" />
-                        </div>
-                      ) : el.type === "shape" ? (
-                        <div key={el.id} style={{ position: "absolute", left: el.x, top: el.y, width: el.width ?? 160, height: el.height ?? 160, background: el.content, borderRadius: 16 }} />
-                      ) : (
-                        <div key={el.id} style={{ position: "absolute", left: el.x, top: el.y, fontSize: el.fontSize ?? 28, fontWeight: el.fontWeight ?? "400", color: el.color ?? "#0f172a", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden" }}>
-                          {el.content}
-                        </div>
-                      )
-                    )}
-                  </div>
-                </div>
+                <SlideThumbnail elements={slidesElements[i] ?? []} bgImage={meta.image} />
                 <div className={`absolute top-1 left-1.5 text-[9px] font-bold rounded px-1 z-10 ${
                   i === activeIdx ? "bg-cyan-500 text-slate-950" : "bg-black/40 text-white/70"
                 }`}>
@@ -600,8 +852,6 @@ const Editor = () => {
 };
 
 /* ── Fullscreen Presentation Mode ── */
-import { forwardRef } from "react";
-
 const PresentationOverlay = forwardRef<HTMLDivElement, {
   allElements: SlideElement[][];
   slideMeta: { id: string; type: string; image?: string }[];
@@ -628,11 +878,8 @@ const PresentationOverlay = forwardRef<HTMLDivElement, {
     return () => { clearTimeout(timerRef.current); clearTimeout(cursorTimerRef.current); };
   }, []);
 
-  // Listen for fullscreenchange to sync state
   useEffect(() => {
-    const handler = () => {
-      if (!document.fullscreenElement) onClose();
-    };
+    const handler = () => { if (!document.fullscreenElement) onClose(); };
     document.addEventListener("fullscreenchange", handler);
     return () => document.removeEventListener("fullscreenchange", handler);
   }, [onClose]);
@@ -648,32 +895,25 @@ const PresentationOverlay = forwardRef<HTMLDivElement, {
       <AnimatePresence mode="wait">
         <motion.div
           key={slideMeta[activeIdx]?.id}
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
+          initial={{ opacity: 0, x: 40 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -40 }}
           transition={{ duration: 0.3 }}
-          className="w-full h-full flex items-center justify-center"
+          className="w-full h-full"
         >
-          <div className="relative" style={{ width: "min(95vw, 170vh)", aspectRatio: "16/9" }}>
-            <div className="absolute inset-0 bg-white rounded-lg overflow-hidden shadow-2xl">
-              <ScaledSlide
-                elements={allElements[activeIdx] ?? []}
-                bgImage={slideMeta[activeIdx]?.image}
-                scale={Math.min(window.innerWidth * 0.95 / 1920, window.innerHeight * 0.95 / 1080)}
-              />
-            </div>
-          </div>
+          <PresentationSlide
+            elements={allElements[activeIdx] ?? []}
+            bgImage={slideMeta[activeIdx]?.image}
+          />
         </motion.div>
       </AnimatePresence>
 
-      {/* Close */}
       <motion.div animate={{ opacity: showControls ? 1 : 0 }} className="absolute top-4 right-4">
         <button onClick={onClose} className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white backdrop-blur-sm transition">
           <X size={18} />
         </button>
       </motion.div>
 
-      {/* Bottom controls */}
       <motion.div
         animate={{ opacity: showControls ? 1 : 0 }}
         className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-white/10 backdrop-blur-md px-6 py-3 rounded-full text-white"
@@ -690,11 +930,7 @@ PresentationOverlay.displayName = "PresentationOverlay";
 /* ── Export PDF Modal ── */
 const ExportPdfOverlay = ({
   progress, message, onClose,
-}: {
-  progress: number;
-  message: string;
-  onClose: () => void;
-}) => (
+}: { progress: number; message: string; onClose: () => void }) => (
   <motion.div
     initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
     className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center"
