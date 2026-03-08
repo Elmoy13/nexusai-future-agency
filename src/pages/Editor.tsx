@@ -890,6 +890,12 @@ const Editor = () => {
     else { setActiveTool(activeTool === action ? null : action); }
   };
 
+  const applyTemplate = (elements: SlideElement[]) => {
+    history.set(elements);
+    setSelectedIds(new Set());
+    toast({ title: "📐 Plantilla aplicada", description: "El diseño ha sido reemplazado." });
+  };
+
   const addSlide = () => {
     const newId = `new-${Date.now()}`;
     setSlideMeta((prev) => [...prev, { id: newId, type: "content" as const, image: undefined }]);
