@@ -6,8 +6,10 @@ import { toast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Save, FileDown, Check, Loader2,
   LayoutTemplate, Type, Image, Hexagon, Sparkles,
-  Plus, ChevronLeft, ChevronRight, Cloud, Palette
+  Plus, ChevronLeft, ChevronRight, Cloud, Palette,
+  Play, X
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { initialCampaigns } from "@/components/dashboard/briefs/campaignData";
 import type { Campaign, SlideData } from "@/components/dashboard/briefs/campaignData";
 
@@ -207,6 +209,10 @@ const Editor = () => {
   const [docTitle, setDocTitle] = useState(campaign.title);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [activeTool, setActiveTool] = useState<string | null>(null);
+  const [presenting, setPresenting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [exportMsg, setExportMsg] = useState("");
 
   const activeSlide = slides[activeIdx];
 
@@ -252,17 +258,54 @@ const Editor = () => {
   };
 
   const handleExport = () => {
-    toast({ title: "📋 Exportando PDF", description: "Generando archivo de alta resolución… (Simulado)" });
+    setExporting(true);
+    setExportProgress(0);
+    setExportMsg("Preparando assets...");
+    const steps = [
+      { at: 600, progress: 35, msg: "Preparando assets..." },
+      { at: 1200, progress: 65, msg: "Renderizando tipografías..." },
+      { at: 2000, progress: 90, msg: "Optimizando resolución..." },
+      { at: 2500, progress: 100, msg: "¡PDF Listo!" },
+    ];
+    steps.forEach(({ at, progress, msg }) =>
+      setTimeout(() => { setExportProgress(progress); setExportMsg(msg); }, at)
+    );
   };
+
+  /* Presenting keyboard */
+  useEffect(() => {
+    if (!presenting) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPresenting(false);
+      if (e.key === "ArrowRight" || e.key === " ") setActiveIdx((i) => Math.min(slides.length - 1, i + 1));
+      if (e.key === "ArrowLeft") setActiveIdx((i) => Math.max(0, i - 1));
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [presenting, slides.length]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-slate-100 overflow-hidden">
+      {/* Presentation overlay */}
+      <AnimatePresence>
+        {presenting && (
+          <PresentationOverlay slides={slides} activeIdx={activeIdx} setActiveIdx={setActiveIdx} onClose={() => setPresenting(false)} />
+        )}
+      </AnimatePresence>
+
+      {/* Export PDF overlay */}
+      <AnimatePresence>
+        {exporting && (
+          <ExportPdfOverlay progress={exportProgress} message={exportMsg} onClose={() => { setExporting(false); setExportProgress(0); }} />
+        )}
+      </AnimatePresence>
       {/* ── Top Bar ── */}
       <div className="h-14 bg-white border-b border-border/40 flex items-center justify-between px-4 flex-shrink-0 z-10">
         <div className="flex items-center gap-3">
-          <Button onClick={() => navigate("/dashboard")} variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5 h-8 px-3 text-xs">
-            <ArrowLeft size={14} /> Volver
+          <Button onClick={() => navigate(-1)} variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5 h-8 px-3 text-xs">
+           <ArrowLeft size={14} /> Volver
           </Button>
+
           <div className="w-px h-6 bg-border/40" />
           <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center">
             <Hexagon size={14} className="text-primary" />
@@ -279,6 +322,9 @@ const Editor = () => {
             <Cloud size={12} className={saveState === "saved" ? "text-emerald-500" : "text-muted-foreground/50"} />
             {saveState === "saving" ? "Sincronizando..." : saveState === "saved" ? "Guardado" : "Guardado automáticamente"}
           </span>
+          <Button onClick={() => setPresenting(true)} variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 border-border/40">
+            <Play size={13} /> Presentar
+          </Button>
           <Button onClick={handleExport} variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 border-border/40">
             <FileDown size={13} /> Exportar PDF
           </Button>
@@ -400,5 +446,101 @@ const Editor = () => {
     </div>
   );
 };
+
+/* ── Fullscreen Presentation Mode ── */
+const PresentationOverlay = ({
+  slides, activeIdx, setActiveIdx, onClose,
+}: {
+  slides: SlideData[];
+  activeIdx: number;
+  setActiveIdx: React.Dispatch<React.SetStateAction<number>>;
+  onClose: () => void;
+}) => {
+  const [showControls, setShowControls] = useState(true);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const hideAfterDelay = () => {
+    clearTimeout(timerRef.current);
+    setShowControls(true);
+    timerRef.current = setTimeout(() => setShowControls(false), 2500);
+  };
+
+  useEffect(() => { hideAfterDelay(); return () => clearTimeout(timerRef.current); }, []);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 bg-black flex items-center justify-center"
+      onMouseMove={hideAfterDelay}
+    >
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={slides[activeIdx].id}
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          transition={{ duration: 0.3 }}
+          className="w-full h-full flex items-center justify-center"
+        >
+          <div className="relative" style={{ width: "min(90vw, 160vh)", aspectRatio: "16/9" }}>
+            <div className="absolute inset-0 bg-white rounded-lg overflow-hidden shadow-2xl">
+              <SlideCanvas slide={slides[activeIdx]} onUpdate={() => {}} />
+            </div>
+          </div>
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Controls */}
+      <motion.div
+        animate={{ opacity: showControls ? 1 : 0 }}
+        className="absolute top-4 right-4"
+      >
+        <button onClick={onClose} className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white backdrop-blur-sm transition">
+          <X size={18} />
+        </button>
+      </motion.div>
+
+      <motion.div
+        animate={{ opacity: showControls ? 1 : 0 }}
+        className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-white/10 backdrop-blur-md px-6 py-3 rounded-full text-white"
+      >
+        <button onClick={() => setActiveIdx((i) => Math.max(0, i - 1))} disabled={activeIdx === 0} className="disabled:opacity-30 hover:text-cyan-400 transition"><ChevronLeft size={20} /></button>
+        <span className="text-sm font-medium tabular-nums min-w-[80px] text-center">{activeIdx + 1} / {slides.length}</span>
+        <button onClick={() => setActiveIdx((i) => Math.min(slides.length - 1, i + 1))} disabled={activeIdx === slides.length - 1} className="disabled:opacity-30 hover:text-cyan-400 transition"><ChevronRight size={20} /></button>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+/* ── Export PDF Modal ── */
+const ExportPdfOverlay = ({
+  progress, message, onClose,
+}: {
+  progress: number;
+  message: string;
+  onClose: () => void;
+}) => (
+  <motion.div
+    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center"
+  >
+    <motion.div
+      initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+      className="bg-background rounded-2xl shadow-2xl p-8 w-[420px] flex flex-col items-center gap-5"
+    >
+      <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+        {progress < 100 ? <Loader2 size={24} className="text-primary animate-spin" /> : <Check size={24} className="text-emerald-500" />}
+      </div>
+      <h3 className="text-lg font-bold text-foreground">{progress < 100 ? "Exportando Presentación" : "¡Exportación Completa!"}</h3>
+      <Progress value={progress} className="h-2 w-full" />
+      <p className="text-sm text-muted-foreground">{message}</p>
+      {progress >= 100 && (
+        <Button onClick={onClose} className="mt-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold">
+          <FileDown size={14} className="mr-2" /> Descargar Archivo
+        </Button>
+      )}
+    </motion.div>
+  </motion.div>
+);
 
 export default Editor;
