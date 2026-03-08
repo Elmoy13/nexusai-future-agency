@@ -1,4 +1,5 @@
 import { useState } from "react";
+import PresentationMode from "./PresentationMode";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,7 @@ interface Props {
 
 const BrandHub = ({ brandName, onBack }: Props) => {
   const [slides, setSlides] = useState(initialSlides);
+  const [presentingSlide, setPresentingSlide] = useState<SlideCard | null>(null);
 
   const updateStatus = (id: string, status: SlideStatus) => {
     setSlides((prev) => prev.map((s) => (s.id === id ? { ...s, status } : s)));
@@ -91,6 +93,17 @@ const BrandHub = ({ brandName, onBack }: Props) => {
       description: `Generando PDF de "${title}"... (Simulado para Demo)`,
     });
   };
+
+  if (presentingSlide) {
+    return (
+      <AnimatePresence>
+        <PresentationMode
+          campaignTitle={presentingSlide.title}
+          onClose={() => setPresentingSlide(null)}
+        />
+      </AnimatePresence>
+    );
+  }
 
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
@@ -259,7 +272,11 @@ const BrandHub = ({ brandName, onBack }: Props) => {
                       <button className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors" title="Cambiar imagen">
                         <ImagePlus size={14} />
                       </button>
-                      <button className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors" title="Ver presentación">
+                      <button
+                        onClick={() => setPresentingSlide(slide)}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                        title="Ver presentación"
+                      >
                         <Play size={14} />
                       </button>
                     </div>
