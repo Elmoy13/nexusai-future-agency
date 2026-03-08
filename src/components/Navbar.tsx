@@ -1,8 +1,11 @@
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
-import { Link } from "react-router-dom";
 
-const Navbar = () => {
+interface NavbarProps {
+  onOpenModal?: () => void;
+}
+
+const Navbar = ({ onOpenModal }: NavbarProps) => {
   return (
     <motion.nav
       initial={{ y: -30, opacity: 0 }}
@@ -33,10 +36,13 @@ const Navbar = () => {
         </div>
 
         {/* CTA */}
-        <Link to="/dashboard" className="border-gradient-animated rounded-full px-5 py-2 text-sm font-medium text-foreground hover:glow-cyan transition-all duration-300 flex items-center gap-2">
+        <button
+          onClick={onOpenModal}
+          className="border-gradient-animated rounded-full px-5 py-2 text-sm font-medium text-foreground hover:glow-cyan transition-all duration-300 flex items-center gap-2"
+        >
           <Sparkles size={14} className="icon-neon text-cyan-glow" />
           Acceder al Sistema
-        </Link>
+        </button>
       </div>
     </motion.nav>
   );
