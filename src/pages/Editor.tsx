@@ -100,6 +100,7 @@ const tools = [
   { icon: LayoutTemplate, label: "Plantillas", action: "templates" },
   { icon: Type, label: "Texto", action: "text" },
   { icon: Image, label: "Imágenes", action: "image" },
+  { icon: Smartphone, label: "Mockups", action: "mockups" },
   { icon: Palette, label: "Brand Hub", action: "brand" },
 ];
 
