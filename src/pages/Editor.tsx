@@ -892,7 +892,7 @@ const FormatBar = ({
 const RndElement = ({
   el, scale, selected, onSelect, onUpdate, onDelete,
   onDragMove, onDragEnd: onDragEndCb, eyedropperMode, onImageClick,
-  onMockupDrop, onMockupChildAdjust,
+  onMockupDrop, onMockupChildAdjust, onMockupNativeFileDrop,
 }: {
   el: SlideElement;
   scale: number;
@@ -906,6 +906,7 @@ const RndElement = ({
   onImageClick?: (elId: string, localX: number, localY: number) => void;
   onMockupDrop?: (mockupId: string, imgSrc: string, imgElId: string) => void;
   onMockupChildAdjust?: (id: string, patch: Partial<SlideElement>) => void;
+  onMockupNativeFileDrop?: (mockupId: string, src: string) => void;
 }) => {
   const [editing, setEditing] = useState(false);
   const [localContent, setLocalContent] = useState(el.content);
