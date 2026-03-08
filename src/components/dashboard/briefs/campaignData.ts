@@ -19,6 +19,12 @@ export interface SlideElement {
   fontWeight?: string;
   color?: string;
   opacity?: number;
+  zIndex?: number;
+  rotation?: number;
+  flipH?: boolean;
+  flipV?: boolean;
+  fontFamily?: string;
+  textAlign?: "left" | "center" | "right";
 }
 
 export interface SlideData {
