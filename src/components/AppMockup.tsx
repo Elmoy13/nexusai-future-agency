@@ -1,17 +1,14 @@
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 
-const lines = [
-  { text: '$ nexus-ai start-campaign --brand="Acme Corp"', color: "text-muted-foreground", delay: 0 },
-  { text: "→ Ejecutando Agente Entrevistador... Brief completado.", color: "text-muted-foreground", delay: 0.4 },
-  { text: "→ Definiendo Look & Feel y Públicos Digitales...", color: "text-muted-foreground", delay: 0.8 },
-  { text: "→ Generando 30 posts alineados a la estrategia...", color: "text-cyan-glow", delay: 1.2 },
-  { text: "", color: "", delay: 1.6 },
-  {
-    text: "[NexusAI] > Parrilla lista para revisión humana. Tiempo: 4.2s",
-    color: "text-emerald-accent",
-    delay: 2.0,
-  },
+const typedLine = { text: '$ nexus-ai start-campaign --brand="{Tu_Marca_Aquí}"', color: "text-muted-foreground" };
+
+const instantLines = [
+  { text: "→ Ejecutando Agente Entrevistador... Brief completado.", color: "text-muted-foreground", delay: 0.8 },
+  { text: "→ Definiendo Look & Feel y Públicos Digitales...", color: "text-muted-foreground", delay: 1.6 },
+  { text: "→ Generando 30 posts alineados a la estrategia...", color: "text-cyan-glow", delay: 2.4 },
+  { text: "", color: "", delay: 3.2 },
+  { text: "[NexusAI] > Parrilla multimodal lista. Tiempo de ejecución: 3.8s", color: "text-emerald-accent", delay: 4.0 },
 ];
 
 const TypingText = ({ text, color, startDelay }: { text: string; color: string; startDelay: number }) => {
