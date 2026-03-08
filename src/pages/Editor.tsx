@@ -11,189 +11,258 @@ import {
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { initialCampaigns } from "@/components/dashboard/briefs/campaignData";
-import type { Campaign, SlideData } from "@/components/dashboard/briefs/campaignData";
+import type { SlideData, SlideElement } from "@/components/dashboard/briefs/campaignData";
+
+/* ── helpers ── */
+const uid = () => `el-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+/** Convert legacy slide fields into an elements array for the free canvas */
+function slideToElements(slide: SlideData): SlideElement[] {
+  if (slide.elements?.length) return slide.elements;
+
+  const els: SlideElement[] = [];
+
+  if (slide.type === "cover") {
+    els.push({ id: uid(), type: "text", content: slide.title, x: 80, y: 680, fontSize: 96, fontWeight: "900", color: "#ffffff" });
+    if (slide.body) els.push({ id: uid(), type: "text", content: slide.body, x: 80, y: 820, fontSize: 28, fontWeight: "400", color: "rgba(255,255,255,0.5)" });
+    if (slide.image) els.push({ id: uid(), type: "image", content: slide.image, x: 0, y: 0, width: 1920, height: 1080, opacity: 0.7 });
+  } else if (slide.type === "content") {
+    els.push({ id: uid(), type: "text", content: slide.title, x: 860, y: 80, fontSize: 56, fontWeight: "800", color: "#0f172a" });
+    if (slide.image) els.push({ id: uid(), type: "image", content: slide.image, x: 100, y: 200, width: 600, height: 600 });
+    slide.bullets?.forEach((b, i) => {
+      els.push({ id: uid(), type: "text", content: b, x: 860, y: 220 + i * 120, fontSize: 28, fontWeight: "400", color: "#475569" });
+    });
+  } else {
+    els.push({ id: uid(), type: "text", content: slide.title, x: 80, y: 80, fontSize: 56, fontWeight: "800", color: "#0f172a" });
+    if (slide.body) els.push({ id: uid(), type: "text", content: slide.body, x: 80, y: 180, fontSize: 32, fontWeight: "400", color: "#64748b" });
+    if (slide.image) els.push({ id: uid(), type: "image", content: slide.image, x: 80, y: 280, width: 1000, height: 600 });
+    slide.colors?.forEach((c, i) => {
+      els.push({ id: uid(), type: "shape", content: c.hex, x: 1200 + (i % 2) * 200, y: 280 + Math.floor(i / 2) * 200, width: 160, height: 160 });
+      els.push({ id: uid(), type: "text", content: `${c.name}\n${c.hex}`, x: 1200 + (i % 2) * 200, y: 460 + Math.floor(i / 2) * 200, fontSize: 18, fontWeight: "500", color: "#475569" });
+    });
+  }
+
+  return els;
+}
 
 /* ── Toolbar items ── */
 const tools = [
-  { icon: LayoutTemplate, label: "Plantillas" },
-  { icon: Type, label: "Texto" },
-  { icon: Image, label: "Imágenes" },
-  { icon: Palette, label: "Brand Hub" },
+  { icon: LayoutTemplate, label: "Plantillas", action: "templates" },
+  { icon: Type, label: "Texto", action: "text" },
+  { icon: Image, label: "Imágenes", action: "image" },
+  { icon: Palette, label: "Brand Hub", action: "brand" },
 ];
 
-/* ── Editable text on canvas ── */
-const EditableText = ({
-  value, onChange, className, tag: Tag = "h1",
+/* ── Draggable Element ── */
+const CanvasElement = ({
+  el, scale, onUpdate, onDelete,
 }: {
-  value: string;
-  onChange: (v: string) => void;
-  className?: string;
-  tag?: "h1" | "p" | "span";
+  el: SlideElement;
+  scale: number;
+  onUpdate: (patch: Partial<SlideElement>) => void;
+  onDelete: () => void;
 }) => {
-  const ref = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
+  const [localContent, setLocalContent] = useState(el.content);
+  const textRef = useRef<HTMLTextAreaElement>(null);
 
-  const commit = () => {
+  useEffect(() => { setLocalContent(el.content); }, [el.content]);
+  useEffect(() => { if (editing && textRef.current) textRef.current.focus(); }, [editing]);
+
+  const commitEdit = () => {
     setEditing(false);
-    if (ref.current) onChange(ref.current.innerText);
+    if (localContent !== el.content) onUpdate({ content: localContent });
   };
 
+  if (el.type === "image") {
+    return (
+      <motion.div
+        drag
+        dragMomentum={false}
+        onDragEnd={(_, info) => {
+          onUpdate({ x: el.x + info.offset.x / scale, y: el.y + info.offset.y / scale });
+        }}
+        style={{
+          position: "absolute",
+          left: el.x,
+          top: el.y,
+          width: el.width ?? 400,
+          height: el.height ?? 400,
+          opacity: el.opacity ?? 1,
+          cursor: "grab",
+        }}
+        whileDrag={{ cursor: "grabbing", boxShadow: "0 0 0 3px rgba(6,182,212,0.5)" }}
+        className="group rounded-lg overflow-hidden hover:outline hover:outline-2 hover:outline-dashed hover:outline-cyan-400/50"
+      >
+        <img src={el.content} alt="" className="w-full h-full object-cover pointer-events-none" />
+      </motion.div>
+    );
+  }
+
+  if (el.type === "shape") {
+    return (
+      <motion.div
+        drag
+        dragMomentum={false}
+        onDragEnd={(_, info) => {
+          onUpdate({ x: el.x + info.offset.x / scale, y: el.y + info.offset.y / scale });
+        }}
+        style={{
+          position: "absolute",
+          left: el.x,
+          top: el.y,
+          width: el.width ?? 160,
+          height: el.height ?? 160,
+          background: el.content,
+          borderRadius: 16,
+          cursor: "grab",
+        }}
+        whileDrag={{ cursor: "grabbing", boxShadow: "0 0 0 3px rgba(6,182,212,0.5)" }}
+        className="shadow-sm border border-black/10 hover:outline hover:outline-2 hover:outline-dashed hover:outline-cyan-400/50"
+      />
+    );
+  }
+
+  /* text element */
   return (
-    <div
-      ref={ref}
-      contentEditable={editing}
-      suppressContentEditableWarning
-      onClick={() => setEditing(true)}
-      onBlur={commit}
-      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commit(); } }}
-      className={`
-        relative cursor-pointer transition-all duration-150 outline-none rounded-md
-        ${editing
-          ? "ring-2 ring-cyan-400/60 bg-white/10 px-2 py-1"
-          : "hover:outline hover:outline-2 hover:outline-dashed hover:outline-cyan-400/40 hover:bg-white/5 px-2 py-1"
+    <motion.div
+      drag={!editing}
+      dragMomentum={false}
+      onDragEnd={(_, info) => {
+        if (!editing) {
+          onUpdate({ x: el.x + info.offset.x / scale, y: el.y + info.offset.y / scale });
         }
-        ${className ?? ""}
-      `}
+      }}
+      onDoubleClick={() => setEditing(true)}
+      style={{
+        position: "absolute",
+        left: el.x,
+        top: el.y,
+        cursor: editing ? "text" : "grab",
+        maxWidth: 1400,
+      }}
+      whileDrag={{ cursor: "grabbing", boxShadow: "0 0 0 3px rgba(6,182,212,0.5)" }}
+      className={`group rounded-md transition-all duration-150 ${
+        editing
+          ? "ring-2 ring-cyan-400/60 bg-white/10"
+          : "hover:outline hover:outline-2 hover:outline-dashed hover:outline-cyan-400/40 hover:bg-white/5"
+      }`}
     >
-      {value}
-    </div>
+      {editing ? (
+        <textarea
+          ref={textRef}
+          value={localContent}
+          onChange={(e) => setLocalContent(e.target.value)}
+          onBlur={commitEdit}
+          onKeyDown={(e) => { if (e.key === "Escape") commitEdit(); }}
+          style={{
+            fontSize: el.fontSize ?? 28,
+            fontWeight: el.fontWeight ?? "400",
+            color: el.color ?? "#0f172a",
+            lineHeight: 1.3,
+          }}
+          className="bg-transparent border-none outline-none resize-none w-full min-w-[200px] px-2 py-1"
+          rows={localContent.split("\n").length}
+        />
+      ) : (
+        <div
+          style={{
+            fontSize: el.fontSize ?? 28,
+            fontWeight: el.fontWeight ?? "400",
+            color: el.color ?? "#0f172a",
+            lineHeight: 1.3,
+            whiteSpace: "pre-wrap",
+          }}
+          className="px-2 py-1 select-none"
+        >
+          {el.content}
+        </div>
+      )}
+    </motion.div>
   );
 };
 
-/* ── Slide Canvas Renderer ── */
-const SlideCanvas = ({
-  slide, onUpdate,
+/* ── Scaled Slide (used in canvas, filmstrip, presentation) ── */
+const ScaledSlide = ({
+  elements, bgImage, interactive, scale: forcedScale, onUpdateElement, onDeleteElement,
 }: {
-  slide: SlideData;
-  onUpdate: (patch: Partial<SlideData>) => void;
+  elements: SlideElement[];
+  bgImage?: string;
+  interactive?: boolean;
+  scale?: number;
+  onUpdateElement?: (id: string, patch: Partial<SlideElement>) => void;
+  onDeleteElement?: (id: string) => void;
 }) => {
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
+  const [autoScale, setAutoScale] = useState(1);
 
   const recalc = useCallback(() => {
     if (!wrapperRef.current) return;
-    const parent = wrapperRef.current.parentElement;
-    if (!parent) return;
-    const sx = parent.clientWidth / 1920;
-    const sy = parent.clientHeight / 1080;
-    setScale(Math.min(sx, sy, 1));
+    const p = wrapperRef.current.parentElement;
+    if (!p) return;
+    setAutoScale(Math.min(p.clientWidth / 1920, p.clientHeight / 1080, 1));
   }, []);
 
   useEffect(() => {
+    if (forcedScale != null) return;
     recalc();
     window.addEventListener("resize", recalc);
     return () => window.removeEventListener("resize", recalc);
-  }, [recalc]);
+  }, [recalc, forcedScale]);
+
+  const s = forcedScale ?? autoScale;
+
+  // Sort: images/shapes first (z-order), then text on top
+  const sorted = [...elements].sort((a, b) => {
+    const order = { image: 0, shape: 1, text: 2 };
+    return (order[a.type] ?? 1) - (order[b.type] ?? 1);
+  });
 
   return (
     <div
       ref={wrapperRef}
       className="absolute bg-white shadow-2xl shadow-black/10 ring-1 ring-border/20 rounded-lg overflow-hidden"
       style={{
-        width: 1920,
-        height: 1080,
-        left: "50%",
-        top: "50%",
-        marginLeft: -960,
-        marginTop: -540,
-        transform: `scale(${scale})`,
+        width: 1920, height: 1080,
+        left: "50%", top: "50%",
+        marginLeft: -960, marginTop: -540,
+        transform: `scale(${s})`,
         transformOrigin: "center center",
       }}
     >
-      {slide.type === "cover" && (
-        <div className="relative w-full h-full">
-          {slide.image && <img src={slide.image} alt="" className="absolute inset-0 w-full h-full object-cover opacity-70" />}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20" />
-          <div className="absolute top-16 left-20 flex items-center gap-4">
-            <div className="w-16 h-16 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/15">
-              <Hexagon size={32} className="text-cyan-400" />
-            </div>
-            <span className="text-lg font-bold text-white/60 tracking-[0.25em] uppercase">Aero Dynamics</span>
-          </div>
-          <div className="absolute bottom-0 left-0 right-0 p-20">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-[3px] bg-cyan-400 rounded-full" />
-              <span className="text-base font-semibold text-cyan-400 tracking-widest uppercase">Pitch Deck · Q1 2025</span>
-            </div>
-            <EditableText
-              value={slide.title}
-              onChange={(v) => onUpdate({ title: v })}
-              className="text-7xl font-black text-white leading-[1.05] tracking-tight max-w-[1200px]"
-            />
-            {slide.body && (
-              <EditableText
-                value={slide.body}
-                onChange={(v) => onUpdate({ body: v })}
-                tag="p"
-                className="text-white/50 text-2xl mt-8 max-w-[800px]"
-              />
-            )}
-          </div>
-        </div>
+      {/* Background gradient for cover slides */}
+      {bgImage && (
+        <>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-[1]" />
+        </>
       )}
 
-      {slide.type === "content" && (
-        <div className="w-full h-full flex">
-          <div className="w-[42%] h-full relative bg-slate-50 flex items-center justify-center overflow-hidden">
-            {slide.image && <img src={slide.image} alt="" className="w-[480px] h-[480px] rounded-3xl object-cover shadow-2xl" />}
-          </div>
-          <div className="w-[58%] h-full flex flex-col justify-center p-20">
-            <EditableText
-              value={slide.title}
-              onChange={(v) => onUpdate({ title: v })}
-              className="text-5xl font-extrabold text-slate-900 mb-12"
+      <div className="absolute inset-0 z-[2]">
+        {sorted.map((el) =>
+          interactive ? (
+            <CanvasElement
+              key={el.id}
+              el={el}
+              scale={s}
+              onUpdate={(patch) => onUpdateElement?.(el.id, patch)}
+              onDelete={() => onDeleteElement?.(el.id)}
             />
-            <div className="space-y-8">
-              {slide.bullets?.map((b, i) => (
-                <div key={i} className="flex gap-5">
-                  <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-cyan-50 flex items-center justify-center mt-1">
-                    <Check size={20} className="text-cyan-600" />
-                  </div>
-                  <EditableText
-                    value={b}
-                    onChange={(v) => {
-                      const newBullets = [...(slide.bullets || [])];
-                      newBullets[i] = v;
-                      onUpdate({ bullets: newBullets });
-                    }}
-                    tag="p"
-                    className="text-2xl text-slate-600 leading-relaxed"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {slide.type === "art" && (
-        <div className="w-full h-full flex flex-col p-20">
-          <EditableText
-            value={slide.title}
-            onChange={(v) => onUpdate({ title: v })}
-            className="text-5xl font-extrabold text-slate-900 mb-12"
-          />
-          <div className="flex-1 flex gap-10">
-            <div className="flex-1 rounded-3xl overflow-hidden shadow-xl border border-slate-100">
-              {slide.image && <img src={slide.image} alt="Moodboard" className="w-full h-full object-cover" />}
-            </div>
-            {slide.colors && (
-              <div className="w-80 flex flex-col gap-5">
-                <p className="text-base font-bold text-slate-400 uppercase tracking-wider mb-2">Paleta Cromática</p>
-                {slide.colors.map((c) => (
-                  <div key={c.name} className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-xl shadow-sm border border-slate-100" style={{ background: c.hex }} />
-                    <div>
-                      <p className="text-lg font-semibold text-slate-700">{c.name}</p>
-                      <p className="text-sm text-slate-400 font-mono">{c.hex}</p>
-                    </div>
-                  </div>
-                ))}
+          ) : (
+            /* Static render for filmstrip / presentation */
+            el.type === "image" ? (
+              <div key={el.id} style={{ position: "absolute", left: el.x, top: el.y, width: el.width ?? 400, height: el.height ?? 400, opacity: el.opacity ?? 1 }}>
+                <img src={el.content} alt="" className="w-full h-full object-cover rounded-lg" />
               </div>
-            )}
-          </div>
-        </div>
-      )}
+            ) : el.type === "shape" ? (
+              <div key={el.id} style={{ position: "absolute", left: el.x, top: el.y, width: el.width ?? 160, height: el.height ?? 160, background: el.content, borderRadius: 16 }} />
+            ) : (
+              <div key={el.id} style={{ position: "absolute", left: el.x, top: el.y, fontSize: el.fontSize ?? 28, fontWeight: el.fontWeight ?? "400", color: el.color ?? "#0f172a", lineHeight: 1.3, whiteSpace: "pre-wrap", maxWidth: 1400 }} className="px-2 py-1">
+                {el.content}
+              </div>
+            )
+          )
+        )}
+      </div>
     </div>
   );
 };
@@ -204,7 +273,15 @@ const Editor = () => {
   const navigate = useNavigate();
 
   const campaign = initialCampaigns.find((c) => c.id === id) ?? initialCampaigns[0];
-  const [slides, setSlides] = useState<SlideData[]>(campaign.slides);
+
+  // Convert legacy slides to element-based
+  const [slidesElements, setSlidesElements] = useState<SlideElement[][]>(() =>
+    campaign.slides.map(slideToElements)
+  );
+  const [slideMeta, setSlideMeta] = useState(() =>
+    campaign.slides.map((s) => ({ id: s.id, type: s.type, image: s.type === "cover" ? s.image : undefined }))
+  );
+
   const [activeIdx, setActiveIdx] = useState(0);
   const [docTitle, setDocTitle] = useState(campaign.title);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
@@ -214,25 +291,76 @@ const Editor = () => {
   const [exportProgress, setExportProgress] = useState(0);
   const [exportMsg, setExportMsg] = useState("");
 
-  const activeSlide = slides[activeIdx];
+  const currentElements = slidesElements[activeIdx] ?? [];
 
-  const updateSlide = (patch: Partial<SlideData>) => {
-    setSlides((prev) => prev.map((s, i) => (i === activeIdx ? { ...s, ...patch } : s)));
+  const updateElement = (elId: string, patch: Partial<SlideElement>) => {
+    setSlidesElements((prev) =>
+      prev.map((els, i) =>
+        i === activeIdx ? els.map((e) => (e.id === elId ? { ...e, ...patch } : e)) : els
+      )
+    );
     setSaveState("idle");
   };
 
-  const addSlide = () => {
-    const newSlide: SlideData = {
-      id: `new-${Date.now()}`,
-      type: "content",
-      title: "Nueva Diapositiva",
-      body: "Haz clic para editar este contenido",
-      bullets: ["Punto clave 1", "Punto clave 2", "Punto clave 3"],
-    };
-    setSlides((prev) => [...prev, newSlide]);
-    setActiveIdx(slides.length);
+  const deleteElement = (elId: string) => {
+    setSlidesElements((prev) =>
+      prev.map((els, i) => (i === activeIdx ? els.filter((e) => e.id !== elId) : els))
+    );
   };
 
+  const addTextElement = () => {
+    const el: SlideElement = {
+      id: uid(), type: "text",
+      content: "Doble clic para editar",
+      x: 760, y: 440,
+      fontSize: 48, fontWeight: "600", color: "#0f172a",
+    };
+    setSlidesElements((prev) =>
+      prev.map((els, i) => (i === activeIdx ? [...els, el] : els))
+    );
+    toast({ title: "📝 Texto añadido", description: "Arrastra para posicionar, doble clic para editar." });
+  };
+
+  const addImageElement = () => {
+    const el: SlideElement = {
+      id: uid(), type: "shape",
+      content: "#e2e8f0",
+      x: 660, y: 340,
+      width: 600, height: 400,
+    };
+    // Also add a label
+    const label: SlideElement = {
+      id: uid(), type: "text",
+      content: "Simulación de Imagen",
+      x: 810, y: 510,
+      fontSize: 28, fontWeight: "500", color: "#94a3b8",
+    };
+    setSlidesElements((prev) =>
+      prev.map((els, i) => (i === activeIdx ? [...els, el, label] : els))
+    );
+    toast({ title: "🖼️ Imagen añadida", description: "Placeholder de imagen insertado en el lienzo." });
+  };
+
+  const handleToolClick = (action: string) => {
+    if (action === "text") { addTextElement(); setActiveTool(null); }
+    else if (action === "image") { addImageElement(); setActiveTool(null); }
+    else { setActiveTool(activeTool === action ? null : action); }
+  };
+
+  const addSlide = () => {
+    const newId = `new-${Date.now()}`;
+    setSlideMeta((prev) => [...prev, { id: newId, type: "content" as const, image: undefined }]);
+    setSlidesElements((prev) => [
+      ...prev,
+      [
+        { id: uid(), type: "text", content: "Nueva Diapositiva", x: 80, y: 80, fontSize: 64, fontWeight: "800", color: "#0f172a" },
+        { id: uid(), type: "text", content: "Haz clic para editar este contenido", x: 80, y: 200, fontSize: 32, fontWeight: "400", color: "#64748b" },
+      ],
+    ]);
+    setActiveIdx(slideMeta.length);
+  };
+
+  /* ── Save ── */
   const handleSave = async () => {
     setSaveState("saving");
     try {
@@ -243,20 +371,19 @@ const Editor = () => {
           action: "save_presentation",
           presentation_id: id ?? campaign.id,
           title: docTitle,
-          slides_count: slides.length,
+          slides: slidesElements,
           timestamp: new Date().toISOString(),
           status: "success",
         }),
       });
-    } catch {
-      // Webhook may fail due to CORS — still show success for demo
-    }
+    } catch { /* webhook may fail CORS */ }
     await new Promise((r) => setTimeout(r, 800));
     setSaveState("saved");
     toast({ title: "✅ Presentación guardada", description: "Cambios sincronizados con el servidor." });
     setTimeout(() => setSaveState("idle"), 3000);
   };
 
+  /* ── Export ── */
   const handleExport = () => {
     setExporting(true);
     setExportProgress(0);
@@ -272,24 +399,40 @@ const Editor = () => {
     );
   };
 
-  /* Presenting keyboard */
+  /* ── Presentation keyboard (always active for presenting) ── */
   useEffect(() => {
     if (!presenting) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setPresenting(false);
-      if (e.key === "ArrowRight" || e.key === " ") setActiveIdx((i) => Math.min(slides.length - 1, i + 1));
+      if (e.key === "Escape") { document.exitFullscreen?.().catch(() => {}); setPresenting(false); }
+      if (e.key === "ArrowRight" || e.key === " ") setActiveIdx((i) => Math.min(slideMeta.length - 1, i + 1));
       if (e.key === "ArrowLeft") setActiveIdx((i) => Math.max(0, i - 1));
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [presenting, slides.length]);
+  }, [presenting, slideMeta.length]);
+
+  /* ── Enter fullscreen ── */
+  const presRef = useRef<HTMLDivElement>(null);
+  const startPresenting = () => {
+    setPresenting(true);
+    setTimeout(() => {
+      presRef.current?.requestFullscreen?.().catch(() => {});
+    }, 100);
+  };
 
   return (
     <div className="h-screen w-screen flex flex-col bg-slate-100 overflow-hidden">
       {/* Presentation overlay */}
       <AnimatePresence>
         {presenting && (
-          <PresentationOverlay slides={slides} activeIdx={activeIdx} setActiveIdx={setActiveIdx} onClose={() => setPresenting(false)} />
+          <PresentationOverlay
+            ref={presRef}
+            allElements={slidesElements}
+            slideMeta={slideMeta}
+            activeIdx={activeIdx}
+            setActiveIdx={setActiveIdx}
+            onClose={() => { document.exitFullscreen?.().catch(() => {}); setPresenting(false); }}
+          />
         )}
       </AnimatePresence>
 
@@ -299,13 +442,13 @@ const Editor = () => {
           <ExportPdfOverlay progress={exportProgress} message={exportMsg} onClose={() => { setExporting(false); setExportProgress(0); }} />
         )}
       </AnimatePresence>
+
       {/* ── Top Bar ── */}
       <div className="h-14 bg-white border-b border-border/40 flex items-center justify-between px-4 flex-shrink-0 z-10">
         <div className="flex items-center gap-3">
           <Button onClick={() => navigate(-1)} variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5 h-8 px-3 text-xs">
-           <ArrowLeft size={14} /> Volver
+            <ArrowLeft size={14} /> Volver
           </Button>
-
           <div className="w-px h-6 bg-border/40" />
           <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center">
             <Hexagon size={14} className="text-primary" />
@@ -322,7 +465,7 @@ const Editor = () => {
             <Cloud size={12} className={saveState === "saved" ? "text-emerald-500" : "text-muted-foreground/50"} />
             {saveState === "saving" ? "Sincronizando..." : saveState === "saved" ? "Guardado" : "Guardado automáticamente"}
           </span>
-          <Button onClick={() => setPresenting(true)} variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 border-border/40">
+          <Button onClick={startPresenting} variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 border-border/40">
             <Play size={13} /> Presentar
           </Button>
           <Button onClick={handleExport} variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 border-border/40">
@@ -346,15 +489,15 @@ const Editor = () => {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* ── Left Sidebar (Tool Palette) ── */}
+        {/* ── Left Sidebar ── */}
         <div className="w-16 bg-slate-900 flex flex-col items-center py-4 gap-1 flex-shrink-0">
           {tools.map((t) => {
             const Icon = t.icon;
-            const active = activeTool === t.label;
+            const active = activeTool === t.action;
             return (
               <button
                 key={t.label}
-                onClick={() => setActiveTool(active ? null : t.label)}
+                onClick={() => handleToolClick(t.action)}
                 className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all duration-150 ${
                   active ? "bg-white/10 text-cyan-400" : "text-slate-400 hover:text-white hover:bg-white/5"
                 }`}
@@ -365,10 +508,7 @@ const Editor = () => {
               </button>
             );
           })}
-
           <div className="flex-1" />
-
-          {/* AI Magic button */}
           <button
             onClick={() => toast({ title: "✨ Magia IA", description: "Motor de IA generativa activado (Simulado)" })}
             className="w-11 h-14 rounded-xl flex flex-col items-center justify-center gap-0.5 bg-cyan-500/15 text-cyan-400 hover:bg-cyan-500/25 transition-all border border-cyan-500/20 mb-2"
@@ -384,30 +524,36 @@ const Editor = () => {
           <div className="flex-1 relative overflow-hidden">
             <AnimatePresence mode="wait">
               <motion.div
-                key={activeSlide.id}
+                key={slideMeta[activeIdx]?.id}
                 initial={{ opacity: 0, scale: 0.96 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.96 }}
                 transition={{ duration: 0.25 }}
                 className="absolute inset-0"
               >
-                <SlideCanvas slide={activeSlide} onUpdate={updateSlide} />
+                <ScaledSlide
+                  elements={currentElements}
+                  bgImage={slideMeta[activeIdx]?.image}
+                  interactive
+                  onUpdateElement={updateElement}
+                  onDeleteElement={deleteElement}
+                />
               </motion.div>
             </AnimatePresence>
 
             {/* Slide counter pill */}
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-slate-900/80 backdrop-blur-sm text-white text-xs font-medium px-4 py-2 rounded-full shadow-lg">
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-slate-900/80 backdrop-blur-sm text-white text-xs font-medium px-4 py-2 rounded-full shadow-lg z-10">
               <button onClick={() => setActiveIdx(Math.max(0, activeIdx - 1))} disabled={activeIdx === 0} className="disabled:opacity-30"><ChevronLeft size={14} /></button>
-              <span className="tabular-nums">{activeIdx + 1} / {slides.length}</span>
-              <button onClick={() => setActiveIdx(Math.min(slides.length - 1, activeIdx + 1))} disabled={activeIdx === slides.length - 1} className="disabled:opacity-30"><ChevronRight size={14} /></button>
+              <span className="tabular-nums">{activeIdx + 1} / {slideMeta.length}</span>
+              <button onClick={() => setActiveIdx(Math.min(slideMeta.length - 1, activeIdx + 1))} disabled={activeIdx === slideMeta.length - 1} className="disabled:opacity-30"><ChevronRight size={14} /></button>
             </div>
           </div>
 
           {/* ── Filmstrip ── */}
           <div className="h-28 bg-white border-t border-border/40 flex items-center px-4 gap-3 flex-shrink-0 overflow-x-auto">
-            {slides.map((s, i) => (
+            {slideMeta.map((meta, i) => (
               <button
-                key={s.id}
+                key={meta.id}
                 onClick={() => setActiveIdx(i)}
                 className={`relative flex-shrink-0 w-40 h-[88px] rounded-lg overflow-hidden border-2 transition-all duration-150 ${
                   i === activeIdx
@@ -415,24 +561,30 @@ const Editor = () => {
                     : "border-border/30 hover:border-primary/30"
                 }`}
               >
-                {/* Mini slide preview */}
                 <div className="absolute inset-0 bg-slate-50">
-                  {s.image && <img src={s.image} alt="" className="w-full h-full object-cover opacity-60" />}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                  <div className="absolute bottom-1.5 left-2 right-2">
-                    <p className="text-[9px] font-bold text-white truncate">{s.title}</p>
+                  <div className="absolute inset-0" style={{ transform: `scale(${40 / 1920})`, transformOrigin: "top left", width: 1920, height: 1080 }}>
+                    {(slidesElements[i] ?? []).map((el) =>
+                      el.type === "image" ? (
+                        <div key={el.id} style={{ position: "absolute", left: el.x, top: el.y, width: el.width ?? 400, height: el.height ?? 400, opacity: el.opacity ?? 1 }}>
+                          <img src={el.content} alt="" className="w-full h-full object-cover" />
+                        </div>
+                      ) : el.type === "shape" ? (
+                        <div key={el.id} style={{ position: "absolute", left: el.x, top: el.y, width: el.width ?? 160, height: el.height ?? 160, background: el.content, borderRadius: 16 }} />
+                      ) : (
+                        <div key={el.id} style={{ position: "absolute", left: el.x, top: el.y, fontSize: el.fontSize ?? 28, fontWeight: el.fontWeight ?? "400", color: el.color ?? "#0f172a", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden" }}>
+                          {el.content}
+                        </div>
+                      )
+                    )}
                   </div>
                 </div>
-                {/* Slide number */}
-                <div className={`absolute top-1 left-1.5 text-[9px] font-bold rounded px-1 ${
+                <div className={`absolute top-1 left-1.5 text-[9px] font-bold rounded px-1 z-10 ${
                   i === activeIdx ? "bg-cyan-500 text-slate-950" : "bg-black/40 text-white/70"
                 }`}>
                   {i + 1}
                 </div>
               </button>
             ))}
-
-            {/* Add slide */}
             <button
               onClick={addSlide}
               className="flex-shrink-0 w-40 h-[88px] rounded-lg border-2 border-dashed border-border/40 hover:border-primary/40 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary transition-colors"
@@ -448,69 +600,92 @@ const Editor = () => {
 };
 
 /* ── Fullscreen Presentation Mode ── */
-const PresentationOverlay = ({
-  slides, activeIdx, setActiveIdx, onClose,
-}: {
-  slides: SlideData[];
+import { forwardRef } from "react";
+
+const PresentationOverlay = forwardRef<HTMLDivElement, {
+  allElements: SlideElement[][];
+  slideMeta: { id: string; type: string; image?: string }[];
   activeIdx: number;
   setActiveIdx: React.Dispatch<React.SetStateAction<number>>;
   onClose: () => void;
-}) => {
+}>(({ allElements, slideMeta, activeIdx, setActiveIdx, onClose }, ref) => {
   const [showControls, setShowControls] = useState(true);
+  const [cursorHidden, setCursorHidden] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const cursorTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   const hideAfterDelay = () => {
     clearTimeout(timerRef.current);
+    clearTimeout(cursorTimerRef.current);
     setShowControls(true);
+    setCursorHidden(false);
     timerRef.current = setTimeout(() => setShowControls(false), 2500);
+    cursorTimerRef.current = setTimeout(() => setCursorHidden(true), 3000);
   };
 
-  useEffect(() => { hideAfterDelay(); return () => clearTimeout(timerRef.current); }, []);
+  useEffect(() => {
+    hideAfterDelay();
+    return () => { clearTimeout(timerRef.current); clearTimeout(cursorTimerRef.current); };
+  }, []);
+
+  // Listen for fullscreenchange to sync state
+  useEffect(() => {
+    const handler = () => {
+      if (!document.fullscreenElement) onClose();
+    };
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, [onClose]);
 
   return (
     <motion.div
+      ref={ref}
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-black flex items-center justify-center"
+      className="fixed inset-0 z-[9999] bg-black flex items-center justify-center"
+      style={{ cursor: cursorHidden ? "none" : "default" }}
       onMouseMove={hideAfterDelay}
     >
       <AnimatePresence mode="wait">
         <motion.div
-          key={slides[activeIdx].id}
+          key={slideMeta[activeIdx]?.id}
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
           transition={{ duration: 0.3 }}
           className="w-full h-full flex items-center justify-center"
         >
-          <div className="relative" style={{ width: "min(90vw, 160vh)", aspectRatio: "16/9" }}>
+          <div className="relative" style={{ width: "min(95vw, 170vh)", aspectRatio: "16/9" }}>
             <div className="absolute inset-0 bg-white rounded-lg overflow-hidden shadow-2xl">
-              <SlideCanvas slide={slides[activeIdx]} onUpdate={() => {}} />
+              <ScaledSlide
+                elements={allElements[activeIdx] ?? []}
+                bgImage={slideMeta[activeIdx]?.image}
+                scale={Math.min(window.innerWidth * 0.95 / 1920, window.innerHeight * 0.95 / 1080)}
+              />
             </div>
           </div>
         </motion.div>
       </AnimatePresence>
 
-      {/* Controls */}
-      <motion.div
-        animate={{ opacity: showControls ? 1 : 0 }}
-        className="absolute top-4 right-4"
-      >
+      {/* Close */}
+      <motion.div animate={{ opacity: showControls ? 1 : 0 }} className="absolute top-4 right-4">
         <button onClick={onClose} className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white backdrop-blur-sm transition">
           <X size={18} />
         </button>
       </motion.div>
 
+      {/* Bottom controls */}
       <motion.div
         animate={{ opacity: showControls ? 1 : 0 }}
         className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-white/10 backdrop-blur-md px-6 py-3 rounded-full text-white"
       >
         <button onClick={() => setActiveIdx((i) => Math.max(0, i - 1))} disabled={activeIdx === 0} className="disabled:opacity-30 hover:text-cyan-400 transition"><ChevronLeft size={20} /></button>
-        <span className="text-sm font-medium tabular-nums min-w-[80px] text-center">{activeIdx + 1} / {slides.length}</span>
-        <button onClick={() => setActiveIdx((i) => Math.min(slides.length - 1, i + 1))} disabled={activeIdx === slides.length - 1} className="disabled:opacity-30 hover:text-cyan-400 transition"><ChevronRight size={20} /></button>
+        <span className="text-sm font-medium tabular-nums min-w-[80px] text-center">{activeIdx + 1} / {slideMeta.length}</span>
+        <button onClick={() => setActiveIdx((i) => Math.min(slideMeta.length - 1, i + 1))} disabled={activeIdx === slideMeta.length - 1} className="disabled:opacity-30 hover:text-cyan-400 transition"><ChevronRight size={20} /></button>
       </motion.div>
     </motion.div>
   );
-};
+});
+PresentationOverlay.displayName = "PresentationOverlay";
 
 /* ── Export PDF Modal ── */
 const ExportPdfOverlay = ({
