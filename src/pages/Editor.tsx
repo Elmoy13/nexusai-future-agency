@@ -15,6 +15,7 @@ import {
   Play, X, Undo2, Redo2, AlignLeft, AlignCenter, AlignRight, Minus,
   Bold, Trash2, RotateCcw, RotateCw, FlipHorizontal, FlipVertical,
   ArrowUpToLine, ArrowDownToLine, ArrowUp, ArrowDown, Pipette,
+  Smartphone, Monitor, Tablet,
 } from "lucide-react";
 import { initialCampaigns } from "@/components/dashboard/briefs/campaignData";
 import type { SlideData, SlideElement } from "@/components/dashboard/briefs/campaignData";
