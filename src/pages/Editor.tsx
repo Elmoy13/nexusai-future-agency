@@ -1005,6 +1005,7 @@ const RndElement = ({
             interactive
             onDrop={onMockupDrop}
             onChildAdjust={(patch) => onMockupChildAdjust?.(el.id, patch)}
+            onNativeFileDrop={onMockupNativeFileDrop}
           />
         ) : el.type === "image" ? (
           <div
