@@ -1,7 +1,15 @@
 import { motion } from "framer-motion";
 import { ArrowRight, Eye } from "lucide-react";
 
-const HeroSection = () => {
+interface HeroSectionProps {
+  onOpenModal: () => void;
+}
+
+const HeroSection = ({ onOpenModal }: HeroSectionProps) => {
+  const scrollToBento = () => {
+    document.getElementById("bento-features")?.scrollIntoView({ behavior: "smooth" });
+  };
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Background Image */}
@@ -22,8 +30,8 @@ const HeroSection = () => {
       />
 
       {/* Animated Orbs */}
-      <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full bg-[#0B192C] opacity-60 blur-[120px] animate-float-slow" />
-      <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-[#00F2FE] opacity-20 blur-[120px] animate-float-slower" />
+      <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full bg-[hsl(var(--teal-deep))] opacity-60 blur-[120px] animate-float-slow" />
+      <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-[hsl(var(--cyan-glow))] opacity-20 blur-[120px] animate-float-slower" />
 
       {/* Content */}
       <div className="relative z-10 max-w-5xl mx-auto px-6 text-center">
