@@ -138,6 +138,57 @@ const TEMPLATE_VISUAL = (): SlideElement[] => [
   { id: uid(), type: "text", content: "Título Visual", x: 1020, y: 120, width: 840, height: 80, fontSize: 56, fontWeight: "800", color: "#0f172a", zIndex: 2 },
   { id: uid(), type: "text", content: "Descripción detallada que acompaña la imagen. Aquí puedes añadir contexto.", x: 1020, y: 260, width: 840, height: 200, fontSize: 28, fontWeight: "400", color: "#64748b", zIndex: 2 },
 ];
+const TEMPLATE_PROMO = (): SlideElement[] => [
+  { id: uid(), type: "shape", content: "#0f172a", x: 0, y: 0, width: 1920, height: 1080, zIndex: 0 },
+  { id: uid(), type: "shape", content: "#06b6d4", x: 0, y: 0, width: 960, height: 1080, zIndex: 1 },
+  { id: uid(), type: "text", content: "50%", x: 980, y: 200, width: 900, height: 300, fontSize: 200, fontWeight: "900", color: "#06b6d4", zIndex: 2, textAlign: "right" },
+  { id: uid(), type: "text", content: "OFF", x: 980, y: 480, width: 900, height: 100, fontSize: 96, fontWeight: "900", color: "#ffffff", zIndex: 2, textAlign: "right" },
+  { id: uid(), type: "text", content: "Solo por tiempo limitado", x: 980, y: 600, width: 900, height: 50, fontSize: 28, fontWeight: "400", color: "rgba(255,255,255,0.6)", zIndex: 2, textAlign: "right" },
+  { id: uid(), type: "shape", content: "#ffffff", x: 1400, y: 720, width: 440, height: 64, zIndex: 3 },
+  { id: uid(), type: "text", content: "COMPRAR AHORA →", x: 1410, y: 730, width: 420, height: 44, fontSize: 24, fontWeight: "800", color: "#0f172a", zIndex: 4, textAlign: "center" },
+  { id: uid(), type: "text", content: "📷 Imagen del\nproducto aquí", x: 160, y: 360, width: 640, height: 200, fontSize: 36, fontWeight: "500", color: "rgba(255,255,255,0.3)", zIndex: 2, textAlign: "center" },
+];
+const TEMPLATE_TESTIMONIAL = (): SlideElement[] => [
+  { id: uid(), type: "shape", content: "#fafafa", x: 0, y: 0, width: 1920, height: 1080, zIndex: 0 },
+  { id: uid(), type: "shape", content: "#06b6d4", x: 860, y: 140, width: 200, height: 200, zIndex: 1 },
+  { id: uid(), type: "text", content: "👤", x: 910, y: 180, width: 100, height: 100, fontSize: 72, fontWeight: "400", color: "#ffffff", zIndex: 2, textAlign: "center" },
+  { id: uid(), type: "text", content: "★ ★ ★ ★ ★", x: 660, y: 380, width: 600, height: 60, fontSize: 36, fontWeight: "400", color: "#f59e0b", zIndex: 2, textAlign: "center" },
+  { id: uid(), type: "text", content: ""Este producto transformó completamente\nnuestra forma de trabajar. Increíble."", x: 360, y: 480, width: 1200, height: 160, fontSize: 36, fontWeight: "400", color: "#334155", zIndex: 2, textAlign: "center", fontFamily: "Georgia" },
+  { id: uid(), type: "text", content: "— María García, CEO en TechCorp", x: 460, y: 680, width: 1000, height: 50, fontSize: 24, fontWeight: "600", color: "#94a3b8", zIndex: 2, textAlign: "center" },
+];
+const TEMPLATE_CAROUSEL = (): SlideElement[] => [
+  { id: uid(), type: "shape", content: "#0f172a", x: 0, y: 0, width: 1920, height: 1080, zIndex: 0 },
+  { id: uid(), type: "text", content: "5 Errores que\nEstás Cometiendo\nen tu Estrategia", x: 160, y: 240, width: 1600, height: 400, fontSize: 96, fontWeight: "900", color: "#ffffff", zIndex: 2, textAlign: "center" },
+  { id: uid(), type: "shape", content: "#06b6d4", x: 860, y: 700, width: 200, height: 6, zIndex: 1 },
+  { id: uid(), type: "text", content: "Desliza →", x: 760, y: 780, width: 400, height: 60, fontSize: 32, fontWeight: "600", color: "#06b6d4", zIndex: 2, textAlign: "center" },
+  { id: uid(), type: "text", content: "@aerodynamics", x: 760, y: 920, width: 400, height: 40, fontSize: 22, fontWeight: "500", color: "rgba(255,255,255,0.4)", zIndex: 2, textAlign: "center" },
+];
+const TEMPLATE_QUOTE = (): SlideElement[] => [
+  { id: uid(), type: "shape", content: "#1e293b", x: 0, y: 0, width: 1920, height: 1080, zIndex: 0 },
+  { id: uid(), type: "text", content: "❝", x: 160, y: 60, width: 400, height: 400, fontSize: 320, fontWeight: "900", color: "rgba(6,182,212,0.12)", zIndex: 1, textAlign: "left" },
+  { id: uid(), type: "text", content: "La creatividad es la\ninteligencia divirtiéndose.", x: 260, y: 340, width: 1400, height: 280, fontSize: 64, fontWeight: "400", color: "#e2e8f0", zIndex: 2, textAlign: "center", fontFamily: "Playfair Display" },
+  { id: uid(), type: "shape", content: "#06b6d4", x: 860, y: 680, width: 200, height: 4, zIndex: 1 },
+  { id: uid(), type: "text", content: "— Albert Einstein", x: 660, y: 720, width: 600, height: 50, fontSize: 24, fontWeight: "600", color: "#94a3b8", zIndex: 2, textAlign: "center" },
+];
+const TEMPLATE_COMUNICADO = (): SlideElement[] => [
+  { id: uid(), type: "shape", content: "#ffffff", x: 0, y: 0, width: 1920, height: 1080, zIndex: 0 },
+  { id: uid(), type: "shape", content: "#0f172a", x: 60, y: 60, width: 1800, height: 8, zIndex: 1 },
+  { id: uid(), type: "shape", content: "#0f172a", x: 60, y: 1012, width: 1800, height: 8, zIndex: 1 },
+  { id: uid(), type: "text", content: "⬡ AERO DYNAMICS", x: 660, y: 100, width: 600, height: 60, fontSize: 28, fontWeight: "800", color: "#0f172a", zIndex: 2, textAlign: "center" },
+  { id: uid(), type: "text", content: "COMUNICADO OFICIAL", x: 460, y: 200, width: 1000, height: 60, fontSize: 48, fontWeight: "900", color: "#0f172a", zIndex: 2, textAlign: "center" },
+  { id: uid(), type: "text", content: "Por medio del presente, se comunica a todos nuestros socios y colaboradores que la empresa ha tomado la decisión estratégica de expandir sus operaciones al mercado internacional.\n\nEsta iniciativa forma parte de nuestra visión 2025 de crecimiento sostenible y liderazgo en innovación tecnológica.", x: 260, y: 320, width: 1400, height: 400, fontSize: 26, fontWeight: "400", color: "#334155", zIndex: 2, textAlign: "left" },
+  { id: uid(), type: "text", content: "Firma: ___________________________\nDirector General · Aero Dynamics", x: 260, y: 800, width: 600, height: 100, fontSize: 20, fontWeight: "500", color: "#64748b", zIndex: 2 },
+];
+const TEMPLATE_MEME = (): SlideElement[] => [
+  { id: uid(), type: "shape", content: "#ffffff", x: 0, y: 0, width: 1920, height: 1080, zIndex: 0 },
+  { id: uid(), type: "shape", content: "#e2e8f0", x: 80, y: 0, width: 48, height: 48, zIndex: 1 },
+  { id: uid(), type: "text", content: "Aero Dynamics", x: 148, y: 6, width: 300, height: 22, fontSize: 18, fontWeight: "800", color: "#0f172a", zIndex: 2 },
+  { id: uid(), type: "text", content: "@aerodynamics · 2h", x: 148, y: 28, width: 300, height: 20, fontSize: 15, fontWeight: "400", color: "#94a3b8", zIndex: 2 },
+  { id: uid(), type: "text", content: "Cuando descubres que tu herramienta de IA hace presentaciones sola 🤯🚀\n\nEsto cambia todo. No more templates genéricos.", x: 80, y: 80, width: 1760, height: 160, fontSize: 32, fontWeight: "400", color: "#0f172a", zIndex: 2 },
+  { id: uid(), type: "shape", content: "#f1f5f9", x: 80, y: 280, width: 1760, height: 700, zIndex: 1 },
+  { id: uid(), type: "text", content: "📷 Imagen viral aquí", x: 700, y: 570, width: 520, height: 60, fontSize: 32, fontWeight: "500", color: "#94a3b8", zIndex: 2, textAlign: "center" },
+  { id: uid(), type: "text", content: "♡ 4.2K     💬 328     ↗ 1.1K     🔖", x: 80, y: 1010, width: 800, height: 40, fontSize: 20, fontWeight: "500", color: "#64748b", zIndex: 2 },
+];
 
 /* ── Side Panel: Brand Hub ── */
 const BrandPanel = ({
