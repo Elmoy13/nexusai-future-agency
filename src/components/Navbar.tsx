@@ -87,13 +87,13 @@ const Navbar = ({ onOpenModal }: NavbarProps) => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 8 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-64 glass-strong rounded-xl border border-cyan-glow/10 overflow-hidden"
+                  className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-64 backdrop-blur-md bg-[hsl(210_50%_8%/0.9)] rounded-xl border border-primary/20 overflow-hidden"
                 >
                   {useCases.map((item) => (
                     <button
                       key={item.label}
-                      onClick={() => setDropdownOpen(false)}
-                      className="w-full flex items-start gap-3 px-4 py-3 hover:bg-primary/5 transition-colors duration-200 text-left border-none bg-transparent cursor-pointer"
+                      onClick={() => { setDropdownOpen(false); onOpenModal?.(); }}
+                      className="w-full flex items-start gap-3 px-4 py-3 hover:bg-secondary transition-colors duration-200 text-left border-none bg-transparent cursor-pointer"
                     >
                       <item.icon size={16} className="text-primary mt-0.5 shrink-0" />
                       <div>
