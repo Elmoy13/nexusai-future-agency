@@ -9,7 +9,7 @@ export type SlideStatus = "approved" | "in-progress" | "sent" | "draft";
 
 export interface SlideElement {
   id: string;
-  type: "text" | "image" | "shape";
+  type: "text" | "image" | "shape" | "mockup";
   content: string;
   x: number;
   y: number;
@@ -27,6 +27,12 @@ export interface SlideElement {
   flipY?: boolean;
   fontFamily?: string;
   textAlign?: "left" | "center" | "right";
+  /* Mockup-specific */
+  mockupType?: string;
+  mockupChild?: string; // image src dropped inside
+  mockupChildScale?: number;
+  mockupChildX?: number;
+  mockupChildY?: number;
 }
 
 export interface SlideData {

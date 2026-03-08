@@ -15,6 +15,7 @@ import {
   Play, X, Undo2, Redo2, AlignLeft, AlignCenter, AlignRight, Minus,
   Bold, Trash2, RotateCcw, RotateCw, FlipHorizontal, FlipVertical,
   ArrowUpToLine, ArrowDownToLine, ArrowUp, ArrowDown, Pipette,
+  Smartphone, Monitor, Tablet,
 } from "lucide-react";
 import { initialCampaigns } from "@/components/dashboard/briefs/campaignData";
 import type { SlideData, SlideElement } from "@/components/dashboard/briefs/campaignData";
@@ -99,6 +100,7 @@ const tools = [
   { icon: LayoutTemplate, label: "Plantillas", action: "templates" },
   { icon: Type, label: "Texto", action: "text" },
   { icon: Image, label: "Imágenes", action: "image" },
+  { icon: Smartphone, label: "Mockups", action: "mockups" },
   { icon: Palette, label: "Brand Hub", action: "brand" },
 ];
 
@@ -282,6 +284,282 @@ const TemplatesPanel = ({
   );
 };
 
+/* ── Mockup Definitions ── */
+interface MockupDef {
+  id: string;
+  name: string;
+  icon: typeof Smartphone;
+  category: "device" | "social";
+  width: number;
+  height: number;
+  screenRadius: string;
+  screenInset: { top: number; right: number; bottom: number; left: number };
+  frameColor: string;
+  notch?: boolean;
+  socialUI?: string;
+}
+
+const MOCKUP_DEFS: MockupDef[] = [
+  {
+    id: "iphone15", name: "iPhone 15 Pro", icon: Smartphone, category: "device",
+    width: 340, height: 700,
+    screenRadius: "2.8rem", screenInset: { top: 16, right: 16, bottom: 16, left: 16 },
+    frameColor: "#1a1a1a", notch: true,
+  },
+  {
+    id: "macbook", name: "MacBook Air", icon: Monitor, category: "device",
+    width: 740, height: 480,
+    screenRadius: "0.75rem", screenInset: { top: 28, right: 40, bottom: 50, left: 40 },
+    frameColor: "#2a2a2a",
+  },
+  {
+    id: "tablet", name: "Tablet", icon: Tablet, category: "device",
+    width: 520, height: 700,
+    screenRadius: "1.5rem", screenInset: { top: 24, right: 20, bottom: 24, left: 20 },
+    frameColor: "#1f1f1f",
+  },
+  {
+    id: "ig-post", name: "Instagram Post", icon: Smartphone, category: "social",
+    width: 400, height: 500,
+    screenRadius: "0.75rem", screenInset: { top: 52, right: 0, bottom: 56, left: 0 },
+    frameColor: "#ffffff", socialUI: "instagram-feed",
+  },
+  {
+    id: "ig-story", name: "Instagram Story", icon: Smartphone, category: "social",
+    width: 340, height: 600,
+    screenRadius: "1.25rem", screenInset: { top: 60, right: 0, bottom: 48, left: 0 },
+    frameColor: "#000000", socialUI: "instagram-story",
+  },
+  {
+    id: "tiktok", name: "TikTok Frame", icon: Smartphone, category: "social",
+    width: 340, height: 600,
+    screenRadius: "1.25rem", screenInset: { top: 48, right: 0, bottom: 64, left: 0 },
+    frameColor: "#000000", socialUI: "tiktok",
+  },
+];
+
+const getMockupDef = (mockupType?: string) => MOCKUP_DEFS.find((m) => m.id === mockupType);
+
+/* ── Mockup Frame Renderer (used in canvas + thumbnails) ── */
+const MockupFrame = ({ el, interactive, onDrop, onChildAdjust }: {
+  el: SlideElement;
+  interactive?: boolean;
+  onDrop?: (mockupId: string, imgSrc: string, imgElId: string) => void;
+  onChildAdjust?: (patch: Partial<SlideElement>) => void;
+}) => {
+  const def = getMockupDef(el.mockupType);
+  const [dragOver, setDragOver] = useState(false);
+  const [adjusting, setAdjusting] = useState(false);
+  const [localScale, setLocalScale] = useState(el.mockupChildScale ?? 1);
+  const [localX, setLocalX] = useState(el.mockupChildX ?? 0);
+  const [localY, setLocalY] = useState(el.mockupChildY ?? 0);
+
+  if (!def) return <div className="w-full h-full bg-muted rounded-lg flex items-center justify-center text-xs text-muted-foreground">Mockup</div>;
+
+  const inset = def.screenInset;
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!interactive) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(true);
+  };
+  const handleDragLeave = () => setDragOver(false);
+  const handleDropEvt = (e: React.DragEvent) => {
+    if (!interactive) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    const data = e.dataTransfer.getData("application/mockup-drop");
+    if (data && onDrop) {
+      try {
+        const { imgSrc, imgElId } = JSON.parse(data);
+        onDrop(el.id, imgSrc, imgElId);
+      } catch {}
+    }
+  };
+
+  return (
+    <div className="w-full h-full relative" style={{ borderRadius: def.screenRadius }}>
+      {/* Device frame */}
+      <div
+        className="absolute inset-0 z-[3] pointer-events-none"
+        style={{
+          borderRadius: def.screenRadius,
+          border: `${Math.min(inset.top, inset.left)}px solid ${def.frameColor}`,
+          borderTopWidth: inset.top,
+          borderRightWidth: inset.right,
+          borderBottomWidth: inset.bottom,
+          borderLeftWidth: inset.left,
+          boxSizing: "border-box",
+        }}
+      >
+        {/* Notch for iPhone */}
+        {def.notch && (
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-6 rounded-b-2xl" style={{ background: def.frameColor }} />
+        )}
+        {/* Social UI overlays */}
+        {def.socialUI === "instagram-feed" && (
+          <>
+            <div className="absolute top-0 left-0 right-0 flex items-center gap-2 px-3" style={{ height: inset.top - 2, background: "#fff" }}>
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 border-2 border-white" />
+              <div className="flex flex-col">
+                <span className="text-[9px] font-bold text-slate-900 leading-none">aerodynamics</span>
+                <span className="text-[7px] text-slate-400">Patrocinado</span>
+              </div>
+            </div>
+            <div className="absolute bottom-0 left-0 right-0 flex items-center gap-4 px-3" style={{ height: inset.bottom - 2, background: "#fff" }}>
+              <span className="text-sm">♡</span>
+              <span className="text-sm">💬</span>
+              <span className="text-sm">↗</span>
+              <span className="flex-1" />
+              <span className="text-sm">🔖</span>
+            </div>
+          </>
+        )}
+        {def.socialUI === "instagram-story" && (
+          <div className="absolute top-0 left-0 right-0 flex items-center gap-2 px-3" style={{ height: inset.top - 2, background: "rgba(0,0,0,0.3)" }}>
+            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-orange-400" />
+            <span className="text-[9px] font-bold text-white leading-none">aerodynamics</span>
+            <span className="text-[7px] text-white/60">12h</span>
+          </div>
+        )}
+        {def.socialUI === "tiktok" && (
+          <>
+            <div className="absolute top-0 left-0 right-0 flex items-center justify-center gap-4" style={{ height: inset.top - 2, background: "rgba(0,0,0,0.3)" }}>
+              <span className="text-[10px] text-white/60 font-semibold">Following</span>
+              <span className="text-[10px] text-white font-bold border-b border-white pb-0.5">For You</span>
+            </div>
+            <div className="absolute bottom-0 left-0 right-0 flex items-center justify-around" style={{ height: inset.bottom - 2, background: "#000" }}>
+              <span className="text-[8px] text-white/80">🏠</span>
+              <span className="text-[8px] text-white/80">🔍</span>
+              <span className="text-[10px] text-white bg-gradient-to-r from-cyan-400 to-pink-500 rounded px-2 py-0.5 font-bold">+</span>
+              <span className="text-[8px] text-white/80">💬</span>
+              <span className="text-[8px] text-white/80">👤</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Screen area (drop zone) */}
+      <div
+        className={`absolute z-[1] overflow-hidden transition-all ${dragOver ? "ring-4 ring-cyan-500 ring-inset" : ""}`}
+        style={{
+          top: inset.top, right: inset.right, bottom: inset.bottom, left: inset.left,
+          borderRadius: `calc(${def.screenRadius} - ${Math.min(inset.top, inset.left)}px)`,
+          background: el.mockupChild ? "transparent" : (def.frameColor === "#ffffff" ? "#f1f5f9" : "#18181b"),
+        }}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDropEvt}
+        onDoubleClick={(e) => {
+          if (interactive && el.mockupChild) {
+            e.stopPropagation();
+            setAdjusting(!adjusting);
+          }
+        }}
+      >
+        {el.mockupChild ? (
+          <img
+            src={el.mockupChild}
+            alt="Mockup content"
+            draggable={false}
+            className="pointer-events-none"
+            style={{
+              width: "100%", height: "100%", objectFit: "cover",
+              transform: `scale(${localScale}) translate(${localX}px, ${localY}px)`,
+              transformOrigin: "center center",
+            }}
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-1 text-muted-foreground/50">
+            <Image size={24} />
+            <span className="text-[9px] font-medium">Drop image here</span>
+          </div>
+        )}
+
+        {/* Pan & Zoom controls */}
+        {adjusting && interactive && el.mockupChild && (
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-slate-900/90 backdrop-blur-sm text-white text-[10px] px-3 py-1.5 rounded-full" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => { const s = Math.max(0.5, localScale - 0.1); setLocalScale(s); onChildAdjust?.({ mockupChildScale: s }); }} className="hover:text-cyan-400">−</button>
+            <span className="tabular-nums w-10 text-center">{Math.round(localScale * 100)}%</span>
+            <button onClick={() => { const s = Math.min(3, localScale + 0.1); setLocalScale(s); onChildAdjust?.({ mockupChildScale: s }); }} className="hover:text-cyan-400">+</button>
+            <div className="w-px h-3 bg-white/20" />
+            <button onClick={() => { setLocalScale(1); setLocalX(0); setLocalY(0); onChildAdjust?.({ mockupChildScale: 1, mockupChildX: 0, mockupChildY: 0 }); }} className="hover:text-cyan-400">Reset</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ── Mockups Panel ── */
+const MockupsPanel = ({
+  onAddMockup,
+}: {
+  onAddMockup: (mockupType: string) => void;
+}) => {
+  const devices = MOCKUP_DEFS.filter((m) => m.category === "device");
+  const social = MOCKUP_DEFS.filter((m) => m.category === "social");
+
+  return (
+    <div className="flex flex-col gap-5 p-4">
+      <div>
+        <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-1">Mockups & Previews</h3>
+        <p className="text-[11px] text-muted-foreground">Haz clic para agregar al lienzo</p>
+      </div>
+
+      <div>
+        <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2.5">📱 Dispositivos</h4>
+        <div className="flex flex-col gap-2">
+          {devices.map((m) => {
+            const Icon = m.icon;
+            return (
+              <button
+                key={m.id}
+                onClick={() => onAddMockup(m.id)}
+                className="flex items-center gap-3 p-2.5 rounded-lg border border-border/40 hover:border-primary/40 hover:bg-primary/5 transition-all group"
+              >
+                <div className="w-10 h-14 rounded-lg flex items-center justify-center" style={{ background: m.frameColor }}>
+                  <Icon size={16} className="text-white/80" />
+                </div>
+                <div className="text-left">
+                  <span className="text-xs font-semibold text-foreground block">{m.name}</span>
+                  <span className="text-[10px] text-muted-foreground">{m.width}×{m.height}</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2.5">📲 Social Media</h4>
+        <div className="flex flex-col gap-2">
+          {social.map((m) => {
+            const Icon = m.icon;
+            return (
+              <button
+                key={m.id}
+                onClick={() => onAddMockup(m.id)}
+                className="flex items-center gap-3 p-2.5 rounded-lg border border-border/40 hover:border-primary/40 hover:bg-primary/5 transition-all group"
+              >
+                <div className="w-10 h-14 rounded-lg flex items-center justify-center" style={{ background: m.frameColor, border: m.frameColor === "#ffffff" ? "1px solid #e2e8f0" : "none" }}>
+                  <Icon size={16} className={m.frameColor === "#ffffff" ? "text-pink-500" : "text-white/80"} />
+                </div>
+                <div className="text-left">
+                  <span className="text-xs font-semibold text-foreground block">{m.name}</span>
+                  <span className="text-[10px] text-muted-foreground">{m.width}×{m.height}</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ── Chroma Key Background Removal ── */
 async function chromaKeyRemove(
   imgSrc: string,
@@ -333,6 +611,13 @@ async function chromaKeyRemove(
 /* ── Static element renderer ── */
 const StaticElement = ({ el }: { el: SlideElement }) => {
   const transform = buildTransform(el);
+  if (el.type === "mockup") {
+    return (
+      <div style={{ position: "absolute", left: el.x, top: el.y, width: el.width ?? 340, height: el.height ?? 700, zIndex: el.zIndex ?? 0, transform }}>
+        <MockupFrame el={el} />
+      </div>
+    );
+  }
   if (el.type === "image") {
     return (
       <div style={{ position: "absolute", left: el.x, top: el.y, width: el.width ?? 400, height: el.height ?? 400, opacity: el.opacity ?? 1, zIndex: el.zIndex ?? 0, transform }}>
@@ -552,6 +837,7 @@ const FormatBar = ({
 const RndElement = ({
   el, scale, selected, onSelect, onUpdate, onDelete,
   onDragMove, onDragEnd: onDragEndCb, eyedropperMode, onImageClick,
+  onMockupDrop, onMockupChildAdjust,
 }: {
   el: SlideElement;
   scale: number;
@@ -563,6 +849,8 @@ const RndElement = ({
   onDragEnd?: () => void;
   eyedropperMode?: boolean;
   onImageClick?: (elId: string, localX: number, localY: number) => void;
+  onMockupDrop?: (mockupId: string, imgSrc: string, imgElId: string) => void;
+  onMockupChildAdjust?: (id: string, patch: Partial<SlideElement>) => void;
 }) => {
   const [editing, setEditing] = useState(false);
   const [localContent, setLocalContent] = useState(el.content);
@@ -587,15 +875,22 @@ const RndElement = ({
     bottomLeft: <div style={handleStyle} />, bottomRight: <div style={handleStyle} />,
   } : {};
 
-  const w = el.width ?? (el.type === "text" ? 600 : 400);
-  const h = el.height ?? (el.type === "text" ? 80 : 400);
+  const w = el.width ?? (el.type === "text" ? 600 : el.type === "mockup" ? 340 : 400);
+  const h = el.height ?? (el.type === "text" ? 80 : el.type === "mockup" ? 700 : 400);
   const transform = buildTransform(el);
+  const isMockup = el.type === "mockup";
 
   return (
     <Rnd
       size={{ width: w, height: h }}
       position={{ x: el.x, y: el.y }}
-      onDragStart={() => setDragging(true)}
+      onDragStart={(e) => {
+        setDragging(true);
+        // Enable image drag data for mockup drop
+        if (el.type === "image" && e instanceof MouseEvent) {
+          // We'll use a native drag approach via onDragStart on the inner div
+        }
+      }}
       onDrag={(_e, d) => { onDragMove?.(el.id, d.x, d.y, w, h); }}
       onDragStop={(_e, d) => {
         setDragging(false);
@@ -616,7 +911,7 @@ const RndElement = ({
         zIndex: selected ? 9999 : (el.zIndex ?? 0),
         outline: selected ? "2px solid #06b6d4" : "none",
         outlineOffset: 2,
-        borderRadius: el.type === "shape" ? 16 : 4,
+        borderRadius: isMockup ? 0 : el.type === "shape" ? 16 : 4,
         willChange: "transform",
         userSelect: dragging ? "none" : "auto",
       }}
@@ -632,13 +927,27 @@ const RndElement = ({
             onImageClick(el.id, localX, localY);
           }
         }}
+        draggable={el.type === "image"}
+        onDragStart={(e) => {
+          if (el.type === "image") {
+            e.dataTransfer.setData("application/mockup-drop", JSON.stringify({ imgSrc: el.content, imgElId: el.id }));
+            e.dataTransfer.effectAllowed = "move";
+          }
+        }}
         style={{
           cursor: eyedropperMode && el.type === "image" ? "crosshair" : editing ? "text" : dragging ? "grabbing" : "grab",
-          borderRadius: el.type === "shape" ? 16 : 0,
+          borderRadius: isMockup ? 0 : el.type === "shape" ? 16 : 0,
           userSelect: dragging ? "none" : "auto",
         }}
       >
-        {el.type === "image" ? (
+        {isMockup ? (
+          <MockupFrame
+            el={el}
+            interactive
+            onDrop={onMockupDrop}
+            onChildAdjust={(patch) => onMockupChildAdjust?.(el.id, patch)}
+          />
+        ) : el.type === "image" ? (
           <div
             className="w-full h-full"
             style={{
@@ -689,7 +998,7 @@ const RndElement = ({
 /* ── Interactive Canvas with Smart Guides ── */
 const InteractiveCanvas = ({
   elements, bgImage, scale, selectedIds, onSelectElement, onUpdateElement, onDeleteElement, onDeselect,
-  eyedropperMode, onImageClick,
+  eyedropperMode, onImageClick, onMockupDrop, onMockupChildAdjust,
 }: {
   elements: SlideElement[];
   bgImage?: string;
@@ -701,6 +1010,8 @@ const InteractiveCanvas = ({
   onDeselect: () => void;
   eyedropperMode?: boolean;
   onImageClick?: (elId: string, localX: number, localY: number) => void;
+  onMockupDrop?: (mockupId: string, imgSrc: string, imgElId: string) => void;
+  onMockupChildAdjust?: (id: string, patch: Partial<SlideElement>) => void;
 }) => {
   const [guides, setGuides] = useState<GuideLines>({ x: null, y: null });
 
@@ -754,6 +1065,8 @@ const InteractiveCanvas = ({
                 onDragEnd={handleDragEnd}
                 eyedropperMode={eyedropperMode}
                 onImageClick={onImageClick}
+                onMockupDrop={onMockupDrop}
+                onMockupChildAdjust={onMockupChildAdjust}
               />
             ))}
           </div>
@@ -895,6 +1208,36 @@ const Editor = () => {
     setSelectedIds(new Set());
     toast({ title: "📐 Plantilla aplicada", description: "El diseño ha sido reemplazado." });
   };
+
+  const addMockup = (mockupType: string) => {
+    const def = getMockupDef(mockupType);
+    if (!def) return;
+    const maxZ = Math.max(0, ...currentElements.map((e) => e.zIndex ?? 0));
+    const el: SlideElement = {
+      id: uid(), type: "mockup", content: mockupType,
+      x: 760, y: 140, width: def.width, height: def.height,
+      zIndex: maxZ + 1, mockupType: mockupType,
+    };
+    history.set((prev) => [...prev, el]);
+    setSelectedIds(new Set([el.id]));
+    setActiveTool(null);
+    toast({ title: `📱 ${def.name} añadido`, description: "Arrastra una imagen sobre el dispositivo para insertarla." });
+  };
+
+  const handleMockupDrop = useCallback((mockupId: string, imgSrc: string, imgElId: string) => {
+    history.set((prev) => {
+      const updated = prev.map((e) =>
+        e.id === mockupId ? { ...e, mockupChild: imgSrc, mockupChildScale: 1, mockupChildX: 0, mockupChildY: 0 } : e
+      );
+      // Remove the original image element from the canvas
+      return updated.filter((e) => e.id !== imgElId);
+    });
+    toast({ title: "🎯 Imagen insertada en Mockup", description: "Doble clic en el mockup para ajustar escala." });
+  }, [history]);
+
+  const handleMockupChildAdjust = useCallback((id: string, patch: Partial<SlideElement>) => {
+    history.set((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+  }, [history]);
 
   const addSlide = () => {
     const newId = `new-${Date.now()}`;
@@ -1217,7 +1560,7 @@ const Editor = () => {
 
         {/* ── Slide-out Panel (Templates / Brand) ── */}
         <AnimatePresence>
-          {(activeTool === "templates" || activeTool === "brand") && (
+          {(activeTool === "templates" || activeTool === "brand" || activeTool === "mockups") && (
             <motion.div
               initial={{ width: 0, opacity: 0 }}
               animate={{ width: 260, opacity: 1 }}
@@ -1227,11 +1570,13 @@ const Editor = () => {
             >
               <div className="w-[260px] h-full overflow-y-auto">
                 <div className="flex items-center justify-between p-3 border-b border-border/20">
-                  <span className="text-xs font-bold text-foreground">{activeTool === "brand" ? "Brand Hub" : "Plantillas"}</span>
+                  <span className="text-xs font-bold text-foreground">{activeTool === "brand" ? "Brand Hub" : activeTool === "mockups" ? "Mockups" : "Plantillas"}</span>
                   <button onClick={() => setActiveTool(null)} className="w-6 h-6 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground"><X size={14} /></button>
                 </div>
                 {activeTool === "brand" ? (
                   <BrandPanel selectedIds={selectedIds} elements={currentElements} onUpdate={updateElement} />
+                ) : activeTool === "mockups" ? (
+                  <MockupsPanel onAddMockup={addMockup} />
                 ) : (
                   <TemplatesPanel onApplyTemplate={applyTemplate} />
                 )}
@@ -1263,6 +1608,8 @@ const Editor = () => {
                   onDeselect={() => { setSelectedIds(new Set()); setEyedropperMode(false); }}
                   eyedropperMode={eyedropperMode}
                   onImageClick={handleImageClick}
+                  onMockupDrop={handleMockupDrop}
+                  onMockupChildAdjust={handleMockupChildAdjust}
                 />
               </motion.div>
             </AnimatePresence>
