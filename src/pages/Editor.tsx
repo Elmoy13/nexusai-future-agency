@@ -6,8 +6,10 @@ import { toast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Save, FileDown, Check, Loader2,
   LayoutTemplate, Type, Image, Hexagon, Sparkles,
-  Plus, ChevronLeft, ChevronRight, Cloud, Palette
+  Plus, ChevronLeft, ChevronRight, Cloud, Palette,
+  Play, X
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { initialCampaigns } from "@/components/dashboard/briefs/campaignData";
 import type { Campaign, SlideData } from "@/components/dashboard/briefs/campaignData";
 
