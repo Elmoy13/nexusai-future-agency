@@ -496,13 +496,14 @@ const MockupFrame = ({ el, interactive, onDrop, onChildAdjust, onNativeFileDrop 
         )}
       </div>
 
-      {/* Screen area (drop zone) */}
+      {/* Screen area (drop zone) - z-[4] to be above frame for drop events */}
       <div
-        className={`absolute z-[1] overflow-hidden transition-all ${dragOver ? "ring-4 ring-cyan-500 ring-inset" : ""}`}
+        className={`absolute z-[4] overflow-hidden transition-all ${dragOver ? "ring-4 ring-cyan-500 ring-inset" : ""}`}
         style={{
           top: inset.top, right: inset.right, bottom: inset.bottom, left: inset.left,
           borderRadius: `calc(${def.screenRadius} - ${Math.min(inset.top, inset.left)}px)`,
           background: el.mockupChild ? "transparent" : (def.frameColor === "#ffffff" ? "#f1f5f9" : "#18181b"),
+          pointerEvents: "auto",
         }}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
