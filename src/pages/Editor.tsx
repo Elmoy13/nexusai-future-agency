@@ -1155,7 +1155,7 @@ const InteractiveCanvas = ({
             </div>
           )}
 
-          <div className="absolute inset-0 z-[2]" data-canvas="true" style={{ position: "relative", width: 1920, height: 1080, pointerEvents: "none" }}>
+          <div className="absolute inset-0 z-[2]" data-canvas="true" style={{ position: "relative", width: 1920, height: 1080 }}>
             {sorted.map((el) => (
               <RndElement
                 key={el.id}
