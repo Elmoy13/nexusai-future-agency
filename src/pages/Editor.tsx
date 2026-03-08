@@ -1608,6 +1608,8 @@ const Editor = () => {
                   onDeselect={() => { setSelectedIds(new Set()); setEyedropperMode(false); }}
                   eyedropperMode={eyedropperMode}
                   onImageClick={handleImageClick}
+                  onMockupDrop={handleMockupDrop}
+                  onMockupChildAdjust={handleMockupChildAdjust}
                 />
               </motion.div>
             </AnimatePresence>
