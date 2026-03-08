@@ -91,6 +91,9 @@ function computeSnapAndGuides(
   return { snappedX, snappedY, guides: { x: guideX, y: guideY } };
 }
 
+const CANVAS_W = 1920;
+const CANVAS_H = 1080;
+
 /* ── Toolbar items ── */
 const tools = [
   { icon: LayoutTemplate, label: "Plantillas", action: "templates" },
@@ -98,6 +101,186 @@ const tools = [
   { icon: Image, label: "Imágenes", action: "image" },
   { icon: Palette, label: "Brand Hub", action: "brand" },
 ];
+
+/* ── Brand Hub Data ── */
+const BRAND_COLORS = [
+  { name: "Cian Primary", hex: "#06B6D4" },
+  { name: "Deep Navy", hex: "#0F172A" },
+  { name: "Clean White", hex: "#FFFFFF" },
+  { name: "Soft Slate", hex: "#94A3B8" },
+  { name: "Accent Teal", hex: "#14B8A6" },
+  { name: "Electric Blue", hex: "#3B82F6" },
+];
+const BRAND_FONTS = [
+  { name: "Inter", role: "Primaria · Sans-serif" },
+  { name: "Playfair Display", role: "Display · Serif" },
+  { name: "Montserrat", role: "Alternativa · Sans-serif" },
+];
+
+/* ── Slide Templates ── */
+const TEMPLATE_COVER = (): SlideElement[] => [
+  { id: uid(), type: "text", content: "Título Principal", x: 160, y: 380, width: 1600, height: 140, fontSize: 96, fontWeight: "900", color: "#0f172a", zIndex: 2, textAlign: "center" },
+  { id: uid(), type: "text", content: "Subtítulo descriptivo de la diapositiva", x: 460, y: 540, width: 1000, height: 60, fontSize: 32, fontWeight: "400", color: "#64748b", zIndex: 3, textAlign: "center" },
+  { id: uid(), type: "shape", content: "#06b6d4", x: 860, y: 660, width: 200, height: 6, zIndex: 1 },
+];
+const TEMPLATE_CONTENT = (): SlideElement[] => [
+  { id: uid(), type: "text", content: "Sección de Contenido", x: 80, y: 60, width: 1760, height: 80, fontSize: 56, fontWeight: "800", color: "#0f172a", zIndex: 3 },
+  { id: uid(), type: "shape", content: "#06b6d4", x: 80, y: 155, width: 120, height: 5, zIndex: 1 },
+  { id: uid(), type: "text", content: "• Primer punto clave de la presentación", x: 100, y: 220, width: 1720, height: 70, fontSize: 32, fontWeight: "400", color: "#334155", zIndex: 2 },
+  { id: uid(), type: "text", content: "• Segundo punto con datos relevantes", x: 100, y: 340, width: 1720, height: 70, fontSize: 32, fontWeight: "400", color: "#334155", zIndex: 2 },
+  { id: uid(), type: "text", content: "• Tercer punto de acción estratégica", x: 100, y: 460, width: 1720, height: 70, fontSize: 32, fontWeight: "400", color: "#334155", zIndex: 2 },
+];
+const TEMPLATE_VISUAL = (): SlideElement[] => [
+  { id: uid(), type: "shape", content: "#e2e8f0", x: 60, y: 60, width: 880, height: 960, zIndex: 0 },
+  { id: uid(), type: "text", content: "📷 Imagen", x: 340, y: 480, width: 300, height: 60, fontSize: 36, fontWeight: "500", color: "#94a3b8", zIndex: 1, textAlign: "center" },
+  { id: uid(), type: "text", content: "Título Visual", x: 1020, y: 120, width: 840, height: 80, fontSize: 56, fontWeight: "800", color: "#0f172a", zIndex: 2 },
+  { id: uid(), type: "text", content: "Descripción detallada que acompaña la imagen. Aquí puedes añadir contexto.", x: 1020, y: 260, width: 840, height: 200, fontSize: 28, fontWeight: "400", color: "#64748b", zIndex: 2 },
+];
+
+/* ── Side Panel: Brand Hub ── */
+const BrandPanel = ({
+  selectedIds, elements, onUpdate,
+}: {
+  selectedIds: Set<string>;
+  elements: SlideElement[];
+  onUpdate: (id: string, patch: Partial<SlideElement>) => void;
+}) => {
+  const hasTextSelected = elements.some((e) => selectedIds.has(e.id) && e.type === "text");
+  const hasAnySelected = selectedIds.size > 0;
+
+  const applyColor = (hex: string) => {
+    if (!hasAnySelected) { toast({ title: "Selecciona un elemento", description: "Haz clic en un texto o forma del lienzo primero." }); return; }
+    selectedIds.forEach((id) => {
+      const el = elements.find((e) => e.id === id);
+      if (el?.type === "text") onUpdate(id, { color: hex });
+      else if (el?.type === "shape") onUpdate(id, { content: hex });
+    });
+    toast({ title: "🎨 Color aplicado" });
+  };
+
+  const applyFont = (font: string) => {
+    if (!hasTextSelected) { toast({ title: "Selecciona un texto", description: "Haz clic en un elemento de texto del lienzo primero." }); return; }
+    selectedIds.forEach((id) => {
+      const el = elements.find((e) => e.id === id);
+      if (el?.type === "text") onUpdate(id, { fontFamily: font });
+    });
+    toast({ title: "🔤 Tipografía aplicada" });
+  };
+
+  return (
+    <div className="flex flex-col gap-5 p-4">
+      <div>
+        <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-1">Brand Hub</h3>
+        <p className="text-[11px] text-muted-foreground">Aero Dynamics</p>
+      </div>
+
+      <div>
+        <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2.5">Paleta de Colores</h4>
+        <div className="grid grid-cols-3 gap-2">
+          {BRAND_COLORS.map((c) => (
+            <button key={c.hex} onClick={() => applyColor(c.hex)} className="flex flex-col items-center gap-1.5 group">
+              <div
+                className="w-10 h-10 rounded-full border-2 border-border/40 group-hover:scale-110 group-hover:shadow-md transition-all"
+                style={{ background: c.hex }}
+              />
+              <span className="text-[9px] text-muted-foreground font-medium leading-tight text-center">{c.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2.5">Tipografía</h4>
+        <div className="flex flex-col gap-1.5">
+          {BRAND_FONTS.map((f) => (
+            <button
+              key={f.name}
+              onClick={() => applyFont(f.name)}
+              className="text-left p-2.5 rounded-lg border border-border/40 hover:border-primary/40 hover:bg-primary/5 transition-all group"
+            >
+              <span className="text-sm font-semibold text-foreground block" style={{ fontFamily: f.name }}>{f.name}</span>
+              <span className="text-[10px] text-muted-foreground">{f.role}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ── Side Panel: Templates ── */
+const TemplatesPanel = ({
+  onApplyTemplate,
+}: {
+  onApplyTemplate: (elements: SlideElement[]) => void;
+}) => {
+  const templates = [
+    { name: "Portada", desc: "Título grande al centro", factory: TEMPLATE_COVER, preview: "cover" as const },
+    { name: "Contenido", desc: "Título + 3 viñetas", factory: TEMPLATE_CONTENT, preview: "content" as const },
+    { name: "Visual", desc: "Imagen + texto lateral", factory: TEMPLATE_VISUAL, preview: "visual" as const },
+  ];
+
+  const handleApply = (factory: () => SlideElement[]) => {
+    if (window.confirm("¿Deseas reemplazar el diseño actual con esta plantilla?")) {
+      onApplyTemplate(factory());
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-5 p-4">
+      <div>
+        <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-1">Plantillas</h3>
+        <p className="text-[11px] text-muted-foreground">Doble clic para aplicar</p>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        {templates.map((t) => (
+          <button
+            key={t.name}
+            onDoubleClick={() => handleApply(t.factory)}
+            className="group border border-border/40 rounded-lg overflow-hidden hover:border-primary/40 hover:shadow-md transition-all"
+          >
+            {/* Mini preview */}
+            <div className="aspect-video bg-white relative p-3">
+              {t.preview === "cover" && (
+                <div className="w-full h-full flex flex-col items-center justify-center gap-1">
+                  <div className="w-3/4 h-3 bg-slate-800 rounded-sm" />
+                  <div className="w-1/2 h-2 bg-slate-300 rounded-sm" />
+                  <div className="w-8 h-0.5 bg-cyan-500 mt-1" />
+                </div>
+              )}
+              {t.preview === "content" && (
+                <div className="w-full h-full flex flex-col gap-1.5">
+                  <div className="w-2/3 h-3 bg-slate-800 rounded-sm" />
+                  <div className="w-6 h-0.5 bg-cyan-500" />
+                  <div className="w-full h-2 bg-slate-200 rounded-sm mt-1" />
+                  <div className="w-full h-2 bg-slate-200 rounded-sm" />
+                  <div className="w-3/4 h-2 bg-slate-200 rounded-sm" />
+                </div>
+              )}
+              {t.preview === "visual" && (
+                <div className="w-full h-full flex gap-2">
+                  <div className="w-1/2 h-full bg-slate-100 rounded-sm flex items-center justify-center">
+                    <div className="w-5 h-5 rounded bg-slate-300" />
+                  </div>
+                  <div className="w-1/2 flex flex-col gap-1 justify-center">
+                    <div className="w-full h-2.5 bg-slate-800 rounded-sm" />
+                    <div className="w-full h-1.5 bg-slate-200 rounded-sm" />
+                    <div className="w-3/4 h-1.5 bg-slate-200 rounded-sm" />
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="px-3 py-2 border-t border-border/20">
+              <span className="text-xs font-semibold text-foreground">{t.name}</span>
+              <span className="text-[10px] text-muted-foreground block">{t.desc}</span>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 /* ── Chroma Key Background Removal ── */
 async function chromaKeyRemove(
