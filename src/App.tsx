@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
+import Editor from "./pages/Editor";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
