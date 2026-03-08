@@ -361,38 +361,44 @@ const InteractiveCanvas = ({
   });
 
   return (
+    /* Centering wrapper — this handles positioning, NOT the slide itself */
     <div
-      className="absolute bg-white shadow-2xl shadow-black/10 ring-1 ring-border/20 rounded-lg overflow-hidden"
-      style={{
-        width: 1920, height: 1080,
-        left: "50%", top: "50%",
-        transform: `translate(-50%, -50%) scale(${scale})`,
-        transformOrigin: "center center",
-      }}
+      className="absolute inset-0 flex items-center justify-center"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget || (e.target as HTMLElement).dataset.canvas) {
-          onDeselect();
-        }
+        if (e.target === e.currentTarget) onDeselect();
       }}
     >
-      {bgImage && <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-[1]" />}
-      <div className="absolute inset-0 z-[2]" data-canvas="true" style={{ position: "relative" }}>
-        {sorted.map((el) => (
-          <RndElement
-            key={el.id}
-            el={el}
-            scale={scale}
-            selected={selectedId === el.id}
-            onSelect={() => onSelectElement(el.id)}
-            onUpdate={(patch) => onUpdateElement(el.id, patch)}
-            onDelete={() => onDeleteElement(el.id)}
-          />
-        ))}
+      {/* Scale wrapper — only applies visual scale, no translate */}
+      <div style={{ transform: `scale(${scale})`, transformOrigin: "center center", willChange: "transform" }}>
+        {/* The actual 1920×1080 slide — position:relative is critical for react-rnd bounds="parent" */}
+        <div
+          className="bg-white shadow-2xl shadow-black/10 ring-1 ring-border/20 rounded-lg overflow-hidden"
+          style={{ width: 1920, height: 1080, position: "relative" }}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget || (e.target as HTMLElement).dataset.canvas) {
+              onDeselect();
+            }
+          }}
+        >
+          {bgImage && <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-[1]" />}
+          <div className="absolute inset-0 z-[2]" data-canvas="true" style={{ position: "relative", width: 1920, height: 1080 }}>
+            {sorted.map((el) => (
+              <RndElement
+                key={el.id}
+                el={el}
+                scale={scale}
+                selected={selectedId === el.id}
+                onSelect={() => onSelectElement(el.id)}
+                onUpdate={(patch) => onUpdateElement(el.id, patch)}
+                onDelete={() => onDeleteElement(el.id)}
+              />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
 };
-
 /* ── Presentation Slide (non-interactive, properly scaled) ── */
 const PresentationSlide = ({ elements, bgImage }: { elements: SlideElement[]; bgImage?: string }) => {
   const containerRef = useRef<HTMLDivElement>(null);
