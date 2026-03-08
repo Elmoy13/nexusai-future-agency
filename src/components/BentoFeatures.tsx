@@ -1,29 +1,31 @@
 import { motion } from "framer-motion";
-import { BrainCircuit, Layers, MessageSquareWarning } from "lucide-react";
+import { Target, Paintbrush, Users } from "lucide-react";
 
 const cards = [
   {
-    icon: BrainCircuit,
-    title: "El Cerebro",
-    subtitle: "Estrategia Autónoma",
+    icon: Target,
+    title: "El Planner",
+    subtitle: "Estrategia",
     description:
-      "Ingesta de briefs con razonamiento avanzado. Analiza mercados, audiencias y competencia en tiempo real.",
+      "Análisis de competencia, mapeo de performance code y alineación de tópicos en tiempo real.",
     span: "md:col-span-2 md:row-span-2",
     large: true,
   },
   {
-    icon: Layers,
-    title: "El Motor",
-    subtitle: "Parrillas Multimodales",
-    description: "Copy y diseño en un clic. Contenido optimizado para cada plataforma.",
+    icon: Paintbrush,
+    title: "La Fábrica",
+    subtitle: "Content & Diseño",
+    description:
+      "Parrillas mensuales generadas en minutos. Copywriting persuasivo y diseño gráfico alineado estrictamente a la identidad de tu marca.",
     span: "md:col-span-1",
     large: false,
   },
   {
-    icon: MessageSquareWarning,
-    title: "El CM",
-    subtitle: "RAG Omnicanal",
-    description: "Resolución de crisis en milisegundos. Moderación inteligente 24/7.",
+    icon: Users,
+    title: "El Community",
+    subtitle: "Ejecución",
+    description:
+      "Publicación automatizada, moderación inteligente 24/7 y detección de tendencias para interacción orgánica.",
     span: "md:col-span-1",
     large: false,
   },
@@ -41,11 +43,11 @@ const BentoFeatures = () => {
           className="text-center mb-16"
         >
           <h2 className="text-4xl md:text-5xl font-black tracking-tight mb-4">
-            Arquitectura de{" "}
-            <span className="text-gradient-cyan">Agentes</span>
+            El Proceso{" "}
+            <span className="text-gradient-cyan">Repetible</span>
           </h2>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto">
-            Tres módulos autónomos que trabajan en sincronía perfecta.
+            Tres módulos autónomos que transforman cualquier brief en resultados medibles.
           </p>
         </motion.div>
 
@@ -61,7 +63,6 @@ const BentoFeatures = () => {
                 transition={{ duration: 0.6, delay: i * 0.15 }}
                 className={`group relative overflow-hidden rounded-2xl border border-cyan-glow/10 hover:border-cyan-glow/30 transition-all duration-500 hover:scale-[1.02] hover:glow-border ${card.span}`}
               >
-                {/* BG texture */}
                 <div
                   className="absolute inset-0 opacity-[0.03] mix-blend-luminosity bg-cover bg-center"
                   style={{

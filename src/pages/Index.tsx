@@ -1,7 +1,9 @@
 import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
 import TrustedBy from "@/components/TrustedBy";
+import OnboardingChat from "@/components/OnboardingChat";
 import BentoFeatures from "@/components/BentoFeatures";
+import ROIMetrics from "@/components/ROIMetrics";
 import AppMockup from "@/components/AppMockup";
 
 const Index = () => {
@@ -10,7 +12,9 @@ const Index = () => {
       <Navbar />
       <HeroSection />
       <TrustedBy />
+      <OnboardingChat />
       <BentoFeatures />
+      <ROIMetrics />
       <AppMockup />
 
       {/* Footer */}
