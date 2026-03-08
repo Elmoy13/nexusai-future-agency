@@ -23,6 +23,8 @@ export interface SlideElement {
   rotation?: number;
   flipH?: boolean;
   flipV?: boolean;
+  flipX?: boolean;
+  flipY?: boolean;
   fontFamily?: string;
   textAlign?: "left" | "center" | "right";
 }

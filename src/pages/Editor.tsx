@@ -56,8 +56,10 @@ function slideToElements(slide: SlideData): SlideElement[] {
 function buildTransform(el: SlideElement): string {
   const parts: string[] = [];
   if (el.rotation) parts.push(`rotate(${el.rotation}deg)`);
-  if (el.flipH) parts.push("scaleX(-1)");
-  if (el.flipV) parts.push("scaleY(-1)");
+  const flipX = (el as SlideElement & { flipX?: boolean }).flipX;
+  const flipY = (el as SlideElement & { flipY?: boolean }).flipY;
+  if (el.flipH || flipX) parts.push("scaleX(-1)");
+  if (el.flipV || flipY) parts.push("scaleY(-1)");
   return parts.length ? parts.join(" ") : "none";
 }
 
