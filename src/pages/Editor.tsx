@@ -203,6 +203,7 @@ const RndElement = ({
 }) => {
   const [editing, setEditing] = useState(false);
   const [localContent, setLocalContent] = useState(el.content);
+  const [dragging, setDragging] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { setLocalContent(el.content); }, [el.content]);
@@ -235,15 +236,17 @@ const RndElement = ({
     <Rnd
       size={{ width: w, height: h }}
       position={{ x: el.x, y: el.y }}
+      onDragStart={() => setDragging(true)}
       onDragStop={(_e, d) => {
-        onUpdate({ x: d.x, y: d.y });
+        setDragging(false);
+        onUpdate({ x: Math.round(d.x), y: Math.round(d.y) });
       }}
       onResizeStop={(_e, _dir, ref, _delta, pos) => {
         onUpdate({
           width: parseInt(ref.style.width),
           height: parseInt(ref.style.height),
-          x: pos.x,
-          y: pos.y,
+          x: Math.round(pos.x),
+          y: Math.round(pos.y),
         });
       }}
       disableDragging={editing}
@@ -260,14 +263,21 @@ const RndElement = ({
         outline: selected ? "2px solid #06b6d4" : "none",
         outlineOffset: 2,
         borderRadius: el.type === "shape" ? 16 : 4,
+        willChange: "transform",
+        userSelect: dragging ? "none" : "auto",
       }}
     >
       <div
         className={`w-full h-full relative ${!selected && !editing ? "hover:outline hover:outline-2 hover:outline-dashed hover:outline-cyan-400/40" : ""}`}
-        onDoubleClick={() => {
+        onDoubleClick={(e) => {
+          e.stopPropagation();
           if (el.type === "text") setEditing(true);
         }}
-        style={{ cursor: editing ? "text" : "grab", borderRadius: el.type === "shape" ? 16 : 0 }}
+        style={{
+          cursor: editing ? "text" : dragging ? "grabbing" : "grab",
+          borderRadius: el.type === "shape" ? 16 : 0,
+          userSelect: dragging ? "none" : "auto",
+        }}
       >
         {/* Format toolbar */}
         {selected && el.type === "text" && !editing && (
