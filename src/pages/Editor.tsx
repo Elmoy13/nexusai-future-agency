@@ -1344,6 +1344,21 @@ const Editor = () => {
     history.set((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
   }, [history]);
 
+  const handleNativeFileDrop = useCallback((src: string, x: number, y: number) => {
+    const maxZ = Math.max(0, ...currentElements.map((e) => e.zIndex ?? 0));
+    const el: SlideElement = { id: uid(), type: "image", content: src, x, y, width: 400, height: 300, zIndex: maxZ + 1 };
+    history.set((prev) => [...prev, el]);
+    setSelectedIds(new Set([el.id]));
+    toast({ title: "🖼️ Imagen importada", description: "Arrastra y redimensiona." });
+  }, [currentElements, history]);
+
+  const handleMockupNativeFileDrop = useCallback((mockupId: string, src: string) => {
+    history.set((prev) => prev.map((e) =>
+      e.id === mockupId ? { ...e, mockupChild: src, mockupChildScale: 1, mockupChildX: 0, mockupChildY: 0 } : e
+    ));
+    toast({ title: "🎯 Imagen insertada en Mockup" });
+  }, [history]);
+
   const addSlide = () => {
     const newId = `new-${Date.now()}`;
     setSlideMeta((prev) => [...prev, { id: newId, type: "content" as const, image: undefined }]);
