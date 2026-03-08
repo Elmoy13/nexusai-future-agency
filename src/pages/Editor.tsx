@@ -209,6 +209,10 @@ const Editor = () => {
   const [docTitle, setDocTitle] = useState(campaign.title);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [activeTool, setActiveTool] = useState<string | null>(null);
+  const [presenting, setPresenting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [exportMsg, setExportMsg] = useState("");
 
   const activeSlide = slides[activeIdx];
 
