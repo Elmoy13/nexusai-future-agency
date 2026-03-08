@@ -74,6 +74,7 @@ interface Props {
 
 const BrandHub = ({ brandName, onBack }: Props) => {
   const [slides, setSlides] = useState(initialSlides);
+  const [presentingSlide, setPresentingSlide] = useState<SlideCard | null>(null);
 
   const updateStatus = (id: string, status: SlideStatus) => {
     setSlides((prev) => prev.map((s) => (s.id === id ? { ...s, status } : s)));
