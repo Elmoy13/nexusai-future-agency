@@ -429,13 +429,13 @@ const RndElement = ({
       bounds="parent"
       onMouseDown={(e: any) => { e.stopPropagation(); onSelect(e); }}
       style={{
+        position: "absolute",
         zIndex: selected ? 9999 : (el.zIndex ?? 0),
         outline: selected ? "2px solid #06b6d4" : "none",
         outlineOffset: 2,
         borderRadius: el.type === "shape" ? 16 : 4,
         willChange: "transform",
         userSelect: dragging ? "none" : "auto",
-        transform,
       }}
     >
       <div
