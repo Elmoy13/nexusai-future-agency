@@ -837,6 +837,7 @@ const FormatBar = ({
 const RndElement = ({
   el, scale, selected, onSelect, onUpdate, onDelete,
   onDragMove, onDragEnd: onDragEndCb, eyedropperMode, onImageClick,
+  onMockupDrop, onMockupChildAdjust,
 }: {
   el: SlideElement;
   scale: number;
@@ -848,6 +849,8 @@ const RndElement = ({
   onDragEnd?: () => void;
   eyedropperMode?: boolean;
   onImageClick?: (elId: string, localX: number, localY: number) => void;
+  onMockupDrop?: (mockupId: string, imgSrc: string, imgElId: string) => void;
+  onMockupChildAdjust?: (id: string, patch: Partial<SlideElement>) => void;
 }) => {
   const [editing, setEditing] = useState(false);
   const [localContent, setLocalContent] = useState(el.content);
@@ -872,15 +875,22 @@ const RndElement = ({
     bottomLeft: <div style={handleStyle} />, bottomRight: <div style={handleStyle} />,
   } : {};
 
-  const w = el.width ?? (el.type === "text" ? 600 : 400);
-  const h = el.height ?? (el.type === "text" ? 80 : 400);
+  const w = el.width ?? (el.type === "text" ? 600 : el.type === "mockup" ? 340 : 400);
+  const h = el.height ?? (el.type === "text" ? 80 : el.type === "mockup" ? 700 : 400);
   const transform = buildTransform(el);
+  const isMockup = el.type === "mockup";
 
   return (
     <Rnd
       size={{ width: w, height: h }}
       position={{ x: el.x, y: el.y }}
-      onDragStart={() => setDragging(true)}
+      onDragStart={(e) => {
+        setDragging(true);
+        // Enable image drag data for mockup drop
+        if (el.type === "image" && e instanceof MouseEvent) {
+          // We'll use a native drag approach via onDragStart on the inner div
+        }
+      }}
       onDrag={(_e, d) => { onDragMove?.(el.id, d.x, d.y, w, h); }}
       onDragStop={(_e, d) => {
         setDragging(false);
@@ -901,7 +911,7 @@ const RndElement = ({
         zIndex: selected ? 9999 : (el.zIndex ?? 0),
         outline: selected ? "2px solid #06b6d4" : "none",
         outlineOffset: 2,
-        borderRadius: el.type === "shape" ? 16 : 4,
+        borderRadius: isMockup ? 0 : el.type === "shape" ? 16 : 4,
         willChange: "transform",
         userSelect: dragging ? "none" : "auto",
       }}
@@ -917,13 +927,27 @@ const RndElement = ({
             onImageClick(el.id, localX, localY);
           }
         }}
+        draggable={el.type === "image"}
+        onDragStart={(e) => {
+          if (el.type === "image") {
+            e.dataTransfer.setData("application/mockup-drop", JSON.stringify({ imgSrc: el.content, imgElId: el.id }));
+            e.dataTransfer.effectAllowed = "move";
+          }
+        }}
         style={{
           cursor: eyedropperMode && el.type === "image" ? "crosshair" : editing ? "text" : dragging ? "grabbing" : "grab",
-          borderRadius: el.type === "shape" ? 16 : 0,
+          borderRadius: isMockup ? 0 : el.type === "shape" ? 16 : 0,
           userSelect: dragging ? "none" : "auto",
         }}
       >
-        {el.type === "image" ? (
+        {isMockup ? (
+          <MockupFrame
+            el={el}
+            interactive
+            onDrop={onMockupDrop}
+            onChildAdjust={(patch) => onMockupChildAdjust?.(el.id, patch)}
+          />
+        ) : el.type === "image" ? (
           <div
             className="w-full h-full"
             style={{
