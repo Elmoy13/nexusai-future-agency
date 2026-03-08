@@ -611,6 +611,13 @@ async function chromaKeyRemove(
 /* ── Static element renderer ── */
 const StaticElement = ({ el }: { el: SlideElement }) => {
   const transform = buildTransform(el);
+  if (el.type === "mockup") {
+    return (
+      <div style={{ position: "absolute", left: el.x, top: el.y, width: el.width ?? 340, height: el.height ?? 700, zIndex: el.zIndex ?? 0, transform }}>
+        <MockupFrame el={el} />
+      </div>
+    );
+  }
   if (el.type === "image") {
     return (
       <div style={{ position: "absolute", left: el.x, top: el.y, width: el.width ?? 400, height: el.height ?? 400, opacity: el.opacity ?? 1, zIndex: el.zIndex ?? 0, transform }}>
