@@ -1187,7 +1187,7 @@ const Editor = () => {
       )}
 
       <div className="flex-1 flex overflow-hidden">
-        {/* ── Left Sidebar ── */}
+        {/* ── Left Sidebar (icons) ── */}
         <div className="w-16 bg-slate-900 flex flex-col items-center py-4 gap-1 flex-shrink-0">
           {tools.map((t) => {
             const Icon = t.icon;
@@ -1214,6 +1214,31 @@ const Editor = () => {
             <span className="text-[8px] font-bold leading-none">IA</span>
           </button>
         </div>
+
+        {/* ── Slide-out Panel (Templates / Brand) ── */}
+        <AnimatePresence>
+          {(activeTool === "templates" || activeTool === "brand") && (
+            <motion.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 260, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeInOut" }}
+              className="bg-background border-r border-border/40 flex-shrink-0 overflow-hidden"
+            >
+              <div className="w-[260px] h-full overflow-y-auto">
+                <div className="flex items-center justify-between p-3 border-b border-border/20">
+                  <span className="text-xs font-bold text-foreground">{activeTool === "brand" ? "Brand Hub" : "Plantillas"}</span>
+                  <button onClick={() => setActiveTool(null)} className="w-6 h-6 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground"><X size={14} /></button>
+                </div>
+                {activeTool === "brand" ? (
+                  <BrandPanel selectedIds={selectedIds} elements={currentElements} onUpdate={updateElement} />
+                ) : (
+                  <TemplatesPanel onApplyTemplate={applyTemplate} />
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ── Canvas Area ── */}
         <div className="flex-1 flex flex-col overflow-hidden">
