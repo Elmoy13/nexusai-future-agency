@@ -371,6 +371,16 @@ const MockupFrame = ({ el, interactive, onDrop, onChildAdjust, onNativeFileDrop 
     e.preventDefault();
     e.stopPropagation();
     setDragOver(false);
+    // Native OS file drop
+    if (e.dataTransfer.files?.length) {
+      const file = e.dataTransfer.files[0];
+      if (file.type.startsWith("image/")) {
+        const src = URL.createObjectURL(file);
+        onNativeFileDrop?.(el.id, src);
+        return;
+      }
+    }
+    // Internal mockup drop
     const data = e.dataTransfer.getData("application/mockup-drop");
     if (data && onDrop) {
       try {
