@@ -286,6 +286,19 @@ const Editor = () => {
 
   return (
     <div className="h-screen w-screen flex flex-col bg-slate-100 overflow-hidden">
+      {/* Presentation overlay */}
+      <AnimatePresence>
+        {presenting && (
+          <PresentationOverlay slides={slides} activeIdx={activeIdx} setActiveIdx={setActiveIdx} onClose={() => setPresenting(false)} />
+        )}
+      </AnimatePresence>
+
+      {/* Export PDF overlay */}
+      <AnimatePresence>
+        {exporting && (
+          <ExportPdfOverlay progress={exportProgress} message={exportMsg} onClose={() => { setExporting(false); setExportProgress(0); }} />
+        )}
+      </AnimatePresence>
       {/* ── Top Bar ── */}
       <div className="h-14 bg-white border-b border-border/40 flex items-center justify-between px-4 flex-shrink-0 z-10">
         <div className="flex items-center gap-3">
