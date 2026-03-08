@@ -193,7 +193,7 @@ const BrandHub = ({ brandName, onBack }: Props) => {
                     </DropdownMenu>
 
                     <div className="flex items-center gap-1">
-                      <button onClick={() => setEditing(campaign)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors" title="Editar texto">
+                      <button onClick={() => navigate(`/editor/${campaign.id}`)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors" title="Editar en Editor">
                         <Pencil size={14} />
                       </button>
                       <button className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors" title="Cambiar imagen">
