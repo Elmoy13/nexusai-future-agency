@@ -336,12 +336,12 @@ const FormatBar = ({
 
           <div className="flex items-center gap-0.5" title="Voltear">
             <button
-              onClick={() => updateAllSelected({ flipH: !(first?.flipH ?? false) })}
+              onClick={() => updateAllSelected({ flipH: !(first?.flipH ?? false), flipX: !((first as SlideElement & { flipX?: boolean })?.flipX ?? false) })}
               className={`w-7 h-7 rounded-md flex items-center justify-center transition ${first?.flipH ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground hover:text-foreground"}`}
               title="Voltear Horizontal"
             ><FlipHorizontal size={13} /></button>
             <button
-              onClick={() => updateAllSelected({ flipV: !(first?.flipV ?? false) })}
+              onClick={() => updateAllSelected({ flipV: !(first?.flipV ?? false), flipY: !((first as SlideElement & { flipY?: boolean })?.flipY ?? false) })}
               className={`w-7 h-7 rounded-md flex items-center justify-center transition ${first?.flipV ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground hover:text-foreground"}`}
               title="Voltear Vertical"
             ><FlipVertical size={13} /></button>
