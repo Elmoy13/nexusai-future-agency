@@ -93,7 +93,7 @@ const Navbar = ({ onOpenModal }: NavbarProps) => {
                     <button
                       key={item.label}
                       onClick={() => { setDropdownOpen(false); onOpenModal?.(); }}
-                      className="w-full flex items-start gap-3 px-4 py-3 hover:bg-secondary transition-colors duration-200 text-left border-none bg-transparent cursor-pointer">
+                      className="w-full flex items-start gap-3 px-4 py-3 hover:bg-secondary transition-colors duration-200 text-left border-none bg-transparent cursor-pointer"
                     >
                       <item.icon size={16} className="text-primary mt-0.5 shrink-0" />
                       <div>
