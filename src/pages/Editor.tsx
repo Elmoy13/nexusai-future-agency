@@ -153,7 +153,7 @@ const TEMPLATE_TESTIMONIAL = (): SlideElement[] => [
   { id: uid(), type: "shape", content: "#06b6d4", x: 860, y: 140, width: 200, height: 200, zIndex: 1 },
   { id: uid(), type: "text", content: "👤", x: 910, y: 180, width: 100, height: 100, fontSize: 72, fontWeight: "400", color: "#ffffff", zIndex: 2, textAlign: "center" },
   { id: uid(), type: "text", content: "★ ★ ★ ★ ★", x: 660, y: 380, width: 600, height: 60, fontSize: 36, fontWeight: "400", color: "#f59e0b", zIndex: 2, textAlign: "center" },
-  { id: uid(), type: "text", content: ""Este producto transformó completamente\nnuestra forma de trabajar. Increíble."", x: 360, y: 480, width: 1200, height: 160, fontSize: 36, fontWeight: "400", color: "#334155", zIndex: 2, textAlign: "center", fontFamily: "Georgia" },
+  { id: uid(), type: "text", content: "\"Este producto transformo completamente\nnuestra forma de trabajar. Increible.\"", x: 360, y: 480, width: 1200, height: 160, fontSize: 36, fontWeight: "400", color: "#334155", zIndex: 2, textAlign: "center", fontFamily: "Georgia" },
   { id: uid(), type: "text", content: "— María García, CEO en TechCorp", x: 460, y: 680, width: 1000, height: 50, fontSize: 24, fontWeight: "600", color: "#94a3b8", zIndex: 2, textAlign: "center" },
 ];
 const TEMPLATE_CAROUSEL = (): SlideElement[] => [
