@@ -384,6 +384,160 @@ const MOCKUP_DEFS: MockupDef[] = [
 
 const getMockupDef = (mockupType?: string) => MOCKUP_DEFS.find((m) => m.id === mockupType);
 
+/* ── Mockup Image Adjust Modal ── */
+const MockupAdjustModal = ({ imgSrc, mockupDef, initialScale, initialX, initialY, onSave, onClose }: {
+  imgSrc: string;
+  mockupDef: MockupDef;
+  initialScale: number;
+  initialX: number;
+  initialY: number;
+  onSave: (scale: number, x: number, y: number) => void;
+  onClose: () => void;
+}) => {
+  const [scale, setScale] = useState(initialScale);
+  const [panX, setPanX] = useState(initialX);
+  const [panY, setPanY] = useState(initialY);
+  const [dragging, setDragging] = useState(false);
+  const lastPos = useRef({ x: 0, y: 0 });
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setDragging(true);
+    lastPos.current = { x: e.clientX, y: e.clientY };
+  };
+
+  useEffect(() => {
+    if (!dragging) return;
+    const handleMove = (e: MouseEvent) => {
+      const dx = e.clientX - lastPos.current.x;
+      const dy = e.clientY - lastPos.current.y;
+      lastPos.current = { x: e.clientX, y: e.clientY };
+      setPanX((v) => v + dx / scale);
+      setPanY((v) => v + dy / scale);
+    };
+    const handleUp = () => setDragging(false);
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", handleUp);
+    return () => { window.removeEventListener("mousemove", handleMove); window.removeEventListener("mouseup", handleUp); };
+  }, [dragging, scale]);
+
+  const inset = mockupDef.screenInset;
+  const previewScale = 1.8;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[10000] bg-black/70 backdrop-blur-sm flex items-center justify-center"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="bg-background rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+        style={{ width: 620, maxHeight: "90vh" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-border/40 flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-foreground">Ajustar imagen en {mockupDef.name}</h3>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Arrastra la imagen para reposicionar · Scroll para zoom</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center text-muted-foreground"><X size={16} /></button>
+        </div>
+
+        {/* Preview area */}
+        <div className="flex-1 flex items-center justify-center py-8 px-6 bg-muted/30">
+          <div
+            className="relative"
+            style={{ width: mockupDef.width * previewScale, height: mockupDef.height * previewScale }}
+          >
+            {/* Device frame (visual only) */}
+            <div
+              className="absolute inset-0 z-[3] pointer-events-none"
+              style={{
+                borderRadius: mockupDef.screenRadius,
+                border: `${Math.min(inset.top, inset.left) * previewScale}px solid ${mockupDef.frameColor}`,
+                borderTopWidth: inset.top * previewScale,
+                borderRightWidth: inset.right * previewScale,
+                borderBottomWidth: inset.bottom * previewScale,
+                borderLeftWidth: inset.left * previewScale,
+                boxSizing: "border-box",
+              }}
+            >
+              {mockupDef.notch && (
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 rounded-b-2xl" style={{ width: 50 * previewScale, height: 10 * previewScale, background: mockupDef.frameColor }} />
+              )}
+            </div>
+
+            {/* Screen area - draggable */}
+            <div
+              className="absolute z-[1] overflow-hidden"
+              style={{
+                top: inset.top * previewScale,
+                right: inset.right * previewScale,
+                bottom: inset.bottom * previewScale,
+                left: inset.left * previewScale,
+                borderRadius: `calc(${mockupDef.screenRadius} - ${Math.min(inset.top, inset.left) * previewScale}px)`,
+                cursor: dragging ? "grabbing" : "grab",
+              }}
+              onMouseDown={handleMouseDown}
+              onWheel={(e) => {
+                e.stopPropagation();
+                const delta = e.deltaY > 0 ? -0.05 : 0.05;
+                setScale((s) => Math.max(0.3, Math.min(4, s + delta)));
+              }}
+            >
+              <img
+                src={imgSrc}
+                alt="Adjust"
+                draggable={false}
+                className="pointer-events-none select-none"
+                style={{
+                  width: "100%", height: "100%", objectFit: "cover",
+                  transform: `scale(${scale}) translate(${panX}px, ${panY}px)`,
+                  transformOrigin: "center center",
+                  transition: dragging ? "none" : "transform 80ms ease-out",
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="px-6 py-4 border-t border-border/40 flex items-center gap-4">
+          {/* Zoom slider */}
+          <div className="flex items-center gap-3 flex-1">
+            <span className="text-[11px] text-muted-foreground font-medium w-10">Zoom</span>
+            <input
+              type="range"
+              min={30}
+              max={400}
+              value={Math.round(scale * 100)}
+              onChange={(e) => setScale(parseInt(e.target.value) / 100)}
+              className="flex-1 h-1.5 accent-cyan-500"
+            />
+            <span className="text-xs font-semibold text-foreground tabular-nums w-12 text-right">{Math.round(scale * 100)}%</span>
+          </div>
+          <div className="w-px h-8 bg-border/40" />
+          <button
+            onClick={() => { setScale(1); setPanX(0); setPanY(0); }}
+            className="text-xs text-muted-foreground hover:text-foreground transition font-medium px-3 py-1.5 rounded-lg hover:bg-muted"
+          >
+            Resetear
+          </button>
+          <button
+            onClick={() => { onSave(scale, panX, panY); onClose(); }}
+            className="text-xs font-semibold px-5 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 transition shadow-sm shadow-cyan-500/20"
+          >
+            Aplicar
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
 /* ── Mockup Frame Renderer (used in canvas + thumbnails) ── */
 const MockupFrame = ({ el, interactive, onDrop, onChildAdjust, onNativeFileDrop }: {
   el: SlideElement;
@@ -394,10 +548,7 @@ const MockupFrame = ({ el, interactive, onDrop, onChildAdjust, onNativeFileDrop 
 }) => {
   const def = getMockupDef(el.mockupType);
   const [dragOver, setDragOver] = useState(false);
-  const [adjusting, setAdjusting] = useState(false);
-  const [localScale, setLocalScale] = useState(el.mockupChildScale ?? 1);
-  const [localX, setLocalX] = useState(el.mockupChildX ?? 0);
-  const [localY, setLocalY] = useState(el.mockupChildY ?? 0);
+  const [showAdjustModal, setShowAdjustModal] = useState(false);
 
   if (!def) return <div className="w-full h-full bg-muted rounded-lg flex items-center justify-center text-xs text-muted-foreground">Mockup</div>;
 
@@ -415,7 +566,6 @@ const MockupFrame = ({ el, interactive, onDrop, onChildAdjust, onNativeFileDrop 
     e.preventDefault();
     e.stopPropagation();
     setDragOver(false);
-    // Native OS file drop
     if (e.dataTransfer.files?.length) {
       const file = e.dataTransfer.files[0];
       if (file.type.startsWith("image/")) {
@@ -424,7 +574,6 @@ const MockupFrame = ({ el, interactive, onDrop, onChildAdjust, onNativeFileDrop 
         return;
       }
     }
-    // Internal mockup drop
     const data = e.dataTransfer.getData("application/mockup-drop");
     if (data && onDrop) {
       try {
@@ -435,129 +584,115 @@ const MockupFrame = ({ el, interactive, onDrop, onChildAdjust, onNativeFileDrop 
   };
 
   return (
-    <div className="w-full h-full relative" style={{ borderRadius: def.screenRadius }}>
-      {/* Device frame */}
-      <div
-        className="absolute inset-0 z-[3] pointer-events-none"
-        style={{
-          borderRadius: def.screenRadius,
-          border: `${Math.min(inset.top, inset.left)}px solid ${def.frameColor}`,
-          borderTopWidth: inset.top,
-          borderRightWidth: inset.right,
-          borderBottomWidth: inset.bottom,
-          borderLeftWidth: inset.left,
-          boxSizing: "border-box",
-        }}
-      >
-        {/* Notch for iPhone */}
-        {def.notch && (
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-6 rounded-b-2xl" style={{ background: def.frameColor }} />
-        )}
-        {/* Social UI overlays */}
-        {def.socialUI === "instagram-feed" && (
-          <>
-            <div className="absolute top-0 left-0 right-0 flex items-center gap-2 px-3" style={{ height: inset.top - 2, background: "#fff" }}>
-              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 border-2 border-white" />
-              <div className="flex flex-col">
-                <span className="text-[9px] font-bold text-slate-900 leading-none">aerodynamics</span>
-                <span className="text-[7px] text-slate-400">Patrocinado</span>
+    <>
+      <div className="w-full h-full relative" style={{ borderRadius: def.screenRadius }}>
+        {/* Device frame */}
+        <div
+          className="absolute inset-0 z-[3] pointer-events-none"
+          style={{
+            borderRadius: def.screenRadius,
+            border: `${Math.min(inset.top, inset.left)}px solid ${def.frameColor}`,
+            borderTopWidth: inset.top,
+            borderRightWidth: inset.right,
+            borderBottomWidth: inset.bottom,
+            borderLeftWidth: inset.left,
+            boxSizing: "border-box",
+          }}
+        >
+          {def.notch && (
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-6 rounded-b-2xl" style={{ background: def.frameColor }} />
+          )}
+          {def.socialUI === "instagram-feed" && (
+            <>
+              <div className="absolute top-0 left-0 right-0 flex items-center gap-2 px-3" style={{ height: inset.top - 2, background: "#fff" }}>
+                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 border-2 border-white" />
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-bold text-slate-900 leading-none">aerodynamics</span>
+                  <span className="text-[7px] text-slate-400">Patrocinado</span>
+                </div>
               </div>
+              <div className="absolute bottom-0 left-0 right-0 flex items-center gap-4 px-3" style={{ height: inset.bottom - 2, background: "#fff" }}>
+                <span className="text-sm">♡</span><span className="text-sm">💬</span><span className="text-sm">↗</span><span className="flex-1" /><span className="text-sm">🔖</span>
+              </div>
+            </>
+          )}
+          {def.socialUI === "instagram-story" && (
+            <div className="absolute top-0 left-0 right-0 flex items-center gap-2 px-3" style={{ height: inset.top - 2, background: "rgba(0,0,0,0.3)" }}>
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-orange-400" />
+              <span className="text-[9px] font-bold text-white leading-none">aerodynamics</span>
+              <span className="text-[7px] text-white/60">12h</span>
             </div>
-            <div className="absolute bottom-0 left-0 right-0 flex items-center gap-4 px-3" style={{ height: inset.bottom - 2, background: "#fff" }}>
-              <span className="text-sm">♡</span>
-              <span className="text-sm">💬</span>
-              <span className="text-sm">↗</span>
-              <span className="flex-1" />
-              <span className="text-sm">🔖</span>
+          )}
+          {def.socialUI === "tiktok" && (
+            <>
+              <div className="absolute top-0 left-0 right-0 flex items-center justify-center gap-4" style={{ height: inset.top - 2, background: "rgba(0,0,0,0.3)" }}>
+                <span className="text-[10px] text-white/60 font-semibold">Following</span>
+                <span className="text-[10px] text-white font-bold border-b border-white pb-0.5">For You</span>
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 flex items-center justify-around" style={{ height: inset.bottom - 2, background: "#000" }}>
+                <span className="text-[8px] text-white/80">🏠</span><span className="text-[8px] text-white/80">🔍</span>
+                <span className="text-[10px] text-white bg-gradient-to-r from-cyan-400 to-pink-500 rounded px-2 py-0.5 font-bold">+</span>
+                <span className="text-[8px] text-white/80">💬</span><span className="text-[8px] text-white/80">👤</span>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Screen area (drop zone) */}
+        <div
+          className={`absolute z-[4] overflow-hidden transition-all ${dragOver ? "ring-4 ring-cyan-500 ring-inset" : ""}`}
+          style={{
+            top: inset.top, right: inset.right, bottom: inset.bottom, left: inset.left,
+            borderRadius: `calc(${def.screenRadius} - ${Math.min(inset.top, inset.left)}px)`,
+            background: el.mockupChild ? "transparent" : (def.frameColor === "#ffffff" ? "#f1f5f9" : "#18181b"),
+            pointerEvents: "auto",
+          }}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDropEvt}
+          onDoubleClick={(e) => {
+            if (interactive && el.mockupChild) {
+              e.stopPropagation();
+              setShowAdjustModal(true);
+            }
+          }}
+        >
+          {el.mockupChild ? (
+            <img
+              src={el.mockupChild}
+              alt="Mockup content"
+              draggable={false}
+              className="pointer-events-none"
+              style={{
+                width: "100%", height: "100%", objectFit: "cover",
+                transform: `scale(${el.mockupChildScale ?? 1}) translate(${el.mockupChildX ?? 0}px, ${el.mockupChildY ?? 0}px)`,
+                transformOrigin: "center center",
+              }}
+            />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center gap-1 text-muted-foreground/50">
+              <Image size={24} />
+              <span className="text-[9px] font-medium">Drop image here</span>
             </div>
-          </>
-        )}
-        {def.socialUI === "instagram-story" && (
-          <div className="absolute top-0 left-0 right-0 flex items-center gap-2 px-3" style={{ height: inset.top - 2, background: "rgba(0,0,0,0.3)" }}>
-            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-orange-400" />
-            <span className="text-[9px] font-bold text-white leading-none">aerodynamics</span>
-            <span className="text-[7px] text-white/60">12h</span>
-          </div>
-        )}
-        {def.socialUI === "tiktok" && (
-          <>
-            <div className="absolute top-0 left-0 right-0 flex items-center justify-center gap-4" style={{ height: inset.top - 2, background: "rgba(0,0,0,0.3)" }}>
-              <span className="text-[10px] text-white/60 font-semibold">Following</span>
-              <span className="text-[10px] text-white font-bold border-b border-white pb-0.5">For You</span>
-            </div>
-            <div className="absolute bottom-0 left-0 right-0 flex items-center justify-around" style={{ height: inset.bottom - 2, background: "#000" }}>
-              <span className="text-[8px] text-white/80">🏠</span>
-              <span className="text-[8px] text-white/80">🔍</span>
-              <span className="text-[10px] text-white bg-gradient-to-r from-cyan-400 to-pink-500 rounded px-2 py-0.5 font-bold">+</span>
-              <span className="text-[8px] text-white/80">💬</span>
-              <span className="text-[8px] text-white/80">👤</span>
-            </div>
-          </>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* Screen area (drop zone) - z-[4] to be above frame for drop events */}
-      <div
-        className={`absolute z-[4] overflow-hidden transition-all ${dragOver ? "ring-4 ring-cyan-500 ring-inset" : ""}`}
-        style={{
-          top: inset.top, right: inset.right, bottom: inset.bottom, left: inset.left,
-          borderRadius: `calc(${def.screenRadius} - ${Math.min(inset.top, inset.left)}px)`,
-          background: el.mockupChild ? "transparent" : (def.frameColor === "#ffffff" ? "#f1f5f9" : "#18181b"),
-          pointerEvents: "auto",
-        }}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDropEvt}
-        onDoubleClick={(e) => {
-          if (interactive && el.mockupChild) {
-            e.stopPropagation();
-            setAdjusting(!adjusting);
-          }
-        }}
-      >
-        {el.mockupChild ? (
-          <img
-            src={el.mockupChild}
-            alt="Mockup content"
-            draggable={false}
-            className="pointer-events-none"
-            style={{
-              width: "100%", height: "100%", objectFit: "cover",
-              transform: `scale(${localScale}) translate(${localX}px, ${localY}px)`,
-              transformOrigin: "center center",
-            }}
+      {/* Adjust Modal */}
+      <AnimatePresence>
+        {showAdjustModal && el.mockupChild && def && (
+          <MockupAdjustModal
+            imgSrc={el.mockupChild}
+            mockupDef={def}
+            initialScale={el.mockupChildScale ?? 1}
+            initialX={el.mockupChildX ?? 0}
+            initialY={el.mockupChildY ?? 0}
+            onSave={(s, x, y) => onChildAdjust?.({ mockupChildScale: s, mockupChildX: x, mockupChildY: y })}
+            onClose={() => setShowAdjustModal(false)}
           />
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-1 text-muted-foreground/50">
-            <Image size={24} />
-            <span className="text-[9px] font-medium">Drop image here</span>
-          </div>
         )}
-
-        {/* Pan & Zoom controls */}
-        {adjusting && interactive && el.mockupChild && (
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-            {/* Pan arrows */}
-            <div className="flex items-center gap-1">
-              <button onClick={() => { const v = localX - 10; setLocalX(v); onChildAdjust?.({ mockupChildX: v }); }} className="w-7 h-7 rounded-full bg-slate-900/90 backdrop-blur-sm text-white hover:text-cyan-400 flex items-center justify-center text-xs">←</button>
-              <div className="flex flex-col gap-1">
-                <button onClick={() => { const v = localY - 10; setLocalY(v); onChildAdjust?.({ mockupChildY: v }); }} className="w-7 h-7 rounded-full bg-slate-900/90 backdrop-blur-sm text-white hover:text-cyan-400 flex items-center justify-center text-xs">↑</button>
-                <button onClick={() => { const v = localY + 10; setLocalY(v); onChildAdjust?.({ mockupChildY: v }); }} className="w-7 h-7 rounded-full bg-slate-900/90 backdrop-blur-sm text-white hover:text-cyan-400 flex items-center justify-center text-xs">↓</button>
-              </div>
-              <button onClick={() => { const v = localX + 10; setLocalX(v); onChildAdjust?.({ mockupChildX: v }); }} className="w-7 h-7 rounded-full bg-slate-900/90 backdrop-blur-sm text-white hover:text-cyan-400 flex items-center justify-center text-xs">→</button>
-            </div>
-            {/* Zoom + Reset */}
-            <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-sm text-white text-[10px] px-3 py-1.5 rounded-full">
-              <button onClick={() => { const s = Math.max(0.5, localScale - 0.1); setLocalScale(s); onChildAdjust?.({ mockupChildScale: s }); }} className="hover:text-cyan-400 font-bold">−</button>
-              <span className="tabular-nums w-10 text-center">{Math.round(localScale * 100)}%</span>
-              <button onClick={() => { const s = Math.min(3, localScale + 0.1); setLocalScale(s); onChildAdjust?.({ mockupChildScale: s }); }} className="hover:text-cyan-400 font-bold">+</button>
-              <div className="w-px h-3 bg-white/20" />
-              <button onClick={() => { setLocalScale(1); setLocalX(0); setLocalY(0); onChildAdjust?.({ mockupChildScale: 1, mockupChildX: 0, mockupChildY: 0 }); }} className="hover:text-cyan-400">Reset</button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+      </AnimatePresence>
+    </>
   );
 };
 
