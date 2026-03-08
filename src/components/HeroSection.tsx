@@ -12,7 +12,6 @@ const HeroSection = () => {
             "url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop')",
         }}
       />
-      {/* Dark Overlay + Vignette */}
       <div className="absolute inset-0 bg-background/80" />
       <div
         className="absolute inset-0"
@@ -60,8 +59,9 @@ const HeroSection = () => {
           transition={{ duration: 0.8, delay: 0.7 }}
           className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed"
         >
-          El primer sistema operativo multi-agente que audita, crea y gestiona
-          comunidades. 24/7. Sin errores.
+          El primer sistema operativo multi-agente que transforma un brief en una
+          estrategia de marca, genera la parrilla de contenidos y gestiona tus
+          comunidades. 24/7. Sin errores humanos.
         </motion.p>
 
         {/* Buttons */}
@@ -80,7 +80,7 @@ const HeroSection = () => {
           </button>
           <button className="rounded-full px-8 py-4 text-base font-medium text-muted-foreground border border-border hover:text-foreground hover:border-foreground/30 transition-all duration-300 flex items-center gap-3">
             <Eye size={18} />
-            Ver Arquitectura
+            Ver el Flujo de Trabajo
           </button>
         </motion.div>
       </div>

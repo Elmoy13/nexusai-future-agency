@@ -1,17 +1,42 @@
 import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
 
 const lines = [
-  { text: "$ nexus-ai init --agents=3", color: "text-muted-foreground", delay: 0 },
-  { text: "→ Conectando módulos de razonamiento...", color: "text-muted-foreground", delay: 0.3 },
-  { text: "→ Cargando modelo Llama 3.3 70B...", color: "text-muted-foreground", delay: 0.6 },
-  { text: "→ Agentes desplegados: Cerebro, Motor, CM", color: "text-cyan-glow", delay: 0.9 },
-  { text: "", color: "", delay: 1.2 },
+  { text: '$ nexus-ai start-campaign --brand="Acme Corp"', color: "text-muted-foreground", delay: 0 },
+  { text: "→ Ejecutando Agente Entrevistador... Brief completado.", color: "text-muted-foreground", delay: 0.4 },
+  { text: "→ Definiendo Look & Feel y Públicos Digitales...", color: "text-muted-foreground", delay: 0.8 },
+  { text: "→ Generando 30 posts alineados a la estrategia...", color: "text-cyan-glow", delay: 1.2 },
+  { text: "", color: "", delay: 1.6 },
   {
-    text: "[NexusAI] > Sistema orquestado. 3 campañas activas. ROI +42%.",
+    text: "[NexusAI] > Parrilla lista para revisión humana. Tiempo: 4.2s",
     color: "text-emerald-accent",
-    delay: 1.5,
+    delay: 2.0,
   },
 ];
+
+const TypingText = ({ text, color, startDelay }: { text: string; color: string; startDelay: number }) => {
+  const [displayed, setDisplayed] = useState("");
+  const [started, setStarted] = useState(false);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setStarted(true), startDelay * 1000);
+    return () => clearTimeout(timeout);
+  }, [startDelay]);
+
+  useEffect(() => {
+    if (!started) return;
+    let i = 0;
+    const interval = setInterval(() => {
+      i++;
+      setDisplayed(text.slice(0, i));
+      if (i >= text.length) clearInterval(interval);
+    }, 18);
+    return () => clearInterval(interval);
+  }, [started, text]);
+
+  if (!started) return null;
+  return <div className={color}>{displayed}<span className="inline-block w-1.5 h-4 bg-cyan-glow/70 animate-pulse ml-0.5 align-middle" style={{ opacity: displayed.length < text.length ? 1 : 0 }} /></div>;
+};
 
 const AppMockup = () => {
   return (
@@ -35,30 +60,14 @@ const AppMockup = () => {
           </div>
 
           {/* Terminal content */}
-          <div className="p-6 md:p-8 font-mono text-sm md:text-base space-y-1.5 min-h-[260px]">
+          <div className="p-6 md:p-8 font-mono text-sm md:text-base space-y-1.5 min-h-[280px]">
             {lines.map((line, i) =>
               line.text ? (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, x: -10 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.4, delay: line.delay + 0.5 }}
-                  className={line.color}
-                >
-                  {line.text}
-                </motion.div>
+                <TypingText key={i} text={line.text} color={line.color} startDelay={line.delay + 0.5} />
               ) : (
                 <div key={i} className="h-4" />
               )
             )}
-            <motion.span
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 2.5 }}
-              className="inline-block w-2.5 h-5 bg-cyan-glow/80 animate-pulse mt-2"
-            />
           </div>
         </motion.div>
       </div>
