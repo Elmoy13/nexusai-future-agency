@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef, useCallback, forwardRef } from "react";
+import { useState, useEffect, useRef, useCallback, forwardRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Rnd } from "react-rnd";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
@@ -11,6 +13,7 @@ import {
   LayoutTemplate, Type, Image, Hexagon, Sparkles,
   Plus, ChevronLeft, ChevronRight, Cloud, Palette,
   Play, X, Undo2, Redo2, AlignLeft, AlignCenter, AlignRight, Minus,
+  Bold, Italic, Trash2,
 } from "lucide-react";
 import { initialCampaigns } from "@/components/dashboard/briefs/campaignData";
 import type { SlideData, SlideElement } from "@/components/dashboard/briefs/campaignData";
@@ -19,7 +22,8 @@ import type { SlideData, SlideElement } from "@/components/dashboard/briefs/camp
 const uid = () => `el-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
 const FONTS = ["Inter", "Playfair Display", "Montserrat", "Roboto", "Georgia", "Courier New"];
-const COLORS_PALETTE = ["#0f172a", "#ffffff", "#06b6d4", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899", "#64748b"];
+const COLORS_PALETTE = ["#0f172a", "#ffffff", "#06b6d4", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899", "#64748b", "#1e40af"];
+const SNAP_THRESHOLD = 5;
 
 function slideToElements(slide: SlideData): SlideElement[] {
   if (slide.elements?.length) return slide.elements;
@@ -46,6 +50,76 @@ function slideToElements(slide: SlideData): SlideElement[] {
   return els;
 }
 
+/* ── Smart Guides Engine ── */
+interface GuideLines { x: number | null; y: number | null }
+
+function computeSnapAndGuides(
+  dragEl: { x: number; y: number; w: number; h: number },
+  others: { x: number; y: number; w: number; h: number }[],
+  canvasW: number,
+  canvasH: number,
+): { snappedX: number; snappedY: number; guides: GuideLines } {
+  let snappedX = dragEl.x;
+  let snappedY = dragEl.y;
+  let guideX: number | null = null;
+  let guideY: number | null = null;
+
+  const dragCX = dragEl.x + dragEl.w / 2;
+  const dragCY = dragEl.y + dragEl.h / 2;
+
+  // Canvas center
+  const cxCanvas = canvasW / 2;
+  const cyCanvas = canvasH / 2;
+
+  if (Math.abs(dragCX - cxCanvas) < SNAP_THRESHOLD) {
+    snappedX = cxCanvas - dragEl.w / 2;
+    guideX = cxCanvas;
+  }
+  if (Math.abs(dragCY - cyCanvas) < SNAP_THRESHOLD) {
+    snappedY = cyCanvas - dragEl.h / 2;
+    guideY = cyCanvas;
+  }
+
+  // Snap to other elements' edges/centers
+  for (const o of others) {
+    const oCX = o.x + o.w / 2;
+    const oCY = o.y + o.h / 2;
+
+    // Center-to-center
+    if (guideX === null && Math.abs(dragCX - oCX) < SNAP_THRESHOLD) {
+      snappedX = oCX - dragEl.w / 2;
+      guideX = oCX;
+    }
+    if (guideY === null && Math.abs(dragCY - oCY) < SNAP_THRESHOLD) {
+      snappedY = oCY - dragEl.h / 2;
+      guideY = oCY;
+    }
+
+    // Left edge to left edge
+    if (guideX === null && Math.abs(dragEl.x - o.x) < SNAP_THRESHOLD) {
+      snappedX = o.x;
+      guideX = o.x;
+    }
+    // Right edge to right edge
+    if (guideX === null && Math.abs((dragEl.x + dragEl.w) - (o.x + o.w)) < SNAP_THRESHOLD) {
+      snappedX = o.x + o.w - dragEl.w;
+      guideX = o.x + o.w;
+    }
+    // Top edge
+    if (guideY === null && Math.abs(dragEl.y - o.y) < SNAP_THRESHOLD) {
+      snappedY = o.y;
+      guideY = o.y;
+    }
+    // Bottom edge
+    if (guideY === null && Math.abs((dragEl.y + dragEl.h) - (o.y + o.h)) < SNAP_THRESHOLD) {
+      snappedY = o.y + o.h - dragEl.h;
+      guideY = o.y + o.h;
+    }
+  }
+
+  return { snappedX, snappedY, guides: { x: guideX, y: guideY } };
+}
+
 /* ── Toolbar items ── */
 const tools = [
   { icon: LayoutTemplate, label: "Plantillas", action: "templates" },
@@ -54,7 +128,7 @@ const tools = [
   { icon: Palette, label: "Brand Hub", action: "brand" },
 ];
 
-/* ── Static element renderer (for filmstrip & presentation) ── */
+/* ── Static element renderer ── */
 const StaticElement = ({ el }: { el: SlideElement }) => {
   if (el.type === "image") {
     return (
@@ -82,21 +156,15 @@ const StaticElement = ({ el }: { el: SlideElement }) => {
   );
 };
 
-/* ── Slide renderer for filmstrip thumbnails ── */
+/* ── Slide Thumbnail ── */
 const SlideThumbnail = ({ elements, bgImage }: { elements: SlideElement[]; bgImage?: string }) => {
   const sorted = [...elements].sort((a, b) => {
     const order = { image: 0, shape: 1, text: 2 };
     return (order[a.type] ?? 1) - (order[b.type] ?? 1);
   });
-
   return (
     <div className="absolute inset-0 overflow-hidden bg-white">
-      <div style={{
-        width: 1920, height: 1080,
-        transform: "scale(0.0833)",
-        transformOrigin: "top left",
-        position: "relative",
-      }}>
+      <div style={{ width: 1920, height: 1080, transform: "scale(0.0833)", transformOrigin: "top left", position: "relative" }}>
         {bgImage && <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-[1]" />}
         <div className="absolute inset-0 z-[2]">
           {sorted.map((el) => <StaticElement key={el.id} el={el} />)}
@@ -106,100 +174,154 @@ const SlideThumbnail = ({ elements, bgImage }: { elements: SlideElement[]; bgIma
   );
 };
 
-/* ── Floating Format Toolbar ── */
-const FormatToolbar = ({
-  el,
+/* ── Secondary Format Bar (Canva-style, full width) ── */
+const FormatBar = ({
+  elements,
+  selectedIds,
   onUpdate,
+  onDelete,
 }: {
-  el: SlideElement;
-  onUpdate: (patch: Partial<SlideElement>) => void;
+  elements: SlideElement[];
+  selectedIds: Set<string>;
+  onUpdate: (id: string, patch: Partial<SlideElement>) => void;
+  onDelete: (id: string) => void;
 }) => {
-  const fontFamily = (el as any).fontFamily ?? "Inter";
-  const textAlign = (el as any).textAlign ?? "left";
-  const fontSize = el.fontSize ?? 28;
-  const color = el.color ?? "#0f172a";
+  const selectedEls = elements.filter((e) => selectedIds.has(e.id));
+  const textEls = selectedEls.filter((e) => e.type === "text");
+  const firstText = textEls[0];
+
+  if (selectedEls.length === 0) return null;
+
+  const fontFamily = firstText ? ((firstText as any).fontFamily ?? "Inter") : "Inter";
+  const textAlign = firstText ? ((firstText as any).textAlign ?? "left") : "left";
+  const fontSize = firstText?.fontSize ?? 28;
+  const color = firstText?.color ?? "#0f172a";
+  const fontWeight = firstText?.fontWeight ?? "400";
+
+  const updateAllSelected = (patch: Partial<SlideElement>) => {
+    selectedIds.forEach((id) => onUpdate(id, patch));
+  };
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 8 }}
-      className="absolute -top-12 left-0 z-50 flex items-center gap-1 bg-slate-900 text-white rounded-lg px-2 py-1.5 shadow-xl shadow-black/30"
-      style={{ pointerEvents: "auto" }}
-      onMouseDown={(e) => e.stopPropagation()}
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 44 }}
+      exit={{ opacity: 0, height: 0 }}
+      className="bg-white border-b border-border/40 flex items-center px-5 gap-3 flex-shrink-0 z-10 overflow-hidden"
     >
-      {/* Font family */}
-      <select
-        value={fontFamily}
-        onChange={(e) => onUpdate({ fontFamily: e.target.value } as any)}
-        className="bg-white/10 text-white text-[11px] rounded px-1.5 py-1 border-none outline-none cursor-pointer h-7"
+      {/* Element info */}
+      <span className="text-[11px] text-muted-foreground font-medium min-w-[80px]">
+        {selectedEls.length > 1 ? `${selectedEls.length} elementos` : selectedEls[0]?.type === "text" ? "Texto" : selectedEls[0]?.type === "image" ? "Imagen" : "Forma"}
+      </span>
+
+      <div className="w-px h-6 bg-border/40" />
+
+      {firstText && (
+        <>
+          {/* Font family */}
+          <select
+            value={fontFamily}
+            onChange={(e) => updateAllSelected({ fontFamily: e.target.value } as any)}
+            className="bg-muted/50 text-foreground text-xs rounded-md px-2.5 py-1.5 border border-border/40 outline-none cursor-pointer h-8 w-44 font-medium"
+          >
+            {FONTS.map((f) => (
+              <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>
+            ))}
+          </select>
+
+          <div className="w-px h-6 bg-border/40" />
+
+          {/* Font size */}
+          <div className="flex items-center gap-1 bg-muted/50 rounded-md border border-border/40 h-8 px-1">
+            <button onClick={() => updateAllSelected({ fontSize: Math.max(10, fontSize - 2) })} className="w-6 h-6 rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground"><Minus size={13} /></button>
+            <input
+              type="number"
+              value={fontSize}
+              onChange={(e) => updateAllSelected({ fontSize: Math.max(10, Math.min(200, parseInt(e.target.value) || 28)) })}
+              className="w-10 text-center text-xs font-semibold bg-transparent border-none outline-none text-foreground tabular-nums"
+            />
+            <button onClick={() => updateAllSelected({ fontSize: Math.min(200, fontSize + 2) })} className="w-6 h-6 rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground"><Plus size={13} /></button>
+          </div>
+
+          <div className="w-px h-6 bg-border/40" />
+
+          {/* Bold / Italic */}
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={() => updateAllSelected({ fontWeight: fontWeight === "700" || fontWeight === "800" || fontWeight === "900" ? "400" : "700" })}
+              className={`w-8 h-8 rounded-md flex items-center justify-center transition ${["700", "800", "900"].includes(fontWeight) ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground"}`}
+            >
+              <Bold size={14} />
+            </button>
+          </div>
+
+          <div className="w-px h-6 bg-border/40" />
+
+          {/* Color */}
+          <div className="flex items-center gap-1">
+            {COLORS_PALETTE.map((c) => (
+              <button
+                key={c}
+                onClick={() => updateAllSelected({ color: c })}
+                className={`w-6 h-6 rounded-full border-2 transition-all ${color === c ? "border-primary scale-110 shadow-sm" : "border-border/40 hover:scale-105"}`}
+                style={{ background: c }}
+              />
+            ))}
+            <label className="w-6 h-6 rounded-full overflow-hidden cursor-pointer border-2 border-border/40 relative hover:scale-105 transition-transform">
+              <input
+                type="color"
+                value={color}
+                onChange={(e) => updateAllSelected({ color: e.target.value })}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+              />
+              <div className="w-full h-full" style={{ background: `conic-gradient(red, yellow, lime, aqua, blue, magenta, red)` }} />
+            </label>
+          </div>
+
+          <div className="w-px h-6 bg-border/40" />
+
+          {/* Alignment */}
+          <div className="flex items-center gap-0.5">
+            {([["left", AlignLeft], ["center", AlignCenter], ["right", AlignRight]] as const).map(([align, Icon]) => (
+              <button
+                key={align}
+                onClick={() => updateAllSelected({ textAlign: align } as any)}
+                className={`w-8 h-8 rounded-md flex items-center justify-center transition ${textAlign === align ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground"}`}
+              >
+                <Icon size={14} />
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      <div className="flex-1" />
+
+      {/* Delete */}
+      <button
+        onClick={() => selectedIds.forEach((id) => onDelete(id))}
+        className="w-8 h-8 rounded-md flex items-center justify-center text-red-500 hover:bg-red-50 transition"
+        title="Eliminar"
       >
-        {FONTS.map((f) => (
-          <option key={f} value={f} className="bg-slate-900 text-white">{f}</option>
-        ))}
-      </select>
-
-      <div className="w-px h-5 bg-white/20 mx-0.5" />
-
-      {/* Font size */}
-      <button onClick={() => onUpdate({ fontSize: Math.max(10, fontSize - 2) })} className="w-6 h-6 rounded hover:bg-white/10 flex items-center justify-center"><Minus size={12} /></button>
-      <span className="text-[11px] tabular-nums w-6 text-center">{fontSize}</span>
-      <button onClick={() => onUpdate({ fontSize: Math.min(200, fontSize + 2) })} className="w-6 h-6 rounded hover:bg-white/10 flex items-center justify-center"><Plus size={12} /></button>
-
-      <div className="w-px h-5 bg-white/20 mx-0.5" />
-
-      {/* Color picker */}
-      <div className="flex items-center gap-0.5">
-        {COLORS_PALETTE.slice(0, 5).map((c) => (
-          <button
-            key={c}
-            onClick={() => onUpdate({ color: c })}
-            className={`w-5 h-5 rounded-full border-2 transition-transform ${color === c ? "border-cyan-400 scale-110" : "border-white/20"}`}
-            style={{ background: c }}
-          />
-        ))}
-        <label className="w-5 h-5 rounded-full overflow-hidden cursor-pointer border-2 border-white/20 relative">
-          <input
-            type="color"
-            value={color}
-            onChange={(e) => onUpdate({ color: e.target.value })}
-            className="absolute inset-0 opacity-0 cursor-pointer"
-          />
-          <div className="w-full h-full" style={{ background: `conic-gradient(red, yellow, lime, aqua, blue, magenta, red)` }} />
-        </label>
-      </div>
-
-      <div className="w-px h-5 bg-white/20 mx-0.5" />
-
-      {/* Alignment */}
-      {([["left", AlignLeft], ["center", AlignCenter], ["right", AlignRight]] as const).map(([align, Icon]) => (
-        <button
-          key={align}
-          onClick={() => onUpdate({ textAlign: align } as any)}
-          className={`w-6 h-6 rounded flex items-center justify-center transition ${textAlign === align ? "bg-cyan-500/30 text-cyan-400" : "hover:bg-white/10"}`}
-        >
-          <Icon size={13} />
-        </button>
-      ))}
+        <Trash2 size={14} />
+      </button>
     </motion.div>
   );
 };
 
 /* ── Interactive Canvas Element with react-rnd ── */
 const RndElement = ({
-  el,
-  scale,
-  selected,
-  onSelect,
-  onUpdate,
-  onDelete,
+  el, scale, selected, onSelect, onUpdate, onDelete,
+  onDragMove, onDragEnd: onDragEndCb,
 }: {
   el: SlideElement;
   scale: number;
   selected: boolean;
-  onSelect: () => void;
+  onSelect: (e: React.MouseEvent) => void;
   onUpdate: (patch: Partial<SlideElement>) => void;
   onDelete: () => void;
+  onDragMove?: (id: string, x: number, y: number, w: number, h: number) => void;
+  onDragEnd?: () => void;
 }) => {
   const [editing, setEditing] = useState(false);
   const [localContent, setLocalContent] = useState(el.content);
@@ -223,10 +345,10 @@ const RndElement = ({
   };
 
   const resizeHandles = selected && !editing ? {
-    topLeft: <div style={{ ...handleStyle }} />,
-    topRight: <div style={{ ...handleStyle }} />,
-    bottomLeft: <div style={{ ...handleStyle }} />,
-    bottomRight: <div style={{ ...handleStyle }} />,
+    topLeft: <div style={handleStyle} />,
+    topRight: <div style={handleStyle} />,
+    bottomLeft: <div style={handleStyle} />,
+    bottomRight: <div style={handleStyle} />,
   } : {};
 
   const w = el.width ?? (el.type === "text" ? 600 : 400);
@@ -237,8 +359,12 @@ const RndElement = ({
       size={{ width: w, height: h }}
       position={{ x: el.x, y: el.y }}
       onDragStart={() => setDragging(true)}
+      onDrag={(_e, d) => {
+        onDragMove?.(el.id, d.x, d.y, w, h);
+      }}
       onDragStop={(_e, d) => {
         setDragging(false);
+        onDragEndCb?.();
         onUpdate({ x: Math.round(d.x), y: Math.round(d.y) });
       }}
       onResizeStop={(_e, _dir, ref, _delta, pos) => {
@@ -256,7 +382,7 @@ const RndElement = ({
       bounds="parent"
       onMouseDown={(e: any) => {
         e.stopPropagation();
-        onSelect();
+        onSelect(e);
       }}
       className={`${selected ? "z-30" : "z-10"}`}
       style={{
@@ -279,21 +405,8 @@ const RndElement = ({
           userSelect: dragging ? "none" : "auto",
         }}
       >
-        {/* Format toolbar */}
-        {selected && el.type === "text" && !editing && (
-          <AnimatePresence>
-            <FormatToolbar el={el} onUpdate={onUpdate} />
-          </AnimatePresence>
-        )}
-
         {el.type === "image" ? (
-          <img
-            src={el.content}
-            alt=""
-            className="w-full h-full object-cover rounded-lg pointer-events-none"
-            style={{ opacity: el.opacity ?? 1 }}
-            draggable={false}
-          />
+          <img src={el.content} alt="" className="w-full h-full object-cover rounded-lg pointer-events-none" style={{ opacity: el.opacity ?? 1 }} draggable={false} />
         ) : el.type === "shape" ? (
           <div className="w-full h-full" style={{ background: el.content, borderRadius: 16 }} />
         ) : editing ? (
@@ -304,10 +417,8 @@ const RndElement = ({
             onBlur={commitEdit}
             onKeyDown={(e) => { if (e.key === "Escape") commitEdit(); }}
             style={{
-              fontSize: el.fontSize ?? 28,
-              fontWeight: el.fontWeight ?? "400",
-              color: el.color ?? "#0f172a",
-              lineHeight: 1.3,
+              fontSize: el.fontSize ?? 28, fontWeight: el.fontWeight ?? "400",
+              color: el.color ?? "#0f172a", lineHeight: 1.3,
               fontFamily: (el as any).fontFamily ?? "Inter",
               textAlign: ((el as any).textAlign ?? "left") as any,
             }}
@@ -316,11 +427,8 @@ const RndElement = ({
         ) : (
           <div
             style={{
-              fontSize: el.fontSize ?? 28,
-              fontWeight: el.fontWeight ?? "400",
-              color: el.color ?? "#0f172a",
-              lineHeight: 1.3,
-              whiteSpace: "pre-wrap",
+              fontSize: el.fontSize ?? 28, fontWeight: el.fontWeight ?? "400",
+              color: el.color ?? "#0f172a", lineHeight: 1.3, whiteSpace: "pre-wrap",
               fontFamily: (el as any).fontFamily ?? "Inter",
               textAlign: ((el as any).textAlign ?? "left") as any,
               overflow: "hidden",
@@ -335,62 +443,78 @@ const RndElement = ({
   );
 };
 
-/* ── Scaled Slide (canvas main view) ── */
+/* ── Interactive Canvas with Smart Guides ── */
 const InteractiveCanvas = ({
-  elements,
-  bgImage,
-  scale,
-  selectedId,
-  onSelectElement,
-  onUpdateElement,
-  onDeleteElement,
-  onDeselect,
+  elements, bgImage, scale, selectedIds, onSelectElement, onUpdateElement, onDeleteElement, onDeselect,
 }: {
   elements: SlideElement[];
   bgImage?: string;
   scale: number;
-  selectedId: string | null;
-  onSelectElement: (id: string) => void;
+  selectedIds: Set<string>;
+  onSelectElement: (id: string, multi: boolean) => void;
   onUpdateElement: (id: string, patch: Partial<SlideElement>) => void;
   onDeleteElement: (id: string) => void;
   onDeselect: () => void;
 }) => {
-  const sorted = [...elements].sort((a, b) => {
+  const [guides, setGuides] = useState<GuideLines>({ x: null, y: null });
+
+  const sorted = useMemo(() => [...elements].sort((a, b) => {
     const order = { image: 0, shape: 1, text: 2 };
     return (order[a.type] ?? 1) - (order[b.type] ?? 1);
-  });
+  }), [elements]);
+
+  const handleDragMove = useCallback((dragId: string, x: number, y: number, w: number, h: number) => {
+    const others = elements
+      .filter((e) => e.id !== dragId)
+      .map((e) => ({ x: e.x, y: e.y, w: e.width ?? 400, h: e.height ?? 80 }));
+
+    const result = computeSnapAndGuides({ x, y, w, h }, others, 1920, 1080);
+    setGuides(result.guides);
+  }, [elements]);
+
+  const handleDragEnd = useCallback(() => {
+    setGuides({ x: null, y: null });
+  }, []);
 
   return (
-    /* Centering wrapper — this handles positioning, NOT the slide itself */
     <div
       className="absolute inset-0 flex items-center justify-center"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onDeselect();
-      }}
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onDeselect(); }}
     >
-      {/* Scale wrapper — only applies visual scale, no translate */}
       <div style={{ transform: `scale(${scale})`, transformOrigin: "center center", willChange: "transform" }}>
-        {/* The actual 1920×1080 slide — position:relative is critical for react-rnd bounds="parent" */}
         <div
           className="bg-white shadow-2xl shadow-black/10 ring-1 ring-border/20 rounded-lg overflow-hidden"
           style={{ width: 1920, height: 1080, position: "relative" }}
           onMouseDown={(e) => {
-            if (e.target === e.currentTarget || (e.target as HTMLElement).dataset.canvas) {
-              onDeselect();
-            }
+            if (e.target === e.currentTarget || (e.target as HTMLElement).dataset.canvas) onDeselect();
           }}
         >
           {bgImage && <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-[1]" />}
+
+          {/* Smart Guides */}
+          {guides.x !== null && (
+            <div className="absolute top-0 bottom-0 z-[50] pointer-events-none" style={{ left: guides.x, width: 1, background: "#06b6d4" }}>
+              <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 bg-cyan-500 text-white text-[9px] font-bold px-1 rounded">{Math.round(guides.x)}</div>
+            </div>
+          )}
+          {guides.y !== null && (
+            <div className="absolute left-0 right-0 z-[50] pointer-events-none" style={{ top: guides.y, height: 1, background: "#06b6d4" }}>
+              <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-cyan-500 text-white text-[9px] font-bold px-1 rounded">{Math.round(guides.y)}</div>
+            </div>
+          )}
+
           <div className="absolute inset-0 z-[2]" data-canvas="true" style={{ position: "relative", width: 1920, height: 1080 }}>
             {sorted.map((el) => (
               <RndElement
                 key={el.id}
                 el={el}
                 scale={scale}
-                selected={selectedId === el.id}
-                onSelect={() => onSelectElement(el.id)}
+                selected={selectedIds.has(el.id)}
+                onSelect={(e) => onSelectElement(el.id, e.shiftKey)}
                 onUpdate={(patch) => onUpdateElement(el.id, patch)}
                 onDelete={() => onDeleteElement(el.id)}
+                onDragMove={handleDragMove}
+                onDragEnd={handleDragEnd}
               />
             ))}
           </div>
@@ -399,11 +523,11 @@ const InteractiveCanvas = ({
     </div>
   );
 };
-/* ── Presentation Slide (non-interactive, properly scaled) ── */
+
+/* ── Presentation Slide ── */
 const PresentationSlide = ({ elements, bgImage }: { elements: SlideElement[]; bgImage?: string }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [s, setS] = useState(1);
-
   useEffect(() => {
     const calc = () => {
       if (!containerRef.current?.parentElement) return;
@@ -414,22 +538,12 @@ const PresentationSlide = ({ elements, bgImage }: { elements: SlideElement[]; bg
     window.addEventListener("resize", calc);
     return () => window.removeEventListener("resize", calc);
   }, []);
-
-  const sorted = [...elements].sort((a, b) => {
-    const order = { image: 0, shape: 1, text: 2 };
-    return (order[a.type] ?? 1) - (order[b.type] ?? 1);
-  });
-
+  const sorted = [...elements].sort((a, b) => ({ image: 0, shape: 1, text: 2 }[a.type] ?? 1) - ({ image: 0, shape: 1, text: 2 }[b.type] ?? 1));
   return (
     <div ref={containerRef} className="w-full h-full flex items-center justify-center">
-      <div
-        className="bg-white rounded-lg overflow-hidden shadow-2xl relative"
-        style={{ width: 1920, height: 1080, transform: `scale(${s})`, transformOrigin: "center center" }}
-      >
+      <div className="bg-white rounded-lg overflow-hidden shadow-2xl relative" style={{ width: 1920, height: 1080, transform: `scale(${s})`, transformOrigin: "center center" }}>
         {bgImage && <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-[1]" />}
-        <div className="absolute inset-0 z-[2]">
-          {sorted.map((el) => <StaticElement key={el.id} el={el} />)}
-        </div>
+        <div className="absolute inset-0 z-[2]">{sorted.map((el) => <StaticElement key={el.id} el={el} />)}</div>
       </div>
     </div>
   );
@@ -450,7 +564,7 @@ const Editor = () => {
   );
 
   const [activeIdx, setActiveIdx] = useState(0);
-  const [selectedElId, setSelectedElId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [docTitle, setDocTitle] = useState(campaign.title);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [activeTool, setActiveTool] = useState<string | null>(null);
@@ -459,30 +573,25 @@ const Editor = () => {
   const [exportProgress, setExportProgress] = useState(0);
   const [exportMsg, setExportMsg] = useState("");
 
-  // Clipboard for copy/paste
-  const [clipboard, setClipboard] = useState<SlideElement | null>(null);
+  const [clipboard, setClipboard] = useState<SlideElement[]>([]);
 
-  // History for current slide
   const history = useHistory(slidesElements[activeIdx] ?? []);
 
-  // Sync history state back to slidesElements
   useEffect(() => {
     setSlidesElements((prev) => prev.map((els, i) => (i === activeIdx ? history.state : els)));
   }, [history.state, activeIdx]);
 
-  // When switching slides, reset history
   const prevActiveRef = useRef(activeIdx);
   useEffect(() => {
     if (prevActiveRef.current !== activeIdx) {
       history.reset(slidesElements[activeIdx] ?? []);
       prevActiveRef.current = activeIdx;
-      setSelectedElId(null);
+      setSelectedIds(new Set());
     }
   }, [activeIdx]);
 
   const currentElements = history.state;
 
-  // Canvas scale
   const canvasAreaRef = useRef<HTMLDivElement>(null);
   const [canvasScale, setCanvasScale] = useState(0.5);
 
@@ -500,44 +609,40 @@ const Editor = () => {
     return () => window.removeEventListener("resize", recalcScale);
   }, [recalcScale]);
 
+  const selectElement = (elId: string, multi: boolean) => {
+    setSelectedIds((prev) => {
+      if (multi) {
+        const next = new Set(prev);
+        if (next.has(elId)) next.delete(elId);
+        else next.add(elId);
+        return next;
+      }
+      return new Set([elId]);
+    });
+  };
+
   const updateElement = (elId: string, patch: Partial<SlideElement>) => {
-    history.set((prev) =>
-      prev.map((e) => (e.id === elId ? { ...e, ...patch } : e))
-    );
+    history.set((prev) => prev.map((e) => (e.id === elId ? { ...e, ...patch } : e)));
     setSaveState("idle");
   };
 
   const deleteElement = (elId: string) => {
     history.set((prev) => prev.filter((e) => e.id !== elId));
-    if (selectedElId === elId) setSelectedElId(null);
+    setSelectedIds((prev) => { const n = new Set(prev); n.delete(elId); return n; });
   };
 
   const addTextElement = () => {
-    const el: SlideElement = {
-      id: uid(), type: "text",
-      content: "Doble clic para editar",
-      x: 660, y: 440, width: 600, height: 80,
-      fontSize: 48, fontWeight: "600", color: "#0f172a",
-    };
+    const el: SlideElement = { id: uid(), type: "text", content: "Doble clic para editar", x: 660, y: 440, width: 600, height: 80, fontSize: 48, fontWeight: "600", color: "#0f172a" };
     history.set((prev) => [...prev, el]);
-    setSelectedElId(el.id);
+    setSelectedIds(new Set([el.id]));
     toast({ title: "📝 Texto añadido", description: "Arrastra para posicionar, doble clic para editar." });
   };
 
   const addImageElement = () => {
-    const el: SlideElement = {
-      id: uid(), type: "shape",
-      content: "#e2e8f0",
-      x: 660, y: 340, width: 600, height: 400,
-    };
-    const label: SlideElement = {
-      id: uid(), type: "text",
-      content: "Simulación de Imagen",
-      x: 810, y: 510, width: 300, height: 50,
-      fontSize: 28, fontWeight: "500", color: "#94a3b8",
-    };
+    const el: SlideElement = { id: uid(), type: "shape", content: "#e2e8f0", x: 660, y: 340, width: 600, height: 400 };
+    const label: SlideElement = { id: uid(), type: "text", content: "Simulación de Imagen", x: 810, y: 510, width: 300, height: 50, fontSize: 28, fontWeight: "500", color: "#94a3b8" };
     history.set((prev) => [...prev, el, label]);
-    toast({ title: "🖼️ Imagen añadida", description: "Placeholder de imagen insertado." });
+    toast({ title: "🖼️ Imagen añadida" });
   };
 
   const handleToolClick = (action: string) => {
@@ -549,77 +654,54 @@ const Editor = () => {
   const addSlide = () => {
     const newId = `new-${Date.now()}`;
     setSlideMeta((prev) => [...prev, { id: newId, type: "content" as const, image: undefined }]);
-    const newEls: SlideElement[] = [
+    setSlidesElements((prev) => [...prev, [
       { id: uid(), type: "text", content: "Nueva Diapositiva", x: 80, y: 80, width: 800, height: 80, fontSize: 64, fontWeight: "800", color: "#0f172a" },
-      { id: uid(), type: "text", content: "Haz clic para editar este contenido", x: 80, y: 200, width: 800, height: 50, fontSize: 32, fontWeight: "400", color: "#64748b" },
-    ];
-    setSlidesElements((prev) => [...prev, newEls]);
+      { id: uid(), type: "text", content: "Haz clic para editar", x: 80, y: 200, width: 800, height: 50, fontSize: 32, fontWeight: "400", color: "#64748b" },
+    ]]);
     setActiveIdx(slideMeta.length);
   };
 
-  /* ── Keyboard shortcuts (global) ── */
+  /* ── Keyboard shortcuts ── */
   useEffect(() => {
     if (presenting) return;
-
     const handler = (e: KeyboardEvent) => {
       const isMeta = e.ctrlKey || e.metaKey;
-
-      // Undo
-      if (isMeta && e.key === "z" && !e.shiftKey) {
-        e.preventDefault();
-        history.undo();
-        return;
-      }
-      // Redo
-      if ((isMeta && e.shiftKey && e.key === "z") || (isMeta && e.key === "y")) {
-        e.preventDefault();
-        history.redo();
-        return;
-      }
-
-      // Don't handle shortcuts when editing text
+      if (isMeta && e.key === "z" && !e.shiftKey) { e.preventDefault(); history.undo(); return; }
+      if ((isMeta && e.shiftKey && e.key === "z") || (isMeta && e.key === "y")) { e.preventDefault(); history.redo(); return; }
       if (document.activeElement?.tagName === "TEXTAREA" || document.activeElement?.tagName === "INPUT") return;
-
-      // Copy
-      if (isMeta && e.key === "c" && selectedElId) {
+      if (isMeta && e.key === "c" && selectedIds.size > 0) {
         e.preventDefault();
-        const found = currentElements.find((el) => el.id === selectedElId);
-        if (found) setClipboard({ ...found });
-        toast({ title: "📋 Copiado", description: "Elemento copiado al portapapeles." });
+        setClipboard(currentElements.filter((el) => selectedIds.has(el.id)).map((el) => ({ ...el })));
+        toast({ title: "📋 Copiado" });
         return;
       }
-      // Cut
-      if (isMeta && e.key === "x" && selectedElId) {
+      if (isMeta && e.key === "x" && selectedIds.size > 0) {
         e.preventDefault();
-        const found = currentElements.find((el) => el.id === selectedElId);
-        if (found) {
-          setClipboard({ ...found });
-          deleteElement(selectedElId);
-          toast({ title: "✂️ Cortado", description: "Elemento cortado." });
-        }
+        setClipboard(currentElements.filter((el) => selectedIds.has(el.id)).map((el) => ({ ...el })));
+        history.set((prev) => prev.filter((e) => !selectedIds.has(e.id)));
+        setSelectedIds(new Set());
+        toast({ title: "✂️ Cortado" });
         return;
       }
-      // Paste
-      if (isMeta && e.key === "v" && clipboard) {
+      if (isMeta && e.key === "v" && clipboard.length > 0) {
         e.preventDefault();
-        const pasted = { ...clipboard, id: uid(), x: clipboard.x + 40, y: clipboard.y + 40 };
-        history.set((prev) => [...prev, pasted]);
-        setSelectedElId(pasted.id);
-        toast({ title: "📌 Pegado", description: "Elemento pegado." });
+        const pasted = clipboard.map((el) => ({ ...el, id: uid(), x: el.x + 40, y: el.y + 40 }));
+        history.set((prev) => [...prev, ...pasted]);
+        setSelectedIds(new Set(pasted.map((p) => p.id)));
+        toast({ title: "📌 Pegado" });
         return;
       }
-      // Delete
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedElId) {
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedIds.size > 0) {
         e.preventDefault();
-        deleteElement(selectedElId);
-        toast({ title: "🗑️ Eliminado", description: "Elemento eliminado." });
+        history.set((prev) => prev.filter((e) => !selectedIds.has(e.id)));
+        setSelectedIds(new Set());
+        toast({ title: "🗑️ Eliminado" });
         return;
       }
     };
-
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [presenting, selectedElId, currentElements, clipboard, history]);
+  }, [presenting, selectedIds, currentElements, clipboard, history]);
 
   /* ── Save ── */
   const handleSave = async () => {
@@ -628,36 +710,106 @@ const Editor = () => {
       await fetch("https://webhook.site/b80d309d-86be-445b-9bf5-4f678639f781", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "save_presentation",
-          presentation_id: id ?? campaign.id,
-          title: docTitle,
-          slides: slidesElements,
-          timestamp: new Date().toISOString(),
-          status: "success",
-        }),
+        body: JSON.stringify({ action: "save_presentation", presentation_id: id ?? campaign.id, title: docTitle, slides: slidesElements, timestamp: new Date().toISOString(), status: "success" }),
       });
-    } catch { /* webhook may fail CORS */ }
+    } catch { /* CORS */ }
     await new Promise((r) => setTimeout(r, 800));
     setSaveState("saved");
-    toast({ title: "✅ Presentación guardada", description: "Cambios sincronizados con el servidor." });
+    toast({ title: "✅ Presentación guardada" });
     setTimeout(() => setSaveState("idle"), 3000);
   };
 
-  /* ── Export ── */
-  const handleExport = () => {
+  /* ── Real PDF Export ── */
+  const slideRenderRef = useRef<HTMLDivElement>(null);
+
+  const handleExport = async () => {
     setExporting(true);
     setExportProgress(0);
     setExportMsg("Preparando assets...");
-    const steps = [
-      { at: 600, progress: 35, msg: "Preparando assets..." },
-      { at: 1200, progress: 65, msg: "Renderizando tipografías..." },
-      { at: 2000, progress: 90, msg: "Optimizando resolución..." },
-      { at: 2500, progress: 100, msg: "¡PDF Listo!" },
-    ];
-    steps.forEach(({ at, progress, msg }) =>
-      setTimeout(() => { setExportProgress(progress); setExportMsg(msg); }, at)
-    );
+
+    try {
+      const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [1920, 1080] });
+
+      for (let i = 0; i < slidesElements.length; i++) {
+        setExportProgress(Math.round(((i + 0.3) / slidesElements.length) * 90));
+        setExportMsg(i === 0 ? "Preparando assets..." : `Renderizando diapositiva ${i + 1}...`);
+
+        // Create an offscreen container to render each slide
+        const container = document.createElement("div");
+        container.style.cssText = "position:fixed;left:-9999px;top:-9999px;width:1920px;height:1080px;background:white;overflow:hidden;";
+        document.body.appendChild(container);
+
+        // Render elements statically
+        const elsSorted = [...(slidesElements[i] ?? [])].sort((a, b) =>
+          ({ image: 0, shape: 1, text: 2 }[a.type] ?? 1) - ({ image: 0, shape: 1, text: 2 }[b.type] ?? 1)
+        );
+
+        const meta = slideMeta[i];
+        if (meta?.image && meta.type === "cover") {
+          const gradient = document.createElement("div");
+          gradient.style.cssText = "position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.9),rgba(0,0,0,0.4),rgba(0,0,0,0.2));z-index:1;";
+          container.appendChild(gradient);
+        }
+
+        for (const el of elsSorted) {
+          const div = document.createElement("div");
+          div.style.position = "absolute";
+          div.style.left = `${el.x}px`;
+          div.style.top = `${el.y}px`;
+          div.style.zIndex = el.type === "text" ? "2" : "0";
+
+          if (el.type === "image") {
+            div.style.width = `${el.width ?? 400}px`;
+            div.style.height = `${el.height ?? 400}px`;
+            div.style.opacity = `${el.opacity ?? 1}`;
+            const img = document.createElement("img");
+            img.src = el.content;
+            img.style.cssText = "width:100%;height:100%;object-fit:cover;";
+            img.crossOrigin = "anonymous";
+            div.appendChild(img);
+          } else if (el.type === "shape") {
+            div.style.width = `${el.width ?? 160}px`;
+            div.style.height = `${el.height ?? 160}px`;
+            div.style.background = el.content;
+            div.style.borderRadius = "16px";
+          } else {
+            div.style.width = `${el.width ?? 600}px`;
+            div.style.fontSize = `${el.fontSize ?? 28}px`;
+            div.style.fontWeight = el.fontWeight ?? "400";
+            div.style.color = el.color ?? "#0f172a";
+            div.style.lineHeight = "1.3";
+            div.style.whiteSpace = "pre-wrap";
+            div.style.fontFamily = (el as any).fontFamily ?? "Inter";
+            div.textContent = el.content;
+          }
+          container.appendChild(div);
+        }
+
+        // Wait for images to load
+        await new Promise((r) => setTimeout(r, 200));
+
+        const canvas = await html2canvas(container, { scale: 2, useCORS: true, width: 1920, height: 1080, logging: false });
+        const imgData = canvas.toDataURL("image/jpeg", 0.92);
+
+        if (i > 0) pdf.addPage([1920, 1080], "landscape");
+        pdf.addImage(imgData, "JPEG", 0, 0, 1920, 1080);
+
+        document.body.removeChild(container);
+      }
+
+      setExportProgress(100);
+      setExportMsg("¡PDF Listo!");
+
+      // Wait a moment for UI feedback then save
+      await new Promise((r) => setTimeout(r, 500));
+      const fileName = docTitle.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_]/g, "") + ".pdf";
+      pdf.save(fileName);
+
+    } catch (err) {
+      console.error("PDF Export error:", err);
+      toast({ title: "❌ Error al exportar", description: "No se pudo generar el PDF. Intenta de nuevo." });
+      setExporting(false);
+    }
   };
 
   /* ── Presentation keyboard ── */
@@ -672,12 +824,13 @@ const Editor = () => {
     return () => window.removeEventListener("keydown", handler);
   }, [presenting, slideMeta.length]);
 
-  /* ── Enter fullscreen ── */
   const presRef = useRef<HTMLDivElement>(null);
   const startPresenting = () => {
     setPresenting(true);
     setTimeout(() => { presRef.current?.requestFullscreen?.().catch(() => {}); }, 100);
   };
+
+  const hasSelection = selectedIds.size > 0;
 
   return (
     <div className="h-screen w-screen flex flex-col bg-slate-100 overflow-hidden">
@@ -717,24 +870,11 @@ const Editor = () => {
             onChange={(e) => { setDocTitle(e.target.value); setSaveState("idle"); }}
             className="text-sm font-bold text-foreground bg-transparent border-none outline-none focus:ring-0 w-64 truncate"
           />
-          {/* Undo/Redo buttons */}
           <div className="flex items-center gap-0.5 ml-2">
-            <Button
-              onClick={() => history.undo()}
-              disabled={!history.canUndo}
-              variant="ghost" size="sm"
-              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground disabled:opacity-30"
-              title="Deshacer (Ctrl+Z)"
-            >
+            <Button onClick={() => history.undo()} disabled={!history.canUndo} variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground disabled:opacity-30" title="Deshacer (Ctrl+Z)">
               <Undo2 size={14} />
             </Button>
-            <Button
-              onClick={() => history.redo()}
-              disabled={!history.canRedo}
-              variant="ghost" size="sm"
-              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground disabled:opacity-30"
-              title="Rehacer (Ctrl+Shift+Z)"
-            >
+            <Button onClick={() => history.redo()} disabled={!history.canRedo} variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground disabled:opacity-30" title="Rehacer (Ctrl+Shift+Z)">
               <Redo2 size={14} />
             </Button>
           </div>
@@ -748,7 +888,7 @@ const Editor = () => {
           <Button onClick={startPresenting} variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 border-border/40">
             <Play size={13} /> Presentar
           </Button>
-          <Button onClick={handleExport} variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 border-border/40">
+          <Button onClick={handleExport} disabled={exporting} variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 border-border/40">
             <FileDown size={13} /> Exportar PDF
           </Button>
           <Button
@@ -757,16 +897,24 @@ const Editor = () => {
             size="sm"
             className="h-8 px-4 text-xs gap-1.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold shadow-sm shadow-cyan-500/20"
           >
-            {saveState === "saving" ? (
-              <><Loader2 size={13} className="animate-spin" /> Sincronizando...</>
-            ) : saveState === "saved" ? (
-              <><Check size={13} /> Guardado</>
-            ) : (
-              <><Save size={13} /> Guardar Cambios</>
-            )}
+            {saveState === "saving" ? (<><Loader2 size={13} className="animate-spin" /> Sincronizando...</>) :
+             saveState === "saved" ? (<><Check size={13} /> Guardado</>) :
+             (<><Save size={13} /> Guardar Cambios</>)}
           </Button>
         </div>
       </div>
+
+      {/* ── Format Bar (secondary, full width) ── */}
+      <AnimatePresence>
+        {hasSelection && (
+          <FormatBar
+            elements={currentElements}
+            selectedIds={selectedIds}
+            onUpdate={updateElement}
+            onDelete={deleteElement}
+          />
+        )}
+      </AnimatePresence>
 
       <div className="flex-1 flex overflow-hidden">
         {/* ── Left Sidebar ── */}
@@ -815,16 +963,15 @@ const Editor = () => {
                   elements={currentElements}
                   bgImage={slideMeta[activeIdx]?.image}
                   scale={canvasScale}
-                  selectedId={selectedElId}
-                  onSelectElement={setSelectedElId}
+                  selectedIds={selectedIds}
+                  onSelectElement={selectElement}
                   onUpdateElement={updateElement}
                   onDeleteElement={deleteElement}
-                  onDeselect={() => setSelectedElId(null)}
+                  onDeselect={() => setSelectedIds(new Set())}
                 />
               </motion.div>
             </AnimatePresence>
 
-            {/* Slide counter pill */}
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-slate-900/80 backdrop-blur-sm text-white text-xs font-medium px-4 py-2 rounded-full shadow-lg z-10">
               <button onClick={() => setActiveIdx(Math.max(0, activeIdx - 1))} disabled={activeIdx === 0} className="disabled:opacity-30"><ChevronLeft size={14} /></button>
               <span className="tabular-nums">{activeIdx + 1} / {slideMeta.length}</span>
@@ -839,16 +986,12 @@ const Editor = () => {
                 key={meta.id}
                 onClick={() => setActiveIdx(i)}
                 className={`relative flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all duration-150 ${
-                  i === activeIdx
-                    ? "border-cyan-500 shadow-lg shadow-cyan-500/15 ring-1 ring-cyan-500/30"
-                    : "border-border/30 hover:border-primary/30"
+                  i === activeIdx ? "border-cyan-500 shadow-lg shadow-cyan-500/15 ring-1 ring-cyan-500/30" : "border-border/30 hover:border-primary/30"
                 }`}
                 style={{ width: 160, height: 90 }}
               >
                 <SlideThumbnail elements={slidesElements[i] ?? []} bgImage={meta.image} />
-                <div className={`absolute top-1 left-1.5 text-[9px] font-bold rounded px-1 z-10 ${
-                  i === activeIdx ? "bg-cyan-500 text-slate-950" : "bg-black/40 text-white/70"
-                }`}>
+                <div className={`absolute top-1 left-1.5 text-[9px] font-bold rounded px-1 z-10 ${i === activeIdx ? "bg-cyan-500 text-slate-950" : "bg-black/40 text-white/70"}`}>
                   {i + 1}
                 </div>
               </button>
@@ -863,6 +1006,9 @@ const Editor = () => {
           </div>
         </div>
       </div>
+
+      {/* Hidden ref for PDF rendering */}
+      <div ref={slideRenderRef} className="fixed -left-[9999px] -top-[9999px]" style={{ width: 1920, height: 1080 }} />
     </div>
   );
 };
@@ -917,23 +1063,15 @@ const PresentationOverlay = forwardRef<HTMLDivElement, {
           transition={{ duration: 0.3 }}
           className="w-full h-full"
         >
-          <PresentationSlide
-            elements={allElements[activeIdx] ?? []}
-            bgImage={slideMeta[activeIdx]?.image}
-          />
+          <PresentationSlide elements={allElements[activeIdx] ?? []} bgImage={slideMeta[activeIdx]?.image} />
         </motion.div>
       </AnimatePresence>
 
       <motion.div animate={{ opacity: showControls ? 1 : 0 }} className="absolute top-4 right-4">
-        <button onClick={onClose} className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white backdrop-blur-sm transition">
-          <X size={18} />
-        </button>
+        <button onClick={onClose} className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white backdrop-blur-sm transition"><X size={18} /></button>
       </motion.div>
 
-      <motion.div
-        animate={{ opacity: showControls ? 1 : 0 }}
-        className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-white/10 backdrop-blur-md px-6 py-3 rounded-full text-white"
-      >
+      <motion.div animate={{ opacity: showControls ? 1 : 0 }} className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-white/10 backdrop-blur-md px-6 py-3 rounded-full text-white">
         <button onClick={() => setActiveIdx((i) => Math.max(0, i - 1))} disabled={activeIdx === 0} className="disabled:opacity-30 hover:text-cyan-400 transition"><ChevronLeft size={20} /></button>
         <span className="text-sm font-medium tabular-nums min-w-[80px] text-center">{activeIdx + 1} / {slideMeta.length}</span>
         <button onClick={() => setActiveIdx((i) => Math.min(slideMeta.length - 1, i + 1))} disabled={activeIdx === slideMeta.length - 1} className="disabled:opacity-30 hover:text-cyan-400 transition"><ChevronRight size={20} /></button>
@@ -944,9 +1082,7 @@ const PresentationOverlay = forwardRef<HTMLDivElement, {
 PresentationOverlay.displayName = "PresentationOverlay";
 
 /* ── Export PDF Modal ── */
-const ExportPdfOverlay = ({
-  progress, message, onClose,
-}: { progress: number; message: string; onClose: () => void }) => (
+const ExportPdfOverlay = ({ progress, message, onClose }: { progress: number; message: string; onClose: () => void }) => (
   <motion.div
     initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
     className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center"
@@ -963,7 +1099,7 @@ const ExportPdfOverlay = ({
       <p className="text-sm text-muted-foreground">{message}</p>
       {progress >= 100 && (
         <Button onClick={onClose} className="mt-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold">
-          <FileDown size={14} className="mr-2" /> Descargar Archivo
+          <FileDown size={14} className="mr-2" /> Cerrar
         </Button>
       )}
     </motion.div>
