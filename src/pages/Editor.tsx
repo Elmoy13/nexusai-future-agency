@@ -2069,7 +2069,7 @@ const Editor = () => {
     campaign.slides.map(slideToElements)
   );
   const [slideMeta, setSlideMeta] = useState(() =>
-    campaign.slides.map((s) => ({ id: s.id, type: s.type, image: s.type === "cover" ? s.image : undefined, backgroundColor: "#ffffff" }))
+    campaign.slides.map((s) => ({ id: s.id, type: s.type, image: s.type === "cover" ? s.image : undefined, backgroundColor: "#ffffff", transition: "fade" as "none" | "fade" | "slide" | "zoom" }))
   );
   const [isBackgroundSelected, setIsBackgroundSelected] = useState(false);
 
