@@ -2088,40 +2088,48 @@ const InteractiveCanvas = ({
 const AnimatedElement = ({ el, index }: { el: SlideElement; index: number }) => {
   const animation = el.animation ?? "none";
   const baseDelay = index * 0.12; // Stagger effect
-  
+
+  const wrapperStyle: React.CSSProperties = {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    width: `${CANVAS_WIDTH}px`,
+    height: `${CANVAS_HEIGHT}px`,
+  };
+
   if (animation === "fade-in") {
     return (
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8, delay: baseDelay }}
-        style={{ position: "absolute", left: 0, top: 0, width: "100%", height: "100%" }}
+        style={wrapperStyle}
       >
         <StaticElement el={el} />
       </motion.div>
     );
   }
-  
+
   if (animation === "slide-up") {
     return (
       <motion.div
         initial={{ opacity: 0, y: 50 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: baseDelay }}
-        style={{ position: "absolute", left: 0, top: 0, width: "100%", height: "100%" }}
+        style={wrapperStyle}
       >
         <StaticElement el={el} />
       </motion.div>
     );
   }
-  
+
   if (animation === "pop-bounce") {
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.5 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ type: "spring", bounce: 0.5, delay: baseDelay }}
-        style={{ position: "absolute", left: 0, top: 0, width: "100%", height: "100%" }}
+        style={wrapperStyle}
       >
         <StaticElement el={el} />
       </motion.div>
@@ -2131,44 +2139,50 @@ const AnimatedElement = ({ el, index }: { el: SlideElement; index: number }) => 
   return <StaticElement el={el} />;
 };
 
-/* ── Presentation Slide (strict letterbox scaling with animations) ── */
-const PresentationSlide = ({ elements, bgImage, backgroundColor }: { elements: SlideElement[]; bgImage?: string; backgroundColor?: string }) => {
-  const [s, setS] = useState(1);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const calc = () => {
-      const wW = window.innerWidth;
-      const wH = window.innerHeight;
-      setS(Math.min(wW / CANVAS_W, wH / CANVAS_H));
-    };
-    calc();
-    window.addEventListener("resize", calc);
-    return () => window.removeEventListener("resize", calc);
-  }, []);
-
+/* ── Presentation Slide (resolution-locked 1920×1080) ── */
+const PresentationSlide = ({
+  elements,
+  bgImage,
+  backgroundColor,
+}: {
+  elements: SlideElement[];
+  bgImage?: string;
+  backgroundColor?: string;
+}) => {
   const sorted = [...elements].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
 
   return (
-    <div className="fixed inset-0 w-screen h-screen flex items-center justify-center overflow-hidden" style={{ background: "transparent" }}>
-      <div
-        ref={containerRef}
-        style={{
-          width: CANVAS_W,
-          height: CANVAS_H,
-          transform: `scale(${s})`,
-          transformOrigin: "center center",
-          position: "relative",
-          overflow: "hidden",
-          backgroundColor: backgroundColor ?? "#ffffff",
-        }}
-      >
-        {bgImage && <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-[1]" />}
-        <div className="absolute inset-0 z-[2]">
-          {sorted.map((el, idx) => (
-            <AnimatedElement key={el.id} el={el} index={idx} />
-          ))}
-        </div>
+    <div
+      style={{
+        width: `${CANVAS_WIDTH}px`,
+        height: `${CANVAS_HEIGHT}px`,
+        position: "relative",
+        overflow: "hidden",
+        backgroundColor: backgroundColor ?? "#ffffff",
+      }}
+    >
+      {bgImage && (
+        <>
+          <img
+            src={bgImage}
+            alt=""
+            draggable={false}
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-[1]" />
+        </>
+      )}
+
+      <div style={{ position: "absolute", inset: 0, zIndex: 2 }}>
+        {sorted.map((el, idx) => (
+          <AnimatedElement key={el.id} el={el} index={idx} />
+        ))}
       </div>
     </div>
   );
