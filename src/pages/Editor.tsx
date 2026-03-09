@@ -1900,7 +1900,55 @@ const InteractiveCanvas = ({
   );
 };
 
-/* ── Presentation Slide (window-aware scaling) ── */
+/* ── Animated Element for Presentation Mode ── */
+const AnimatedElement = ({ el, index }: { el: SlideElement; index: number }) => {
+  const animation = el.animation ?? "none";
+  
+  const getAnimationProps = () => {
+    const baseDelay = index * 0.12; // Stagger effect
+    
+    switch (animation) {
+      case "fade-in":
+        return {
+          initial: { opacity: 0 },
+          animate: { opacity: 1 },
+          transition: { duration: 0.8, delay: baseDelay, ease: "easeOut" },
+        };
+      case "slide-up":
+        return {
+          initial: { opacity: 0, y: 50 },
+          animate: { opacity: 1, y: 0 },
+          transition: { duration: 0.6, delay: baseDelay, ease: "easeOut" },
+        };
+      case "pop-bounce":
+        return {
+          initial: { opacity: 0, scale: 0.5 },
+          animate: { opacity: 1, scale: 1 },
+          transition: { type: "spring", bounce: 0.5, delay: baseDelay },
+        };
+      default:
+        return {};
+    }
+  };
+
+  const animProps = getAnimationProps();
+  const hasAnimation = animation !== "none";
+
+  if (hasAnimation) {
+    return (
+      <motion.div
+        {...animProps}
+        style={{ position: "absolute", left: 0, top: 0, width: "100%", height: "100%" }}
+      >
+        <StaticElement el={el} />
+      </motion.div>
+    );
+  }
+
+  return <StaticElement el={el} />;
+};
+
+/* ── Presentation Slide (window-aware scaling with animations) ── */
 const PresentationSlide = ({ elements, bgImage, backgroundColor }: { elements: SlideElement[]; bgImage?: string; backgroundColor?: string }) => {
   const [s, setS] = useState(1);
   useEffect(() => {
@@ -1916,7 +1964,11 @@ const PresentationSlide = ({ elements, bgImage, backgroundColor }: { elements: S
     <div className="w-full h-full flex items-center justify-center overflow-hidden">
       <div className="overflow-hidden relative" style={{ width: CANVAS_W, height: CANVAS_H, transform: `scale(${s})`, transformOrigin: "center center", backgroundColor: backgroundColor ?? "#ffffff" }}>
         {bgImage && <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-[1]" />}
-        <div className="absolute inset-0 z-[2]">{sorted.map((el) => <StaticElement key={el.id} el={el} />)}</div>
+        <div className="absolute inset-0 z-[2]">
+          {sorted.map((el, idx) => (
+            <AnimatedElement key={el.id} el={el} index={idx} />
+          ))}
+        </div>
       </div>
     </div>
   );
