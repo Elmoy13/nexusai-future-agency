@@ -2116,7 +2116,8 @@ const Editor = () => {
         setExportMsg(i === 0 ? "Preparando assets..." : `Renderizando diapositiva ${i + 1}...`);
 
         const container = document.createElement("div");
-        container.style.cssText = "position:fixed;left:-9999px;top:-9999px;width:1920px;height:1080px;background:white;overflow:hidden;";
+        const bgColor = slideMeta[i]?.backgroundColor ?? "#ffffff";
+        container.style.cssText = `position:fixed;left:-9999px;top:-9999px;width:1920px;height:1080px;background:${bgColor};overflow:hidden;`;
         document.body.appendChild(container);
 
         const elsSorted = [...(slidesElements[i] ?? [])].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
