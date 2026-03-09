@@ -926,6 +926,95 @@ const MockupFrame = ({ el, interactive, onDrop, onChildAdjust, onNativeFileDrop 
               </div>
             </>
           )}
+          {def.socialUI === "browser" && (
+            <div className="absolute top-0 left-0 right-0 flex items-center gap-2 px-3" style={{ height: inset.top - 2, background: "#f6f7f8", borderBottom: "1px solid #e1e5e9" }}>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
+                <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+              </div>
+              <div className="flex-1 mx-4">
+                <div className="bg-white rounded border px-2 py-1 text-[8px] text-gray-500">
+                  https://www.aerodynamics.com
+                </div>
+              </div>
+            </div>
+          )}
+          {def.socialUI === "linkedin" && (
+            <>
+              <div className="absolute top-0 left-0 right-0 flex items-center gap-2 px-3" style={{ height: inset.top - 2, background: "#fff", borderBottom: "1px solid #e0e0e0" }}>
+                <div className="w-8 h-8 rounded bg-blue-600 flex items-center justify-center">
+                  <span className="text-[10px] font-bold text-white">AD</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-semibold text-gray-900">Aero Dynamics</span>
+                  <span className="text-[7px] text-gray-500">Empresa · Patrocinado</span>
+                </div>
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 flex items-center justify-around px-3 py-2" style={{ height: inset.bottom - 2, background: "#fff", borderTop: "1px solid #e0e0e0" }}>
+                <span className="text-[8px] text-gray-600">👍 Me gusta</span>
+                <span className="text-[8px] text-gray-600">💬 Comentar</span>
+                <span className="text-[8px] text-gray-600">↗ Compartir</span>
+              </div>
+            </>
+          )}
+          {def.socialUI === "youtube" && (
+            <div className="absolute bottom-0 left-0 right-0" style={{ height: inset.bottom }}>
+              <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center">
+                  <Play size={20} fill="white" className="text-white ml-1" />
+                </div>
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-red-600" style={{ width: "35%" }} />
+            </div>
+          )}
+          {def.socialUI === "twitter" && (
+            <>
+              <div className="absolute top-0 left-0 right-0 flex items-center gap-2 px-3" style={{ height: inset.top - 2, background: "#fff", borderBottom: "1px solid #e1e8ed" }}>
+                <div className="w-8 h-8 rounded-full bg-gray-300" />
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-bold text-gray-900">AeroDynamics</span>
+                  <span className="text-[7px] text-gray-500">@aerodynamics</span>
+                </div>
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 flex items-center justify-around px-3" style={{ height: inset.bottom - 2, background: "#fff", borderTop: "1px solid #e1e8ed" }}>
+                <span className="text-[8px] text-gray-500">💬</span>
+                <span className="text-[8px] text-gray-500">🔁</span>
+                <span className="text-[8px] text-gray-500">♡</span>
+                <span className="text-[8px] text-gray-500">↗</span>
+              </div>
+            </>
+          )}
+          {def.socialUI === "billboard" && (
+            <>
+              {/* Metal frame top */}
+              <div className="absolute top-0 left-0 right-0" style={{ height: inset.top, background: "linear-gradient(180deg, #6b7280 0%, #374151 50%, #1f2937 100%)", borderBottom: "2px solid #9ca3af" }} />
+              {/* Support posts */}
+              <div className="absolute" style={{ bottom: -20, left: "20%", width: 8, height: 60, background: "linear-gradient(90deg, #6b7280, #374151)", borderRadius: "0 0 4px 4px" }} />
+              <div className="absolute" style={{ bottom: -20, right: "20%", width: 8, height: 60, background: "linear-gradient(90deg, #6b7280, #374151)", borderRadius: "0 0 4px 4px" }} />
+              {/* Lights */}
+              <div className="absolute flex justify-around px-8" style={{ top: 8, left: 0, right: 0 }}>
+                <div className="w-3 h-3 rounded-full bg-yellow-300 opacity-60" />
+                <div className="w-3 h-3 rounded-full bg-yellow-300 opacity-60" />
+                <div className="w-3 h-3 rounded-full bg-yellow-300 opacity-60" />
+              </div>
+            </>
+          )}
+          {def.socialUI === "mupi" && (
+            <>
+              {/* Silver metallic frame */}
+              <div className="absolute inset-0 rounded-lg" style={{ 
+                background: "linear-gradient(145deg, #e5e7eb 0%, #9ca3af 50%, #6b7280 100%)",
+                boxShadow: "inset 0 2px 4px rgba(0,0,0,0.1), 0 8px 16px rgba(0,0,0,0.2)"
+              }} />
+              {/* Inner shadow for depth */}
+              <div className="absolute" style={{
+                top: inset.top - 8, right: inset.right - 8, bottom: inset.bottom - 8, left: inset.left - 8,
+                borderRadius: `calc(${def.screenRadius} + 2px)`,
+                boxShadow: "inset 0 2px 8px rgba(0,0,0,0.15)"
+              }} />
+            </>
+          )}
         </div>
 
         {/* Screen area (drop zone) */}
