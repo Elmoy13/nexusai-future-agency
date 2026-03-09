@@ -10,6 +10,7 @@ import BriefCreator from "./briefs/BriefCreator";
 type SubView = "directory" | "brand-hub" | "new-brief";
 
 const BriefsModule = () => {
+  const navigate = useNavigate();
   const [subView, setSubView] = useState<SubView>("directory");
   const [selectedBrand, setSelectedBrand] = useState<string>("");
 
