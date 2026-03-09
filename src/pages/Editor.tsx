@@ -2799,9 +2799,9 @@ const Editor = () => {
           </button>
         </div>
 
-        {/* ── Slide-out Panel (Templates / Brand / Mockups / Elements / GIFs) ── */}
+        {/* ── Slide-out Panel (Templates / Brand / Mockups / Elements / GIFs / Transitions) ── */}
         <AnimatePresence>
-          {(activeTool === "templates" || activeTool === "brand" || activeTool === "mockups" || activeTool === "elements" || activeTool === "gifs") && (
+          {(activeTool === "templates" || activeTool === "brand" || activeTool === "mockups" || activeTool === "elements" || activeTool === "gifs" || activeTool === "transitions") && (
             <motion.div
               initial={{ width: 0, opacity: 0 }}
               animate={{ width: 260, opacity: 1 }}
@@ -2812,7 +2812,7 @@ const Editor = () => {
               <div className="w-[260px] h-full overflow-y-auto">
                 <div className="flex items-center justify-between p-3 border-b border-border/20">
                   <span className="text-xs font-bold text-foreground">
-                    {activeTool === "brand" ? "Brand Hub" : activeTool === "mockups" ? "Mockups" : activeTool === "elements" ? "Elementos" : activeTool === "gifs" ? "GIFs" : "Plantillas"}
+                    {activeTool === "brand" ? "Brand Hub" : activeTool === "mockups" ? "Mockups" : activeTool === "elements" ? "Elementos" : activeTool === "gifs" ? "GIFs" : activeTool === "transitions" ? "Transiciones" : "Plantillas"}
                   </span>
                   <button onClick={() => setActiveTool(null)} className="w-6 h-6 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground"><X size={14} /></button>
                 </div>
@@ -2824,6 +2824,11 @@ const Editor = () => {
                   <ElementsPanel onAddShape={addShape} />
                 ) : activeTool === "gifs" ? (
                   <GifsPanel onAddGif={addGif} />
+                ) : activeTool === "transitions" ? (
+                  <TransitionsPanel 
+                    currentTransition={slideMeta[activeIdx]?.transition ?? "fade"} 
+                    onSetTransition={updateSlideTransition} 
+                  />
                 ) : (
                   <TemplatesPanel onApplyTemplate={applyTemplate} />
                 )}
