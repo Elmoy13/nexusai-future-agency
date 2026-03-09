@@ -2358,7 +2358,9 @@ const Editor = () => {
                   onSelectElement={selectElement}
                   onUpdateElement={updateElement}
                   onDeleteElement={deleteElement}
-                  onDeselect={() => { setSelectedIds(new Set()); setEyedropperMode(false); }}
+                onDeselect={() => { setSelectedIds(new Set()); setEyedropperMode(false); setIsBackgroundSelected(true); }}
+                backgroundColor={slideMeta[activeIdx]?.backgroundColor ?? "#ffffff"}
+                onBackgroundClick={() => { setSelectedIds(new Set()); setIsBackgroundSelected(true); }}
                   eyedropperMode={eyedropperMode}
                   onImageClick={handleImageClick}
                   onMockupDrop={handleMockupDrop}
