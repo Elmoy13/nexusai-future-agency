@@ -18,6 +18,7 @@ import {
   ArrowUpToLine, ArrowDownToLine, ArrowUp, ArrowDown, Pipette,
   Smartphone, Monitor, Tablet, Globe, Linkedin, Youtube, Twitter, 
   RectangleHorizontal, Square, Copy, MoveLeft, MoveRight, PaintBucket,
+  Shapes, Film, Circle, Triangle, Star, Zap, ChevronDown,
 } from "lucide-react";
 import { initialCampaigns } from "@/components/dashboard/briefs/campaignData";
 import type { SlideData, SlideElement } from "@/components/dashboard/briefs/campaignData";
@@ -102,8 +103,44 @@ const tools = [
   { icon: LayoutTemplate, label: "Plantillas", action: "templates" },
   { icon: Type, label: "Texto", action: "text" },
   { icon: Image, label: "Imágenes", action: "image" },
+  { icon: Shapes, label: "Elementos", action: "elements" },
+  { icon: Film, label: "GIFs", action: "gifs" },
   { icon: Smartphone, label: "Mockups", action: "mockups" },
   { icon: Palette, label: "Brand Hub", action: "brand" },
+];
+
+/* ── SVG Shape Definitions ── */
+type ShapeDef = { id: string; name: string; icon: React.ReactNode; defaultColor: string };
+
+const SHAPE_DEFS: ShapeDef[] = [
+  { id: "rect", name: "Rectángulo", icon: <rect x="2" y="4" width="20" height="16" rx="2" fill="currentColor" />, defaultColor: "#06b6d4" },
+  { id: "circle", name: "Círculo", icon: <circle cx="12" cy="12" r="10" fill="currentColor" />, defaultColor: "#8b5cf6" },
+  { id: "triangle", name: "Triángulo", icon: <polygon points="12,2 22,22 2,22" fill="currentColor" />, defaultColor: "#22c55e" },
+  { id: "star", name: "Estrella", icon: <polygon points="12,2 15,9 22,9 17,14 19,22 12,18 5,22 7,14 2,9 9,9" fill="currentColor" />, defaultColor: "#f59e0b" },
+  { id: "line", name: "Línea", icon: <line x1="2" y1="12" x2="22" y2="12" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />, defaultColor: "#0f172a" },
+  { id: "arrow", name: "Flecha", icon: <><line x1="2" y1="12" x2="18" y2="12" stroke="currentColor" strokeWidth="3" strokeLinecap="round" /><polyline points="14,6 20,12 14,18" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" /></>, defaultColor: "#ef4444" },
+  { id: "blob1", name: "Blob 1", icon: <path d="M12 2C17 2 22 6 22 12C22 18 18 22 12 22C6 22 2 17 2 12C2 7 6 2 12 2Z" fill="currentColor" />, defaultColor: "#ec4899" },
+  { id: "blob2", name: "Blob 2", icon: <path d="M12 2C18 4 22 8 20 14C18 20 14 22 8 20C2 18 0 12 4 6C8 2 12 2 12 2Z" fill="currentColor" />, defaultColor: "#14b8a6" },
+];
+
+/* ── GIF Gallery (Static URLs) ── */
+const GIF_GALLERY = [
+  { id: "g1", url: "https://media.giphy.com/media/3o7abKhOpu0NwenH3O/giphy.gif", label: "Celebrating" },
+  { id: "g2", url: "https://media.giphy.com/media/l0HlHFRbmaZtBRhXG/giphy.gif", label: "Mind Blown" },
+  { id: "g3", url: "https://media.giphy.com/media/xT5LMHxhOfscxPfIfm/giphy.gif", label: "Rocket" },
+  { id: "g4", url: "https://media.giphy.com/media/3oriO0OEd9QIDdllqo/giphy.gif", label: "Thumbs Up" },
+  { id: "g5", url: "https://media.giphy.com/media/l46Cy1rHbQ92uuLXa/giphy.gif", label: "Fire" },
+  { id: "g6", url: "https://media.giphy.com/media/26u4cqiYI30juCOGY/giphy.gif", label: "Applause" },
+  { id: "g7", url: "https://media.giphy.com/media/xT9IgzoKnwFNmISR8I/giphy.gif", label: "Success" },
+  { id: "g8", url: "https://media.giphy.com/media/xUPGcguWZHRC2HyBRS/giphy.gif", label: "Tech" },
+];
+
+/* ── Animation Options ── */
+const ANIMATION_OPTIONS: { value: SlideElement["animation"]; label: string; icon: React.ReactNode }[] = [
+  { value: "none", label: "Ninguna", icon: <X size={14} /> },
+  { value: "fade-in", label: "Aparecer suave", icon: <span className="text-xs">✨</span> },
+  { value: "slide-up", label: "Deslizar arriba", icon: <ArrowUp size={14} /> },
+  { value: "pop-bounce", label: "Pop / Rebote", icon: <Zap size={14} /> },
 ];
 
 /* ── Brand Hub Data ── */
@@ -1158,6 +1195,93 @@ const MockupsPanel = ({
   );
 };
 
+/* ── Elements Panel (SVG Shapes) ── */
+const ElementsPanel = ({
+  onAddShape,
+}: {
+  onAddShape: (shapeType: string, color: string) => void;
+}) => {
+  return (
+    <div className="flex flex-col gap-5 p-4">
+      <div>
+        <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-1">Elementos</h3>
+        <p className="text-[11px] text-muted-foreground">Haz clic para añadir al lienzo</p>
+      </div>
+
+      <div>
+        <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+          Formas Básicas
+        </h4>
+        <div className="grid grid-cols-4 gap-2">
+          {SHAPE_DEFS.map((shape) => (
+            <button
+              key={shape.id}
+              onClick={() => onAddShape(shape.id, shape.defaultColor)}
+              className="aspect-square rounded-xl border border-border/40 hover:border-primary/40 hover:bg-primary/5 flex items-center justify-center transition-all group"
+              title={shape.name}
+            >
+              <svg viewBox="0 0 24 24" className="w-8 h-8 text-muted-foreground group-hover:text-foreground transition-colors">
+                {shape.icon}
+              </svg>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-muted/30 rounded-lg p-3">
+        <p className="text-[10px] text-muted-foreground text-center">
+          💡 Usa el selector de color en la barra superior para cambiar el color del relleno
+        </p>
+      </div>
+    </div>
+  );
+};
+
+/* ── GIFs Panel ── */
+const GifsPanel = ({
+  onAddGif,
+}: {
+  onAddGif: (url: string) => void;
+}) => {
+  return (
+    <div className="flex flex-col gap-5 p-4">
+      <div>
+        <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-1">GIFs</h3>
+        <p className="text-[11px] text-muted-foreground">Arrastra o haz clic para añadir</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        {GIF_GALLERY.map((gif) => (
+          <button
+            key={gif.id}
+            onClick={() => onAddGif(gif.url)}
+            className="aspect-square rounded-lg border border-border/40 hover:border-primary/40 overflow-hidden relative group"
+            title={gif.label}
+          >
+            <img
+              src={gif.url}
+              alt={gif.label}
+              className="w-full h-full object-cover"
+              draggable={false}
+            />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+              <span className="text-white text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 px-2 py-1 rounded">
+                {gif.label}
+              </span>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      <div className="bg-muted/30 rounded-lg p-3">
+        <p className="text-[10px] text-muted-foreground text-center">
+          🎬 Los GIFs se reproducen automáticamente en el Modo Presentación
+        </p>
+      </div>
+    </div>
+  );
+};
+
 /* ── Chroma Key Background Removal ── */
 async function chromaKeyRemove(
   imgSrc: string,
@@ -1223,10 +1347,15 @@ const StaticElement = ({ el }: { el: SlideElement }) => {
       </div>
     );
   }
-  if (el.type === "shape") {
+  if (el.type === "gif") {
     return (
-      <div style={{ position: "absolute", left: el.x, top: el.y, width: el.width ?? 160, height: el.height ?? 160, background: el.content, borderRadius: 16, zIndex: el.zIndex ?? 0, transform }} />
+      <div style={{ position: "absolute", left: el.x, top: el.y, width: el.width ?? 400, height: el.height ?? 300, opacity: el.opacity ?? 1, zIndex: el.zIndex ?? 0, transform }}>
+        <img src={el.content} alt="" className="w-full h-full object-cover" draggable={false} />
+      </div>
     );
+  }
+  if (el.type === "shape") {
+    return <StaticShapeElement el={el} transform={transform} />;
   }
   return (
     <div style={{
@@ -1239,6 +1368,55 @@ const StaticElement = ({ el }: { el: SlideElement }) => {
       zIndex: el.zIndex ?? 0, transform,
     }}>
       {el.content}
+    </div>
+  );
+};
+
+/* ── Static Shape Element with SVG support ── */
+const StaticShapeElement = ({ el, transform }: { el: SlideElement; transform: string }) => {
+  const w = el.width ?? 160;
+  const h = el.height ?? 160;
+  const color = el.content || "#06b6d4";
+  const shapeType = el.shapeType ?? "rect";
+
+  const renderShape = () => {
+    switch (shapeType) {
+      case "circle":
+        return <ellipse cx="50%" cy="50%" rx="50%" ry="50%" fill={color} />;
+      case "triangle":
+        return <polygon points={`${w/2},0 ${w},${h} 0,${h}`} fill={color} />;
+      case "star":
+        const cx = w / 2, cy = h / 2, r = Math.min(w, h) / 2;
+        const points = Array.from({ length: 10 }, (_, i) => {
+          const angle = (i * 36 - 90) * Math.PI / 180;
+          const radius = i % 2 === 0 ? r : r * 0.5;
+          return `${cx + radius * Math.cos(angle)},${cy + radius * Math.sin(angle)}`;
+        }).join(" ");
+        return <polygon points={points} fill={color} />;
+      case "line":
+        return <line x1="0" y1={h/2} x2={w} y2={h/2} stroke={color} strokeWidth={Math.max(4, h * 0.1)} strokeLinecap="round" />;
+      case "arrow":
+        const arrowW = w * 0.7, arrowH = h * 0.3;
+        return (
+          <>
+            <line x1="0" y1={h/2} x2={arrowW} y2={h/2} stroke={color} strokeWidth={Math.max(4, h * 0.1)} strokeLinecap="round" />
+            <polygon points={`${arrowW - arrowH/2},${h/2 - arrowH/2} ${w},${h/2} ${arrowW - arrowH/2},${h/2 + arrowH/2}`} fill={color} />
+          </>
+        );
+      case "blob1":
+        return <ellipse cx="50%" cy="50%" rx="48%" ry="45%" fill={color} />;
+      case "blob2":
+        return <path d={`M ${w*0.5} ${h*0.05} Q ${w*0.95} ${h*0.15} ${w*0.9} ${h*0.5} Q ${w*0.85} ${h*0.9} ${w*0.4} ${h*0.95} Q ${h*0.05} ${h*0.8} ${w*0.1} ${h*0.4} Q ${w*0.15} ${h*0.1} ${w*0.5} ${h*0.05}`} fill={color} />;
+      default: // rect
+        return <rect x="0" y="0" width={w} height={h} rx={Math.min(w, h) * 0.1} fill={color} />;
+    }
+  };
+
+  return (
+    <div style={{ position: "absolute", left: el.x, top: el.y, width: w, height: h, zIndex: el.zIndex ?? 0, transform }}>
+      <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
+        {renderShape()}
+      </svg>
     </div>
   );
 };
@@ -1276,10 +1454,14 @@ const FormatBar = ({
 }) => {
   const selectedEls = elements.filter((e) => selectedIds.has(e.id));
   const textEls = selectedEls.filter((e) => e.type === "text");
-  const imageEls = selectedEls.filter((e) => e.type === "image");
+  const imageEls = selectedEls.filter((e) => e.type === "image" || e.type === "gif");
+  const shapeEls = selectedEls.filter((e) => e.type === "shape");
   const firstText = textEls[0];
   const firstImage = imageEls[0];
+  const firstShape = shapeEls[0];
   const first = selectedEls[0];
+
+  const [showAnimDropdown, setShowAnimDropdown] = useState(false);
 
   if (selectedEls.length === 0) return null;
 
@@ -1288,6 +1470,8 @@ const FormatBar = ({
   const fontSize = firstText?.fontSize ?? 28;
   const color = firstText?.color ?? "#0f172a";
   const fontWeight = firstText?.fontWeight ?? "400";
+  const shapeColor = firstShape?.content ?? "#06b6d4";
+  const currentAnimation = first?.animation ?? "none";
 
   const updateAllSelected = (patch: Partial<SlideElement>) => {
     selectedIds.forEach((id) => onUpdate(id, patch));
@@ -1424,6 +1608,57 @@ const FormatBar = ({
         </>
       )}
 
+      {/* ── Shape Color Controls ── */}
+      {firstShape && (
+        <>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-muted-foreground font-medium">Color:</span>
+            {COLORS_PALETTE.slice(0, 6).map((c) => (
+              <button key={c} onClick={() => updateAllSelected({ content: c })} className={`w-5 h-5 rounded-full border-2 transition-all ${shapeColor === c ? "border-primary scale-110" : "border-border/40 hover:scale-105"}`} style={{ background: c }} />
+            ))}
+            <label className="w-5 h-5 rounded-full overflow-hidden cursor-pointer border-2 border-border/40 relative hover:scale-105 transition-transform">
+              <input type="color" value={shapeColor} onChange={(e) => updateAllSelected({ content: e.target.value })} className="absolute inset-0 opacity-0 cursor-pointer" />
+              <div className="w-full h-full" style={{ background: `conic-gradient(red, yellow, lime, aqua, blue, magenta, red)` }} />
+            </label>
+          </div>
+          <div className="w-px h-6 bg-border/40" />
+        </>
+      )}
+
+      {/* ── Animation Controls ── */}
+      <div className="relative">
+        <button
+          onClick={() => setShowAnimDropdown(!showAnimDropdown)}
+          className={`h-7 px-2.5 rounded-md text-[11px] font-semibold flex items-center gap-1.5 transition ${
+            currentAnimation !== "none" 
+              ? "bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-600 border border-purple-500/30" 
+              : "bg-muted/50 text-muted-foreground hover:bg-muted border border-border/40"
+          }`}
+        >
+          <Sparkles size={12} className={currentAnimation !== "none" ? "text-purple-500" : ""} />
+          Animar
+          <ChevronDown size={10} />
+        </button>
+        
+        {showAnimDropdown && (
+          <div className="absolute top-full left-0 mt-1 w-44 bg-white rounded-lg shadow-xl border border-border/40 py-1 z-50">
+            {ANIMATION_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => { updateAllSelected({ animation: opt.value }); setShowAnimDropdown(false); }}
+                className={`w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-muted/50 transition ${
+                  currentAnimation === opt.value ? "bg-primary/10 text-primary font-medium" : "text-foreground"
+                }`}
+              >
+                {opt.icon}
+                <span>{opt.label}</span>
+                {currentAnimation === opt.value && <Check size={12} className="ml-auto" />}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="flex-1" />
 
       <button onClick={() => selectedIds.forEach((id) => onDelete(id))} className="w-8 h-8 rounded-md flex items-center justify-center text-red-500 hover:bg-red-50 transition" title="Eliminar"><Trash2 size={14} /></button>
@@ -1541,7 +1776,7 @@ const RndElement = ({
             onChildAdjust={(patch) => onMockupChildAdjust?.(el.id, patch)}
             onNativeFileDrop={onMockupNativeFileDrop}
           />
-        ) : el.type === "image" ? (
+        ) : el.type === "image" || el.type === "gif" ? (
           <div
             className="w-full h-full"
             style={{
@@ -1554,7 +1789,9 @@ const RndElement = ({
             <img src={el.content} alt="" className="w-full h-full object-cover rounded-lg pointer-events-none" style={{ opacity: el.opacity ?? 1 }} draggable={false} />
           </div>
         ) : el.type === "shape" ? (
-          <div className="w-full h-full" style={{ background: el.content, borderRadius: 16 }} />
+          <div className="w-full h-full" style={{ transform, transformOrigin: "center center" }}>
+            <StaticShapeElement el={el} transform="none" />
+          </div>
         ) : editing ? (
           <textarea
             ref={textRef}
@@ -1722,7 +1959,54 @@ const InteractiveCanvas = ({
   );
 };
 
-/* ── Presentation Slide (window-aware scaling) ── */
+/* ── Animated Element for Presentation Mode ── */
+const AnimatedElement = ({ el, index }: { el: SlideElement; index: number }) => {
+  const animation = el.animation ?? "none";
+  const baseDelay = index * 0.12; // Stagger effect
+  
+  if (animation === "fade-in") {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8, delay: baseDelay }}
+        style={{ position: "absolute", left: 0, top: 0, width: "100%", height: "100%" }}
+      >
+        <StaticElement el={el} />
+      </motion.div>
+    );
+  }
+  
+  if (animation === "slide-up") {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 50 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: baseDelay }}
+        style={{ position: "absolute", left: 0, top: 0, width: "100%", height: "100%" }}
+      >
+        <StaticElement el={el} />
+      </motion.div>
+    );
+  }
+  
+  if (animation === "pop-bounce") {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.5 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ type: "spring", bounce: 0.5, delay: baseDelay }}
+        style={{ position: "absolute", left: 0, top: 0, width: "100%", height: "100%" }}
+      >
+        <StaticElement el={el} />
+      </motion.div>
+    );
+  }
+
+  return <StaticElement el={el} />;
+};
+
+/* ── Presentation Slide (window-aware scaling with animations) ── */
 const PresentationSlide = ({ elements, bgImage, backgroundColor }: { elements: SlideElement[]; bgImage?: string; backgroundColor?: string }) => {
   const [s, setS] = useState(1);
   useEffect(() => {
@@ -1738,7 +2022,11 @@ const PresentationSlide = ({ elements, bgImage, backgroundColor }: { elements: S
     <div className="w-full h-full flex items-center justify-center overflow-hidden">
       <div className="overflow-hidden relative" style={{ width: CANVAS_W, height: CANVAS_H, transform: `scale(${s})`, transformOrigin: "center center", backgroundColor: backgroundColor ?? "#ffffff" }}>
         {bgImage && <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-[1]" />}
-        <div className="absolute inset-0 z-[2]">{sorted.map((el) => <StaticElement key={el.id} el={el} />)}</div>
+        <div className="absolute inset-0 z-[2]">
+          {sorted.map((el, idx) => (
+            <AnimatedElement key={el.id} el={el} index={idx} />
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -1870,6 +2158,30 @@ const Editor = () => {
     setSelectedIds(new Set([el.id]));
     setActiveTool(null);
     toast({ title: `📱 ${def.name} añadido`, description: "Arrastra una imagen sobre el dispositivo para insertarla." });
+  };
+
+  const addShape = (shapeType: string, color: string) => {
+    const maxZ = Math.max(0, ...currentElements.map((e) => e.zIndex ?? 0));
+    const el: SlideElement = {
+      id: uid(), type: "shape", content: color, shapeType: shapeType as any,
+      x: 760, y: 400, width: 200, height: 200, zIndex: maxZ + 1, animation: "none",
+    };
+    history.set((prev) => [...prev, el]);
+    setSelectedIds(new Set([el.id]));
+    setActiveTool(null);
+    toast({ title: "🔷 Forma añadida", description: "Cambia el color desde la barra de formato." });
+  };
+
+  const addGif = (url: string) => {
+    const maxZ = Math.max(0, ...currentElements.map((e) => e.zIndex ?? 0));
+    const el: SlideElement = {
+      id: uid(), type: "gif", content: url,
+      x: 660, y: 340, width: 400, height: 300, zIndex: maxZ + 1, animation: "none",
+    };
+    history.set((prev) => [...prev, el]);
+    setSelectedIds(new Set([el.id]));
+    setActiveTool(null);
+    toast({ title: "🎬 GIF añadido", description: "Se reproducirá en el Modo Presentación." });
   };
 
   const handleMockupDrop = useCallback((mockupId: string, imgSrc: string, imgElId: string) => {
@@ -2365,9 +2677,9 @@ const Editor = () => {
           </button>
         </div>
 
-        {/* ── Slide-out Panel (Templates / Brand) ── */}
+        {/* ── Slide-out Panel (Templates / Brand / Mockups / Elements / GIFs) ── */}
         <AnimatePresence>
-          {(activeTool === "templates" || activeTool === "brand" || activeTool === "mockups") && (
+          {(activeTool === "templates" || activeTool === "brand" || activeTool === "mockups" || activeTool === "elements" || activeTool === "gifs") && (
             <motion.div
               initial={{ width: 0, opacity: 0 }}
               animate={{ width: 260, opacity: 1 }}
@@ -2377,13 +2689,19 @@ const Editor = () => {
             >
               <div className="w-[260px] h-full overflow-y-auto">
                 <div className="flex items-center justify-between p-3 border-b border-border/20">
-                  <span className="text-xs font-bold text-foreground">{activeTool === "brand" ? "Brand Hub" : activeTool === "mockups" ? "Mockups" : "Plantillas"}</span>
+                  <span className="text-xs font-bold text-foreground">
+                    {activeTool === "brand" ? "Brand Hub" : activeTool === "mockups" ? "Mockups" : activeTool === "elements" ? "Elementos" : activeTool === "gifs" ? "GIFs" : "Plantillas"}
+                  </span>
                   <button onClick={() => setActiveTool(null)} className="w-6 h-6 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground"><X size={14} /></button>
                 </div>
                 {activeTool === "brand" ? (
                   <BrandPanel selectedIds={selectedIds} elements={currentElements} onUpdate={updateElement} />
                 ) : activeTool === "mockups" ? (
                   <MockupsPanel onAddMockup={addMockup} />
+                ) : activeTool === "elements" ? (
+                  <ElementsPanel onAddShape={addShape} />
+                ) : activeTool === "gifs" ? (
+                  <GifsPanel onAddGif={addGif} />
                 ) : (
                   <TemplatesPanel onApplyTemplate={applyTemplate} />
                 )}
