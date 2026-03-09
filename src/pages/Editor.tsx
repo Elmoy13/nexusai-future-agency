@@ -1904,7 +1904,11 @@ const InteractiveCanvas = ({
 const AnimatedElement = ({ el, index }: { el: SlideElement; index: number }) => {
   const animation = el.animation ?? "none";
   
-  const getAnimationProps = () => {
+  const getAnimationProps = (): {
+    initial?: object;
+    animate?: object;
+    transition?: object;
+  } => {
     const baseDelay = index * 0.12; // Stagger effect
     
     switch (animation) {
@@ -1912,19 +1916,19 @@ const AnimatedElement = ({ el, index }: { el: SlideElement; index: number }) => 
         return {
           initial: { opacity: 0 },
           animate: { opacity: 1 },
-          transition: { duration: 0.8, delay: baseDelay, ease: "easeOut" },
+          transition: { duration: 0.8, delay: baseDelay, ease: [0.4, 0, 0.2, 1] as const },
         };
       case "slide-up":
         return {
           initial: { opacity: 0, y: 50 },
           animate: { opacity: 1, y: 0 },
-          transition: { duration: 0.6, delay: baseDelay, ease: "easeOut" },
+          transition: { duration: 0.6, delay: baseDelay, ease: [0.4, 0, 0.2, 1] as const },
         };
       case "pop-bounce":
         return {
           initial: { opacity: 0, scale: 0.5 },
           animate: { opacity: 1, scale: 1 },
-          transition: { type: "spring", bounce: 0.5, delay: baseDelay },
+          transition: { type: "spring" as const, bounce: 0.5, delay: baseDelay },
         };
       default:
         return {};
@@ -1937,7 +1941,9 @@ const AnimatedElement = ({ el, index }: { el: SlideElement; index: number }) => 
   if (hasAnimation) {
     return (
       <motion.div
-        {...animProps}
+        initial={animProps.initial}
+        animate={animProps.animate}
+        transition={animProps.transition}
         style={{ position: "absolute", left: 0, top: 0, width: "100%", height: "100%" }}
       >
         <StaticElement el={el} />
