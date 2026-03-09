@@ -2552,7 +2552,7 @@ const PresentationOverlay = forwardRef<HTMLDivElement, {
           transition={{ duration: 0.3 }}
           className="w-full h-full"
         >
-          <PresentationSlide elements={allElements[activeIdx] ?? []} bgImage={slideMeta[activeIdx]?.image} />
+          <PresentationSlide elements={allElements[activeIdx] ?? []} bgImage={slideMeta[activeIdx]?.image} backgroundColor={slideMeta[activeIdx]?.backgroundColor} />
         </motion.div>
       </AnimatePresence>
 
