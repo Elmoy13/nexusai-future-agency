@@ -402,6 +402,19 @@ const SmartFrameStation = ({ imgSrc, mockupDef, initialScale, initialX, initialY
   const lastPos = useRef({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
   const [imgNatural, setImgNatural] = useState({ w: 600, h: 400 });
+  const [denormalized, setDenormalized] = useState(false);
+
+  // Denormalize initial values when image loads and we have natural dimensions
+  useEffect(() => {
+    if (!denormalized && imgNatural.w > 600 && imgNatural.h > 400) {
+      // Convert percentage-based coordinates back to pixels for the modal
+      const pixelX = (initialX || 0) * imgNatural.w / 100;
+      const pixelY = (initialY || 0) * imgNatural.h / 100;
+      setPanX(pixelX);
+      setPanY(pixelY);
+      setDenormalized(true);
+    }
+  }, [imgNatural, initialX, initialY, denormalized]);
 
   // Lock body scroll on mount
   useEffect(() => {
