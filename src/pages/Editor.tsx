@@ -1424,19 +1424,29 @@ const StaticElement = ({ el }: { el: SlideElement }) => {
     return <StaticShapeElement el={el} transform={transform} />;
   }
   return (
-    <div style={{
-      position: "absolute", left: el.x, top: el.y,
-      width: el.width ?? "auto",
-      fontSize: el.fontSize ?? 28, fontWeight: el.fontWeight ?? "400",
-      color: el.color ?? "#0f172a", lineHeight: 1.3, whiteSpace: "pre-wrap",
-      fontFamily: el.fontFamily ?? "Inter",
-      textAlign: (el.textAlign ?? "left") as any,
-      zIndex: el.zIndex ?? 0, transform,
-    }}>
+    <div
+      style={{
+        position: "absolute",
+        left: el.x,
+        top: el.y,
+        width: typeof el.width === "number" ? el.width : 600,
+        height: typeof el.height === "number" ? el.height : "auto",
+        fontSize: el.fontSize ?? 28,
+        fontWeight: el.fontWeight ?? "400",
+        color: el.color ?? "#0f172a",
+        lineHeight: 1.3,
+        whiteSpace: "pre-wrap",
+        wordBreak: "break-word",
+        overflowWrap: "anywhere",
+        fontFamily: el.fontFamily ?? "Inter",
+        textAlign: (el.textAlign ?? "left") as any,
+        zIndex: el.zIndex ?? 0,
+        transform,
+      }}
+    >
       {el.content}
     </div>
   );
-};
 
 /* ── Inline Shape SVG Renderer (for use inside positioned containers) ── */
 const ShapeSvg = ({ shapeType, color, width, height }: { shapeType: string; color: string; width: number; height: number }) => {
