@@ -447,7 +447,14 @@ const SmartFrameStation = ({ imgSrc, mockupDef, initialScale, initialX, initialY
 
   const resetPosition = () => { setScale(1); setPanX(0); setPanY(0); };
 
-  const handleApprove = () => { onSave(scale, panX, panY); onClose(); };
+  const handleApprove = () => {
+    // Normalize coordinates to percentages based on the image's natural dimensions
+    const normX = imgNatural.w > 0 ? (panX / imgNatural.w) * 100 : 0;
+    const normY = imgNatural.h > 0 ? (panY / imgNatural.h) * 100 : 0;
+    
+    onSave(scale, normX, normY);
+    onClose();
+  };
 
   // Device screen hole dimensions (display size in the modal)
   const inset = mockupDef.screenInset;
