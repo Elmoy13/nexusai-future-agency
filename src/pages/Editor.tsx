@@ -2710,7 +2710,7 @@ const Editor = () => {
             slideMeta={slideMeta}
             onImport={(newElements, newMeta) => {
               setSlidesElements(newElements);
-              setSlideMeta(newMeta);
+              setSlideMeta(newMeta as typeof slideMeta);
               setActiveIdx(0);
               setSelectedIds(new Set());
               history.reset(newElements[0] ?? []);
