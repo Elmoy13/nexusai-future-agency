@@ -676,6 +676,110 @@ const Community = () => {
           </Tabs>
         </div>
       </div>
+
+      {/* ═══ INTEGRATIONS MODAL ═══ */}
+      <Dialog open={showIntegrations} onOpenChange={setShowIntegrations}>
+        <DialogContent className="sm:max-w-2xl bg-card border-border/40">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2.5 text-xl">
+              <div className="w-9 h-9 rounded-xl bg-primary/15 border border-primary/25 flex items-center justify-center">
+                <Plug size={18} className="text-primary" />
+              </div>
+              Centro de Integraciones
+              <Badge variant="outline" className="text-[10px] border-border/30 text-muted-foreground font-normal ml-1">
+                Aero Dynamics
+              </Badge>
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground">Conecta tus canales sociales para unificar la comunicación en un solo inbox.</p>
+          </DialogHeader>
+
+          <div className="grid grid-cols-2 gap-4 py-4">
+            {integrationChannels.map((channel) => {
+              const isConnected = connectedChannels[channel.key];
+              const isConnecting = connectingChannel === channel.key;
+              const Icon = channel.icon;
+
+              return (
+                <motion.div
+                  key={channel.key}
+                  className={cn(
+                    "p-5 rounded-xl border transition-all",
+                    isConnected
+                      ? "border-green-500/30 bg-green-500/5"
+                      : "border-border/30 bg-muted/10 hover:border-border/50"
+                  )}
+                  whileHover={!isConnected ? { scale: 1.01 } : {}}
+                >
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", channel.bgColor, channel.borderColor, "border")}>
+                      <Icon size={20} className={channel.color} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-sm">{channel.name}</h4>
+                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{channel.description}</p>
+                    </div>
+                  </div>
+
+                  {/* WhatsApp phone input */}
+                  {channel.key === "whatsapp" && showWhatsappInput && !isConnected && !isConnecting && (
+                    <div className="mb-3">
+                      <Input
+                        placeholder="+52 555 123 4567"
+                        value={whatsappPhone}
+                        onChange={(e) => setWhatsappPhone(e.target.value)}
+                        className="h-8 text-xs bg-muted/20 border-border/30 mb-2"
+                      />
+                    </div>
+                  )}
+
+                  {isConnected ? (
+                    <div className="space-y-1">
+                      <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                        <Check size={12} className="mr-1" /> Conectado
+                      </Badge>
+                      <p className="text-[10px] text-muted-foreground">Token activo · OAuth 2.0</p>
+                    </div>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isConnecting}
+                      onClick={() => handleConnectChannel(channel.key)}
+                      className={cn(
+                        "w-full text-xs",
+                        isConnecting
+                          ? "border-primary/30 text-primary"
+                          : "border-border/40 text-muted-foreground hover:text-foreground hover:border-border"
+                      )}
+                    >
+                      {isConnecting ? (
+                        <>
+                          <Loader2 size={13} className="mr-1.5 animate-spin" />
+                          Autorizando con OAuth...
+                        </>
+                      ) : (
+                        <>
+                          <Globe size={13} className="mr-1.5" />
+                          {channel.key === "whatsapp" && showWhatsappInput ? "Verificar y Conectar" : "Conectar cuenta"}
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </motion.div>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center justify-between pt-2 border-t border-border/20">
+            <p className="text-[10px] text-muted-foreground">
+              {Object.values(connectedChannels).filter(Boolean).length} de {integrationChannels.length} canales conectados
+            </p>
+            <Button variant="ghost" size="sm" onClick={() => setShowIntegrations(false)} className="text-xs text-muted-foreground">
+              Cerrar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
