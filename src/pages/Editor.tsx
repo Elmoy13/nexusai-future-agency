@@ -660,24 +660,6 @@ const SmartFrameStation = ({ imgSrc, mockupDef, initialScale, initialX, initialY
         }
       `}</style>
     </motion.div>
-          </div>
-          <div className="w-px h-8 bg-border/40" />
-          <button
-            onClick={() => { setScale(1); setPanX(0); setPanY(0); }}
-            className="text-xs text-muted-foreground hover:text-foreground transition font-medium px-3 py-1.5 rounded-lg hover:bg-muted"
-          >
-            Resetear
-          </button>
-          <button
-            onClick={() => { onSave(scale, panX, panY); onClose(); }}
-            className="text-xs font-semibold px-5 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 transition shadow-sm shadow-cyan-500/20"
-          >
-            Aplicar
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
 };
 
 /* ── Mockup Frame Renderer (used in canvas + thumbnails) ── */
