@@ -1996,6 +1996,30 @@ const Editor = () => {
     toast({ title: `📱 ${def.name} añadido`, description: "Arrastra una imagen sobre el dispositivo para insertarla." });
   };
 
+  const addShape = (shapeType: string, color: string) => {
+    const maxZ = Math.max(0, ...currentElements.map((e) => e.zIndex ?? 0));
+    const el: SlideElement = {
+      id: uid(), type: "shape", content: color, shapeType: shapeType as any,
+      x: 760, y: 400, width: 200, height: 200, zIndex: maxZ + 1, animation: "none",
+    };
+    history.set((prev) => [...prev, el]);
+    setSelectedIds(new Set([el.id]));
+    setActiveTool(null);
+    toast({ title: "🔷 Forma añadida", description: "Cambia el color desde la barra de formato." });
+  };
+
+  const addGif = (url: string) => {
+    const maxZ = Math.max(0, ...currentElements.map((e) => e.zIndex ?? 0));
+    const el: SlideElement = {
+      id: uid(), type: "gif", content: url,
+      x: 660, y: 340, width: 400, height: 300, zIndex: maxZ + 1, animation: "none",
+    };
+    history.set((prev) => [...prev, el]);
+    setSelectedIds(new Set([el.id]));
+    setActiveTool(null);
+    toast({ title: "🎬 GIF añadido", description: "Se reproducirá en el Modo Presentación." });
+  };
+
   const handleMockupDrop = useCallback((mockupId: string, imgSrc: string, imgElId: string) => {
     const mockupEl = currentElements.find((e) => e.id === mockupId);
     const def = getMockupDef(mockupEl?.mockupType);
