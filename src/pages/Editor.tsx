@@ -1593,6 +1593,7 @@ const RndElement = ({
 const InteractiveCanvas = ({
   elements, bgImage, scale, selectedIds, onSelectElement, onUpdateElement, onDeleteElement, onDeselect,
   eyedropperMode, onImageClick, onMockupDrop, onMockupChildAdjust, onNativeFileDrop, onMockupNativeFileDrop,
+  backgroundColor, onBackgroundClick,
 }: {
   elements: SlideElement[];
   bgImage?: string;
@@ -1608,6 +1609,8 @@ const InteractiveCanvas = ({
   onMockupChildAdjust?: (id: string, patch: Partial<SlideElement>) => void;
   onNativeFileDrop?: (src: string, x: number, y: number) => void;
   onMockupNativeFileDrop?: (mockupId: string, src: string) => void;
+  backgroundColor?: string;
+  onBackgroundClick?: () => void;
 }) => {
   const [guides, setGuides] = useState<GuideLines>({ x: null, y: null });
   const [canvasDragOver, setCanvasDragOver] = useState(false);
