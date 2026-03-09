@@ -1608,6 +1608,57 @@ const FormatBar = ({
         </>
       )}
 
+      {/* ── Shape Color Controls ── */}
+      {firstShape && (
+        <>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-muted-foreground font-medium">Color:</span>
+            {COLORS_PALETTE.slice(0, 6).map((c) => (
+              <button key={c} onClick={() => updateAllSelected({ content: c })} className={`w-5 h-5 rounded-full border-2 transition-all ${shapeColor === c ? "border-primary scale-110" : "border-border/40 hover:scale-105"}`} style={{ background: c }} />
+            ))}
+            <label className="w-5 h-5 rounded-full overflow-hidden cursor-pointer border-2 border-border/40 relative hover:scale-105 transition-transform">
+              <input type="color" value={shapeColor} onChange={(e) => updateAllSelected({ content: e.target.value })} className="absolute inset-0 opacity-0 cursor-pointer" />
+              <div className="w-full h-full" style={{ background: `conic-gradient(red, yellow, lime, aqua, blue, magenta, red)` }} />
+            </label>
+          </div>
+          <div className="w-px h-6 bg-border/40" />
+        </>
+      )}
+
+      {/* ── Animation Controls ── */}
+      <div className="relative">
+        <button
+          onClick={() => setShowAnimDropdown(!showAnimDropdown)}
+          className={`h-7 px-2.5 rounded-md text-[11px] font-semibold flex items-center gap-1.5 transition ${
+            currentAnimation !== "none" 
+              ? "bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-600 border border-purple-500/30" 
+              : "bg-muted/50 text-muted-foreground hover:bg-muted border border-border/40"
+          }`}
+        >
+          <Sparkles size={12} className={currentAnimation !== "none" ? "text-purple-500" : ""} />
+          Animar
+          <ChevronDown size={10} />
+        </button>
+        
+        {showAnimDropdown && (
+          <div className="absolute top-full left-0 mt-1 w-44 bg-white rounded-lg shadow-xl border border-border/40 py-1 z-50">
+            {ANIMATION_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => { updateAllSelected({ animation: opt.value }); setShowAnimDropdown(false); }}
+                className={`w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-muted/50 transition ${
+                  currentAnimation === opt.value ? "bg-primary/10 text-primary font-medium" : "text-foreground"
+                }`}
+              >
+                {opt.icon}
+                <span>{opt.label}</span>
+                {currentAnimation === opt.value && <Check size={12} className="ml-auto" />}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="flex-1" />
 
       <button onClick={() => selectedIds.forEach((id) => onDelete(id))} className="w-8 h-8 rounded-md flex items-center justify-center text-red-500 hover:bg-red-50 transition" title="Eliminar"><Trash2 size={14} /></button>
