@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FolderOpen, PenTool } from "lucide-react";
 import BrandPortfolioDirectory from "./briefs/BrandPortfolioDirectory";
@@ -9,6 +10,7 @@ import BriefCreator from "./briefs/BriefCreator";
 type SubView = "directory" | "brand-hub" | "new-brief";
 
 const BriefsModule = () => {
+  const navigate = useNavigate();
   const [subView, setSubView] = useState<SubView>("directory");
   const [selectedBrand, setSelectedBrand] = useState<string>("");
 
@@ -41,7 +43,10 @@ const BriefsModule = () => {
         </div>
 
         <TabsContent value="directory">
-          <BrandPortfolioDirectory onOpenBrand={openBrand} onNewBrand={() => setSubView("new-brief")} />
+          <BrandPortfolioDirectory
+            onOpenBrand={openBrand}
+            onNewBrand={() => navigate("/agente/nueva-marca")}
+          />
         </TabsContent>
 
         <TabsContent value="new-brief">

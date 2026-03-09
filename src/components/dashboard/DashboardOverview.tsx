@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { Briefcase, Clock, AlertCircle, Plus, Check, Loader2, Circle, ArrowRight, Image } from "lucide-react";
 
 const kpis = [
@@ -27,6 +28,8 @@ const accentMap = {
 };
 
 const DashboardOverview = () => {
+  const navigate = useNavigate();
+
   return (
     <div className="p-6 md:p-10 lg:p-12 space-y-8">
       {/* Header */}
@@ -42,6 +45,7 @@ const DashboardOverview = () => {
           <p className="text-muted-foreground text-sm mt-1">Resumen de producción y acciones pendientes.</p>
         </div>
         <motion.button
+          onClick={() => navigate("/agente/nueva-marca")}
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.1 }}
