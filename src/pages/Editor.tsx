@@ -1903,47 +1903,40 @@ const InteractiveCanvas = ({
 /* ── Animated Element for Presentation Mode ── */
 const AnimatedElement = ({ el, index }: { el: SlideElement; index: number }) => {
   const animation = el.animation ?? "none";
+  const baseDelay = index * 0.12; // Stagger effect
   
-  const getAnimationProps = (): {
-    initial?: object;
-    animate?: object;
-    transition?: object;
-  } => {
-    const baseDelay = index * 0.12; // Stagger effect
-    
-    switch (animation) {
-      case "fade-in":
-        return {
-          initial: { opacity: 0 },
-          animate: { opacity: 1 },
-          transition: { duration: 0.8, delay: baseDelay, ease: [0.4, 0, 0.2, 1] as const },
-        };
-      case "slide-up":
-        return {
-          initial: { opacity: 0, y: 50 },
-          animate: { opacity: 1, y: 0 },
-          transition: { duration: 0.6, delay: baseDelay, ease: [0.4, 0, 0.2, 1] as const },
-        };
-      case "pop-bounce":
-        return {
-          initial: { opacity: 0, scale: 0.5 },
-          animate: { opacity: 1, scale: 1 },
-          transition: { type: "spring" as const, bounce: 0.5, delay: baseDelay },
-        };
-      default:
-        return {};
-    }
-  };
-
-  const animProps = getAnimationProps();
-  const hasAnimation = animation !== "none";
-
-  if (hasAnimation) {
+  if (animation === "fade-in") {
     return (
       <motion.div
-        initial={animProps.initial}
-        animate={animProps.animate}
-        transition={animProps.transition}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8, delay: baseDelay }}
+        style={{ position: "absolute", left: 0, top: 0, width: "100%", height: "100%" }}
+      >
+        <StaticElement el={el} />
+      </motion.div>
+    );
+  }
+  
+  if (animation === "slide-up") {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 50 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: baseDelay }}
+        style={{ position: "absolute", left: 0, top: 0, width: "100%", height: "100%" }}
+      >
+        <StaticElement el={el} />
+      </motion.div>
+    );
+  }
+  
+  if (animation === "pop-bounce") {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.5 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ type: "spring", bounce: 0.5, delay: baseDelay }}
         style={{ position: "absolute", left: 0, top: 0, width: "100%", height: "100%" }}
       >
         <StaticElement el={el} />
