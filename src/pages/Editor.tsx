@@ -2901,6 +2901,40 @@ const PresentationOverlay = forwardRef<HTMLDivElement, {
     return () => document.removeEventListener("fullscreenchange", handler);
   }, [onClose]);
 
+  // Get slide transition animation variants
+  const getSlideTransitionVariants = (transition: "none" | "fade" | "slide" | "zoom" = "fade") => {
+    switch (transition) {
+      case "none":
+        return {
+          initial: {},
+          animate: {},
+          exit: {},
+        };
+      case "slide":
+        return {
+          initial: { opacity: 0, x: 300 },
+          animate: { opacity: 1, x: 0 },
+          exit: { opacity: 0, x: -300 },
+        };
+      case "zoom":
+        return {
+          initial: { opacity: 0, scale: 0.8 },
+          animate: { opacity: 1, scale: 1 },
+          exit: { opacity: 0, scale: 1.2 },
+        };
+      case "fade":
+      default:
+        return {
+          initial: { opacity: 0 },
+          animate: { opacity: 1 },
+          exit: { opacity: 0 },
+        };
+    }
+  };
+
+  const currentTransition = slideMeta[activeIdx]?.transition ?? "fade";
+  const transitionVariants = getSlideTransitionVariants(currentTransition);
+
   return (
     <motion.div
       ref={ref}
@@ -2912,10 +2946,10 @@ const PresentationOverlay = forwardRef<HTMLDivElement, {
       <AnimatePresence mode="wait">
         <motion.div
           key={slideMeta[activeIdx]?.id}
-          initial={{ opacity: 0, x: 40 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -40 }}
-          transition={{ duration: 0.3 }}
+          initial={transitionVariants.initial}
+          animate={transitionVariants.animate}
+          exit={transitionVariants.exit}
+          transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
           className="w-full h-full"
         >
           <PresentationSlide elements={allElements[activeIdx] ?? []} bgImage={slideMeta[activeIdx]?.image} backgroundColor={slideMeta[activeIdx]?.backgroundColor} />
