@@ -2342,9 +2342,13 @@ const Editor = () => {
     setActiveIdx(newIdx);
   };
 
-  /* ── Background Color ── */
+  /* ── Background Color & Transition ── */
   const updateBackgroundColor = (color: string) => {
     setSlideMeta((prev) => prev.map((m, i) => i === activeIdx ? { ...m, backgroundColor: color } : m));
+  };
+
+  const updateSlideTransition = (transition: "none" | "fade" | "slide" | "zoom") => {
+    setSlideMeta((prev) => prev.map((m, i) => i === activeIdx ? { ...m, transition } : m));
   };
 
   /* ── Background removal via chroma key ── */
