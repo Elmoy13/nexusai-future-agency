@@ -258,6 +258,16 @@ const Community = () => {
               </div>
             </div>
           ))}
+          <div className="h-6 w-px bg-border/30 ml-2" />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowIntegrations(true)}
+            className="gap-2 text-xs border-border/40 text-muted-foreground hover:text-foreground hover:border-primary/30"
+          >
+            <Plug size={14} />
+            Conectar Canales
+          </Button>
         </div>
       </div>
 
