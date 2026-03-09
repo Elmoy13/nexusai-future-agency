@@ -403,6 +403,12 @@ const SmartFrameStation = ({ imgSrc, mockupDef, initialScale, initialX, initialY
   const canvasRef = useRef<HTMLDivElement>(null);
   const [imgNatural, setImgNatural] = useState({ w: 600, h: 400 });
 
+  // Lock body scroll on mount
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
   // Escape to close
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
