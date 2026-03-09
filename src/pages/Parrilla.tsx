@@ -571,39 +571,62 @@ const Parrilla = () => {
       <header className={`sticky top-0 z-50 border-b shadow-sm transition-colors duration-500 ${
         isClientView ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"
       }`}>
-        <div className="flex items-center justify-between px-6 h-16">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")} className={isClientView ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-700"}>
-              <ArrowLeft size={20} />
-            </Button>
-            <div>
-              <h1 className={`text-lg font-bold ${isClientView ? "text-white" : "text-slate-800"}`}>Parrilla de Contenido</h1>
-              <p className={`text-xs ${isClientView ? "text-slate-400" : "text-slate-500"}`}>Lanzamiento Drone X10 · Aero Dynamics</p>
+        <div className="flex flex-col px-6 py-3">
+          {/* Breadcrumbs */}
+          {!isClientView && (
+            <nav className="flex items-center gap-1.5 text-xs text-slate-500 mb-2">
+              <button onClick={() => navigate("/dashboard")} className="flex items-center gap-1 hover:text-slate-700 transition-colors">
+                <Home size={12} /> Directorio
+              </button>
+              <span>/</span>
+              <button className="flex items-center gap-1 hover:text-slate-700 transition-colors">
+                <Hexagon size={12} /> Aero Dynamics
+              </button>
+              <span>/</span>
+              <button className="flex items-center gap-1 hover:text-slate-700 transition-colors">
+                <BriefIcon size={12} /> Brief: Drone X10
+              </button>
+              <span>/</span>
+              <span className="flex items-center gap-1 text-slate-800 font-medium">
+                <CalendarDays size={12} /> Parrilla
+              </span>
+            </nav>
+          )}
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")} className={isClientView ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-700"}>
+                <ArrowLeft size={20} />
+              </Button>
+              <div>
+                <h1 className={`text-lg font-bold ${isClientView ? "text-white" : "text-slate-800"}`}>Parrilla de Contenido</h1>
+                <p className={`text-xs ${isClientView ? "text-slate-400" : "text-slate-500"}`}>Lanzamiento Drone X10 · Aero Dynamics</p>
+              </div>
             </div>
-          </div>
 
-          <div className="flex items-center gap-4">
-            {/* Client Mode Toggle */}
-            <div className={`flex items-center gap-3 px-4 py-2 rounded-full border transition-colors ${
-              isClientView ? "bg-violet-500/20 border-violet-500/40" : "bg-slate-100 border-slate-200"
-            }`}>
-              <Eye size={16} className={isClientView ? "text-violet-400" : "text-slate-500"} />
-              <span className={`text-sm font-medium ${isClientView ? "text-violet-300" : "text-slate-600"}`}>Modo Cliente</span>
-              <Switch
-                checked={isClientView}
-                onCheckedChange={setIsClientView}
-                className="data-[state=checked]:bg-violet-500"
-              />
+            <div className="flex items-center gap-4">
+              {/* Client Mode Toggle */}
+              <div className={`flex items-center gap-3 px-4 py-2 rounded-full border transition-colors ${
+                isClientView ? "bg-violet-500/20 border-violet-500/40" : "bg-slate-100 border-slate-200"
+              }`}>
+                <Eye size={16} className={isClientView ? "text-violet-400" : "text-slate-500"} />
+                <span className={`text-sm font-medium ${isClientView ? "text-violet-300" : "text-slate-600"}`}>Modo Cliente</span>
+                <Switch
+                  checked={isClientView}
+                  onCheckedChange={setIsClientView}
+                  className="data-[state=checked]:bg-violet-500"
+                />
+              </div>
+
+              <div className={`w-px h-8 ${isClientView ? "bg-slate-700" : "bg-slate-200"}`} />
+
+              <Button variant="outline" onClick={handleExportCSV} className={`gap-2 text-sm h-9 ${isClientView ? "border-slate-600 text-slate-300 hover:bg-slate-700" : "border-slate-300"}`}>
+                <Download size={14} /> Exportar CSV
+              </Button>
+              <Button onClick={handleApproveAll} className="gap-2 text-sm h-9 bg-emerald-500 hover:bg-emerald-600">
+                <CheckCircle2 size={14} /> Aprobar Todo
+              </Button>
             </div>
-
-            <div className={`w-px h-8 ${isClientView ? "bg-slate-700" : "bg-slate-200"}`} />
-
-            <Button variant="outline" onClick={handleExportCSV} className={`gap-2 text-sm h-9 ${isClientView ? "border-slate-600 text-slate-300 hover:bg-slate-700" : "border-slate-300"}`}>
-              <Download size={14} /> Exportar CSV
-            </Button>
-            <Button onClick={handleApproveAll} className="gap-2 text-sm h-9 bg-emerald-500 hover:bg-emerald-600">
-              <CheckCircle2 size={14} /> Aprobar Todo
-            </Button>
           </div>
         </div>
       </header>
