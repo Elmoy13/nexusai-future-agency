@@ -335,7 +335,7 @@ interface MockupDef {
   id: string;
   name: string;
   icon: typeof Smartphone;
-  category: "device" | "social";
+  category: "device" | "social" | "professional" | "outdoor";
   width: number;
   height: number;
   screenRadius: string;
