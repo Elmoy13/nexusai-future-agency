@@ -2107,21 +2107,38 @@ const AnimatedElement = ({ el, index }: { el: SlideElement; index: number }) => 
   return <StaticElement el={el} />;
 };
 
-/* ── Presentation Slide (window-aware scaling with animations) ── */
+/* ── Presentation Slide (strict letterbox scaling with animations) ── */
 const PresentationSlide = ({ elements, bgImage, backgroundColor }: { elements: SlideElement[]; bgImage?: string; backgroundColor?: string }) => {
   const [s, setS] = useState(1);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const calc = () => {
-      setS(Math.min(window.innerWidth / CANVAS_W, window.innerHeight / CANVAS_H));
+      const wW = window.innerWidth;
+      const wH = window.innerHeight;
+      setS(Math.min(wW / CANVAS_W, wH / CANVAS_H));
     };
     calc();
     window.addEventListener("resize", calc);
     return () => window.removeEventListener("resize", calc);
   }, []);
+
   const sorted = [...elements].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
+
   return (
-    <div className="w-full h-full flex items-center justify-center overflow-hidden">
-      <div className="overflow-hidden relative" style={{ width: CANVAS_W, height: CANVAS_H, transform: `scale(${s})`, transformOrigin: "center center", backgroundColor: backgroundColor ?? "#ffffff" }}>
+    <div className="fixed inset-0 w-screen h-screen flex items-center justify-center overflow-hidden" style={{ background: "transparent" }}>
+      <div
+        ref={containerRef}
+        style={{
+          width: CANVAS_W,
+          height: CANVAS_H,
+          transform: `scale(${s})`,
+          transformOrigin: "center center",
+          position: "relative",
+          overflow: "hidden",
+          backgroundColor: backgroundColor ?? "#ffffff",
+        }}
+      >
         {bgImage && <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-[1]" />}
         <div className="absolute inset-0 z-[2]">
           {sorted.map((el, idx) => (
