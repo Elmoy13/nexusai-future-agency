@@ -25,6 +25,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/agente/nueva-marca" element={<Agent />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/editor/:id" element={<Editor />} />
             <Route path="*" element={<NotFound />} />

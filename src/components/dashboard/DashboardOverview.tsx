@@ -45,6 +45,7 @@ const DashboardOverview = () => {
           <p className="text-muted-foreground text-sm mt-1">Resumen de producción y acciones pendientes.</p>
         </div>
         <motion.button
+          onClick={() => navigate("/agente/nueva-marca")}
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.1 }}

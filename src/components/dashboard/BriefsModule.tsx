@@ -43,7 +43,10 @@ const BriefsModule = () => {
         </div>
 
         <TabsContent value="directory">
-          <BrandPortfolioDirectory onOpenBrand={openBrand} onNewBrand={() => setSubView("new-brief")} />
+          <BrandPortfolioDirectory
+            onOpenBrand={openBrand}
+            onNewBrand={() => navigate("/agente/nueva-marca")}
+          />
         </TabsContent>
 
         <TabsContent value="new-brief">

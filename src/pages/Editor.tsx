@@ -2197,17 +2197,29 @@ const Editor = () => {
 
   const campaign = initialCampaigns.find((c) => c.id === id) ?? initialCampaigns[0];
 
+  const draftKey = id ? `presentation_draft_${id}` : null;
+  const draft = (() => {
+    if (!draftKey) return null as null | { slidesElements: SlideElement[][]; slideMeta: any[]; docTitle?: string };
+    try {
+      const raw = sessionStorage.getItem(draftKey);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  })();
+
   const [slidesElements, setSlidesElements] = useState<SlideElement[][]>(() =>
-    campaign.slides.map(slideToElements)
+    draft?.slidesElements ?? campaign.slides.map(slideToElements)
   );
   const [slideMeta, setSlideMeta] = useState(() =>
-    campaign.slides.map((s) => ({ id: s.id, type: s.type, image: s.type === "cover" ? s.image : undefined, backgroundColor: "#ffffff", transition: "fade" as "none" | "fade" | "slide" | "zoom" }))
+    draft?.slideMeta ?? campaign.slides.map((s) => ({ id: s.id, type: s.type, image: s.type === "cover" ? s.image : undefined, backgroundColor: "#ffffff", transition: "fade" as "none" | "fade" | "slide" | "zoom" }))
   );
   const [isBackgroundSelected, setIsBackgroundSelected] = useState(false);
 
   const [activeIdx, setActiveIdx] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [docTitle, setDocTitle] = useState(campaign.title);
+  const [docTitle, setDocTitle] = useState(draft?.docTitle ?? campaign.title);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [presenting, setPresenting] = useState(false);

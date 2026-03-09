@@ -87,8 +87,11 @@ const BrandHub = ({ brandName, onBack }: Props) => {
           <Button onClick={handleExportAll} variant="outline" className="border-primary/30 text-primary hover:bg-primary/10 gap-2 h-11 px-5 font-semibold">
             <FileDown size={16} /> Exportar Todo a PDF
           </Button>
-          <Button className="bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25 gap-2 h-11 px-6 font-semibold shadow-sm">
-            <Plus size={16} /> Nueva Campaña
+          <Button
+            onClick={() => navigate(`/agente/nueva-marca?brand=${encodeURIComponent(brandName)}`)}
+            className="bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25 gap-2 h-11 px-6 font-semibold shadow-sm"
+          >
+            <Plus size={16} /> Nuevo Brief con IA
           </Button>
         </div>
       </div>
