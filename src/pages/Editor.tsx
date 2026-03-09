@@ -16,7 +16,8 @@ import {
   Play, X, Undo2, Redo2, AlignLeft, AlignCenter, AlignRight, Minus,
   Bold, Trash2, RotateCcw, RotateCw, FlipHorizontal, FlipVertical,
   ArrowUpToLine, ArrowDownToLine, ArrowUp, ArrowDown, Pipette,
-  Smartphone, Monitor, Tablet,
+  Smartphone, Monitor, Tablet, Globe, Linkedin, Youtube, Twitter, 
+  RectangleHorizontal, Square,
 } from "lucide-react";
 import { initialCampaigns } from "@/components/dashboard/briefs/campaignData";
 import type { SlideData, SlideElement } from "@/components/dashboard/briefs/campaignData";
@@ -334,7 +335,7 @@ interface MockupDef {
   id: string;
   name: string;
   icon: typeof Smartphone;
-  category: "device" | "social";
+  category: "device" | "social" | "professional" | "outdoor";
   width: number;
   height: number;
   screenRadius: string;
@@ -345,6 +346,7 @@ interface MockupDef {
 }
 
 const MOCKUP_DEFS: MockupDef[] = [
+  // ── Dispositivos Digitales ──
   {
     id: "iphone15", name: "iPhone 15 Pro", icon: Smartphone, category: "device",
     width: 340, height: 700,
@@ -364,6 +366,14 @@ const MOCKUP_DEFS: MockupDef[] = [
     frameColor: "#1f1f1f",
   },
   {
+    id: "browser", name: "Browser Window", icon: Globe, category: "device",
+    width: 800, height: 600,
+    screenRadius: "0.5rem", screenInset: { top: 44, right: 8, bottom: 8, left: 8 },
+    frameColor: "#f5f5f5", socialUI: "browser",
+  },
+
+  // ── Redes Sociales (B2C) ──
+  {
     id: "ig-post", name: "Instagram Post", icon: Smartphone, category: "social",
     width: 400, height: 500,
     screenRadius: "0.75rem", screenInset: { top: 52, right: 0, bottom: 56, left: 0 },
@@ -380,6 +390,40 @@ const MOCKUP_DEFS: MockupDef[] = [
     width: 340, height: 600,
     screenRadius: "1.25rem", screenInset: { top: 48, right: 0, bottom: 64, left: 0 },
     frameColor: "#000000", socialUI: "tiktok",
+  },
+
+  // ── Profesional & Video (B2B) ──
+  {
+    id: "linkedin", name: "LinkedIn Post", icon: Linkedin, category: "professional",
+    width: 520, height: 400,
+    screenRadius: "0.5rem", screenInset: { top: 60, right: 16, bottom: 50, left: 16 },
+    frameColor: "#ffffff", socialUI: "linkedin",
+  },
+  {
+    id: "youtube", name: "YouTube Video", icon: Youtube, category: "professional",
+    width: 640, height: 360,
+    screenRadius: "0.75rem", screenInset: { top: 0, right: 0, bottom: 40, left: 0 },
+    frameColor: "#000000", socialUI: "youtube",
+  },
+  {
+    id: "twitter", name: "X / Twitter Post", icon: Twitter, category: "professional",
+    width: 500, height: 280,
+    screenRadius: "1rem", screenInset: { top: 50, right: 16, bottom: 50, left: 16 },
+    frameColor: "#ffffff", socialUI: "twitter",
+  },
+
+  // ── Publicidad Exterior (OOH) ✨ ──
+  {
+    id: "billboard", name: "Espectacular", icon: RectangleHorizontal, category: "outdoor",
+    width: 800, height: 380,
+    screenRadius: "0.25rem", screenInset: { top: 40, right: 40, bottom: 80, left: 40 },
+    frameColor: "#424242", socialUI: "billboard",
+  },
+  {
+    id: "mupi", name: "Mupi / Parabús", icon: Square, category: "outdoor",
+    width: 400, height: 600,
+    screenRadius: "0.5rem", screenInset: { top: 40, right: 20, bottom: 40, left: 20 },
+    frameColor: "#2d3748", socialUI: "mupi",
   },
 ];
 
@@ -882,6 +926,95 @@ const MockupFrame = ({ el, interactive, onDrop, onChildAdjust, onNativeFileDrop 
               </div>
             </>
           )}
+          {def.socialUI === "browser" && (
+            <div className="absolute top-0 left-0 right-0 flex items-center gap-2 px-3" style={{ height: inset.top - 2, background: "#f6f7f8", borderBottom: "1px solid #e1e5e9" }}>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
+                <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+              </div>
+              <div className="flex-1 mx-4">
+                <div className="bg-white rounded border px-2 py-1 text-[8px] text-gray-500">
+                  https://www.aerodynamics.com
+                </div>
+              </div>
+            </div>
+          )}
+          {def.socialUI === "linkedin" && (
+            <>
+              <div className="absolute top-0 left-0 right-0 flex items-center gap-2 px-3" style={{ height: inset.top - 2, background: "#fff", borderBottom: "1px solid #e0e0e0" }}>
+                <div className="w-8 h-8 rounded bg-blue-600 flex items-center justify-center">
+                  <span className="text-[10px] font-bold text-white">AD</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-semibold text-gray-900">Aero Dynamics</span>
+                  <span className="text-[7px] text-gray-500">Empresa · Patrocinado</span>
+                </div>
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 flex items-center justify-around px-3 py-2" style={{ height: inset.bottom - 2, background: "#fff", borderTop: "1px solid #e0e0e0" }}>
+                <span className="text-[8px] text-gray-600">👍 Me gusta</span>
+                <span className="text-[8px] text-gray-600">💬 Comentar</span>
+                <span className="text-[8px] text-gray-600">↗ Compartir</span>
+              </div>
+            </>
+          )}
+          {def.socialUI === "youtube" && (
+            <div className="absolute bottom-0 left-0 right-0" style={{ height: inset.bottom }}>
+              <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center">
+                  <Play size={20} fill="white" className="text-white ml-1" />
+                </div>
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-red-600" style={{ width: "35%" }} />
+            </div>
+          )}
+          {def.socialUI === "twitter" && (
+            <>
+              <div className="absolute top-0 left-0 right-0 flex items-center gap-2 px-3" style={{ height: inset.top - 2, background: "#fff", borderBottom: "1px solid #e1e8ed" }}>
+                <div className="w-8 h-8 rounded-full bg-gray-300" />
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-bold text-gray-900">AeroDynamics</span>
+                  <span className="text-[7px] text-gray-500">@aerodynamics</span>
+                </div>
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 flex items-center justify-around px-3" style={{ height: inset.bottom - 2, background: "#fff", borderTop: "1px solid #e1e8ed" }}>
+                <span className="text-[8px] text-gray-500">💬</span>
+                <span className="text-[8px] text-gray-500">🔁</span>
+                <span className="text-[8px] text-gray-500">♡</span>
+                <span className="text-[8px] text-gray-500">↗</span>
+              </div>
+            </>
+          )}
+          {def.socialUI === "billboard" && (
+            <>
+              {/* Metal frame top */}
+              <div className="absolute top-0 left-0 right-0" style={{ height: inset.top, background: "linear-gradient(180deg, #6b7280 0%, #374151 50%, #1f2937 100%)", borderBottom: "2px solid #9ca3af" }} />
+              {/* Support posts */}
+              <div className="absolute" style={{ bottom: -20, left: "20%", width: 8, height: 60, background: "linear-gradient(90deg, #6b7280, #374151)", borderRadius: "0 0 4px 4px" }} />
+              <div className="absolute" style={{ bottom: -20, right: "20%", width: 8, height: 60, background: "linear-gradient(90deg, #6b7280, #374151)", borderRadius: "0 0 4px 4px" }} />
+              {/* Lights */}
+              <div className="absolute flex justify-around px-8" style={{ top: 8, left: 0, right: 0 }}>
+                <div className="w-3 h-3 rounded-full bg-yellow-300 opacity-60" />
+                <div className="w-3 h-3 rounded-full bg-yellow-300 opacity-60" />
+                <div className="w-3 h-3 rounded-full bg-yellow-300 opacity-60" />
+              </div>
+            </>
+          )}
+          {def.socialUI === "mupi" && (
+            <>
+              {/* Silver metallic frame */}
+              <div className="absolute inset-0 rounded-lg" style={{ 
+                background: "linear-gradient(145deg, #e5e7eb 0%, #9ca3af 50%, #6b7280 100%)",
+                boxShadow: "inset 0 2px 4px rgba(0,0,0,0.1), 0 8px 16px rgba(0,0,0,0.2)"
+              }} />
+              {/* Inner shadow for depth */}
+              <div className="absolute" style={{
+                top: inset.top - 8, right: inset.right - 8, bottom: inset.bottom - 8, left: inset.left - 8,
+                borderRadius: `calc(${def.screenRadius} + 2px)`,
+                boxShadow: "inset 0 2px 8px rgba(0,0,0,0.15)"
+              }} />
+            </>
+          )}
         </div>
 
         {/* Screen area (drop zone) */}
@@ -951,59 +1084,95 @@ const MockupsPanel = ({
 }) => {
   const devices = MOCKUP_DEFS.filter((m) => m.category === "device");
   const social = MOCKUP_DEFS.filter((m) => m.category === "social");
+  const professional = MOCKUP_DEFS.filter((m) => m.category === "professional");
+  const outdoor = MOCKUP_DEFS.filter((m) => m.category === "outdoor");
+
+  const renderMockupButton = (m: MockupDef) => {
+    const Icon = m.icon;
+    const isWhiteBg = m.frameColor === "#ffffff" || m.frameColor === "#f5f5f5";
+    
+    return (
+      <button
+        key={m.id}
+        onClick={() => onAddMockup(m.id)}
+        className="flex items-center gap-3 p-2.5 rounded-lg border border-border/40 hover:border-primary/40 hover:bg-primary/5 transition-all group"
+      >
+        <div 
+          className="w-10 h-14 rounded-lg flex items-center justify-center shadow-sm" 
+          style={{ 
+            background: m.frameColor, 
+            border: isWhiteBg ? "1px solid #e2e8f0" : "none" 
+          }}
+        >
+          <Icon 
+            size={16} 
+            className={isWhiteBg ? "text-gray-600" : "text-white/80"} 
+          />
+        </div>
+        <div className="text-left">
+          <span className="text-xs font-semibold text-foreground block">{m.name}</span>
+          <span className="text-[10px] text-muted-foreground">{m.width}×{m.height}</span>
+        </div>
+      </button>
+    );
+  };
 
   return (
-    <div className="flex flex-col gap-5 p-4">
+    <div className="flex flex-col gap-6 p-4">
       <div>
-        <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-1">Mockups & Previews</h3>
-        <p className="text-[11px] text-muted-foreground">Haz clic para agregar al lienzo</p>
+        <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-1">Smart Containers</h3>
+        <p className="text-[11px] text-muted-foreground">Haz clic para agregar · Arrastra imágenes dentro</p>
       </div>
 
+      {/* Dispositivos Digitales */}
       <div>
-        <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2.5">📱 Dispositivos</h4>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-2 h-2 rounded-full bg-primary" />
+          <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            💻 Dispositivos Digitales
+          </h4>
+        </div>
         <div className="flex flex-col gap-2">
-          {devices.map((m) => {
-            const Icon = m.icon;
-            return (
-              <button
-                key={m.id}
-                onClick={() => onAddMockup(m.id)}
-                className="flex items-center gap-3 p-2.5 rounded-lg border border-border/40 hover:border-primary/40 hover:bg-primary/5 transition-all group"
-              >
-                <div className="w-10 h-14 rounded-lg flex items-center justify-center" style={{ background: m.frameColor }}>
-                  <Icon size={16} className="text-white/80" />
-                </div>
-                <div className="text-left">
-                  <span className="text-xs font-semibold text-foreground block">{m.name}</span>
-                  <span className="text-[10px] text-muted-foreground">{m.width}×{m.height}</span>
-                </div>
-              </button>
-            );
-          })}
+          {devices.map(renderMockupButton)}
         </div>
       </div>
 
+      {/* Redes Sociales (B2C) */}
       <div>
-        <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2.5">📲 Social Media</h4>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-2 h-2 rounded-full bg-pink-500" />
+          <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            📲 Redes Sociales (B2C)
+          </h4>
+        </div>
         <div className="flex flex-col gap-2">
-          {social.map((m) => {
-            const Icon = m.icon;
-            return (
-              <button
-                key={m.id}
-                onClick={() => onAddMockup(m.id)}
-                className="flex items-center gap-3 p-2.5 rounded-lg border border-border/40 hover:border-primary/40 hover:bg-primary/5 transition-all group"
-              >
-                <div className="w-10 h-14 rounded-lg flex items-center justify-center" style={{ background: m.frameColor, border: m.frameColor === "#ffffff" ? "1px solid #e2e8f0" : "none" }}>
-                  <Icon size={16} className={m.frameColor === "#ffffff" ? "text-pink-500" : "text-white/80"} />
-                </div>
-                <div className="text-left">
-                  <span className="text-xs font-semibold text-foreground block">{m.name}</span>
-                  <span className="text-[10px] text-muted-foreground">{m.width}×{m.height}</span>
-                </div>
-              </button>
-            );
-          })}
+          {social.map(renderMockupButton)}
+        </div>
+      </div>
+
+      {/* Profesional & Video (B2B) */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-2 h-2 rounded-full bg-blue-500" />
+          <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            💼 Profesional & Video (B2B)
+          </h4>
+        </div>
+        <div className="flex flex-col gap-2">
+          {professional.map(renderMockupButton)}
+        </div>
+      </div>
+
+      {/* Publicidad Exterior (OOH) ✨ */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-2 h-2 rounded-full bg-orange-500" />
+          <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            🏗️ Publicidad Exterior (OOH) ✨
+          </h4>
+        </div>
+        <div className="flex flex-col gap-2">
+          {outdoor.map(renderMockupButton)}
         </div>
       </div>
     </div>
