@@ -254,12 +254,16 @@ const BriefCreator = ({ brandName }: Props) => {
 
   const allAttachedUrls = useMemo(() => attachments.map((a) => a.url), [attachments]);
 
+  const attachmentsRef = useRef<Attachment[]>([]);
+  useEffect(() => {
+    attachmentsRef.current = attachments;
+  }, [attachments]);
+
   useEffect(() => {
     return () => {
       // Cleanup any unsent previews
-      attachments.forEach((a) => URL.revokeObjectURL(a.url));
+      attachmentsRef.current.forEach((a) => URL.revokeObjectURL(a.url));
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const addFiles = (files: FileList | File[]) => {
