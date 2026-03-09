@@ -17,7 +17,7 @@ import {
   Bold, Trash2, RotateCcw, RotateCw, FlipHorizontal, FlipVertical,
   ArrowUpToLine, ArrowDownToLine, ArrowUp, ArrowDown, Pipette,
   Smartphone, Monitor, Tablet, Globe, Linkedin, Youtube, Twitter, 
-  RectangleHorizontal, Square,
+  RectangleHorizontal, Square, Copy, MoveLeft, MoveRight, PaintBucket,
 } from "lucide-react";
 import { initialCampaigns } from "@/components/dashboard/briefs/campaignData";
 import type { SlideData, SlideElement } from "@/components/dashboard/briefs/campaignData";
@@ -1244,10 +1244,10 @@ const StaticElement = ({ el }: { el: SlideElement }) => {
 };
 
 /* ── Slide Thumbnail ── */
-const SlideThumbnail = ({ elements, bgImage }: { elements: SlideElement[]; bgImage?: string }) => {
+const SlideThumbnail = ({ elements, bgImage, backgroundColor }: { elements: SlideElement[]; bgImage?: string; backgroundColor?: string }) => {
   const sorted = [...elements].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
   return (
-    <div className="absolute inset-0 overflow-hidden bg-white">
+    <div className="absolute inset-0 overflow-hidden" style={{ backgroundColor: backgroundColor ?? "#ffffff" }}>
       <div style={{ width: 1920, height: 1080, transform: "scale(0.0833)", transformOrigin: "top left", position: "relative" }}>
         {bgImage && <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-[1]" />}
         <div className="absolute inset-0 z-[2]">
@@ -1593,6 +1593,7 @@ const RndElement = ({
 const InteractiveCanvas = ({
   elements, bgImage, scale, selectedIds, onSelectElement, onUpdateElement, onDeleteElement, onDeselect,
   eyedropperMode, onImageClick, onMockupDrop, onMockupChildAdjust, onNativeFileDrop, onMockupNativeFileDrop,
+  backgroundColor, onBackgroundClick,
 }: {
   elements: SlideElement[];
   bgImage?: string;
@@ -1608,6 +1609,8 @@ const InteractiveCanvas = ({
   onMockupChildAdjust?: (id: string, patch: Partial<SlideElement>) => void;
   onNativeFileDrop?: (src: string, x: number, y: number) => void;
   onMockupNativeFileDrop?: (mockupId: string, src: string) => void;
+  backgroundColor?: string;
+  onBackgroundClick?: () => void;
 }) => {
   const [guides, setGuides] = useState<GuideLines>({ x: null, y: null });
   const [canvasDragOver, setCanvasDragOver] = useState(false);
@@ -1660,10 +1663,13 @@ const InteractiveCanvas = ({
       <div style={{ transform: `scale(${scale})`, transformOrigin: "center center", willChange: "transform" }}>
         <div
           ref={canvasRef}
-          className={`bg-white shadow-2xl shadow-black/10 ring-1 ring-border/20 rounded-lg overflow-hidden transition-shadow ${canvasDragOver ? "ring-4 ring-cyan-500/60 shadow-cyan-500/20" : ""}`}
-          style={{ width: 1920, height: 1080, position: "relative" }}
+          className={`shadow-2xl shadow-black/10 ring-1 ring-border/20 rounded-lg overflow-hidden transition-shadow ${canvasDragOver ? "ring-4 ring-cyan-500/60 shadow-cyan-500/20" : ""}`}
+          style={{ width: 1920, height: 1080, position: "relative", backgroundColor: backgroundColor ?? "#ffffff" }}
           onMouseDown={(e) => {
-            if (e.target === e.currentTarget || (e.target as HTMLElement).dataset.canvas) onDeselect();
+            if (e.target === e.currentTarget || (e.target as HTMLElement).dataset.canvas) {
+              onDeselect();
+              onBackgroundClick?.();
+            }
           }}
           onDragOver={handleCanvasDragOver}
           onDragLeave={handleCanvasDragLeave}
@@ -1717,7 +1723,7 @@ const InteractiveCanvas = ({
 };
 
 /* ── Presentation Slide (window-aware scaling) ── */
-const PresentationSlide = ({ elements, bgImage }: { elements: SlideElement[]; bgImage?: string }) => {
+const PresentationSlide = ({ elements, bgImage, backgroundColor }: { elements: SlideElement[]; bgImage?: string; backgroundColor?: string }) => {
   const [s, setS] = useState(1);
   useEffect(() => {
     const calc = () => {
@@ -1730,7 +1736,7 @@ const PresentationSlide = ({ elements, bgImage }: { elements: SlideElement[]; bg
   const sorted = [...elements].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
   return (
     <div className="w-full h-full flex items-center justify-center overflow-hidden">
-      <div className="bg-white overflow-hidden relative" style={{ width: CANVAS_W, height: CANVAS_H, transform: `scale(${s})`, transformOrigin: "center center" }}>
+      <div className="overflow-hidden relative" style={{ width: CANVAS_W, height: CANVAS_H, transform: `scale(${s})`, transformOrigin: "center center", backgroundColor: backgroundColor ?? "#ffffff" }}>
         {bgImage && <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-[1]" />}
         <div className="absolute inset-0 z-[2]">{sorted.map((el) => <StaticElement key={el.id} el={el} />)}</div>
       </div>
@@ -1749,8 +1755,9 @@ const Editor = () => {
     campaign.slides.map(slideToElements)
   );
   const [slideMeta, setSlideMeta] = useState(() =>
-    campaign.slides.map((s) => ({ id: s.id, type: s.type, image: s.type === "cover" ? s.image : undefined }))
+    campaign.slides.map((s) => ({ id: s.id, type: s.type, image: s.type === "cover" ? s.image : undefined, backgroundColor: "#ffffff" }))
   );
+  const [isBackgroundSelected, setIsBackgroundSelected] = useState(false);
 
   const [activeIdx, setActiveIdx] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -1801,6 +1808,7 @@ const Editor = () => {
   }, [recalcScale]);
 
   const selectElement = (elId: string, multi: boolean) => {
+    setIsBackgroundSelected(false);
     setSelectedIds((prev) => {
       if (multi) {
         const next = new Set(prev);
@@ -1950,12 +1958,55 @@ const Editor = () => {
 
   const addSlide = () => {
     const newId = `new-${Date.now()}`;
-    setSlideMeta((prev) => [...prev, { id: newId, type: "content" as const, image: undefined }]);
+    setSlideMeta((prev) => [...prev, { id: newId, type: "content" as const, image: undefined, backgroundColor: "#ffffff" }]);
     setSlidesElements((prev) => [...prev, [
       { id: uid(), type: "text", content: "Nueva Diapositiva", x: 80, y: 80, width: 800, height: 80, fontSize: 64, fontWeight: "800", color: "#0f172a", zIndex: 1 },
       { id: uid(), type: "text", content: "Haz clic para editar", x: 80, y: 200, width: 800, height: 50, fontSize: 32, fontWeight: "400", color: "#64748b", zIndex: 2 },
     ]]);
     setActiveIdx(slideMeta.length);
+  };
+
+  /* ── Filmstrip CRUD ── */
+  const duplicateSlide = (idx: number) => {
+    const newId = `dup-${Date.now()}`;
+    const clonedElements = (slidesElements[idx] ?? []).map((el) => ({ ...el, id: uid() }));
+    const clonedMeta = { ...slideMeta[idx], id: newId };
+    setSlideMeta((prev) => [...prev.slice(0, idx + 1), clonedMeta, ...prev.slice(idx + 1)]);
+    setSlidesElements((prev) => [...prev.slice(0, idx + 1), clonedElements, ...prev.slice(idx + 1)]);
+    setActiveIdx(idx + 1);
+    toast({ title: "📋 Diapositiva duplicada" });
+  };
+
+  const deleteSlide = (idx: number) => {
+    if (slideMeta.length <= 1) {
+      toast({ title: "⚠️ No se puede eliminar", description: "Debe haber al menos una diapositiva." });
+      return;
+    }
+    setSlideMeta((prev) => prev.filter((_, i) => i !== idx));
+    setSlidesElements((prev) => prev.filter((_, i) => i !== idx));
+    if (activeIdx >= idx && activeIdx > 0) setActiveIdx(activeIdx - 1);
+    toast({ title: "🗑️ Diapositiva eliminada" });
+  };
+
+  const moveSlide = (idx: number, direction: "left" | "right") => {
+    const newIdx = direction === "left" ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= slideMeta.length) return;
+    setSlideMeta((prev) => {
+      const arr = [...prev];
+      [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+      return arr;
+    });
+    setSlidesElements((prev) => {
+      const arr = [...prev];
+      [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+      return arr;
+    });
+    setActiveIdx(newIdx);
+  };
+
+  /* ── Background Color ── */
+  const updateBackgroundColor = (color: string) => {
+    setSlideMeta((prev) => prev.map((m, i) => i === activeIdx ? { ...m, backgroundColor: color } : m));
   };
 
   /* ── Background removal via chroma key ── */
@@ -2065,7 +2116,8 @@ const Editor = () => {
         setExportMsg(i === 0 ? "Preparando assets..." : `Renderizando diapositiva ${i + 1}...`);
 
         const container = document.createElement("div");
-        container.style.cssText = "position:fixed;left:-9999px;top:-9999px;width:1920px;height:1080px;background:white;overflow:hidden;";
+        const bgColor = slideMeta[i]?.backgroundColor ?? "#ffffff";
+        container.style.cssText = `position:fixed;left:-9999px;top:-9999px;width:1920px;height:1080px;background:${bgColor};overflow:hidden;`;
         document.body.appendChild(container);
 
         const elsSorted = [...(slidesElements[i] ?? [])].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
@@ -2219,7 +2271,7 @@ const Editor = () => {
 
       {/* ── Format Bar (secondary, full width) ── */}
       <AnimatePresence>
-        {hasSelection && (
+        {hasSelection && !isBackgroundSelected && (
           <FormatBar
             elements={currentElements}
             selectedIds={selectedIds}
@@ -2228,6 +2280,52 @@ const Editor = () => {
             onBgRemove={handleBgRemoveStart}
             bgRemoveProcessing={bgRemoveProcessing}
           />
+        )}
+      </AnimatePresence>
+
+      {/* ── Background Format Bar ── */}
+      <AnimatePresence>
+        {isBackgroundSelected && !hasSelection && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="h-12 bg-white border-b border-border/40 flex items-center px-4 gap-4 flex-shrink-0 z-10"
+          >
+            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <PaintBucket size={14} />
+              <span>Fondo de la diapositiva</span>
+            </div>
+            <div className="h-5 w-px bg-border/40" />
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-medium text-muted-foreground">Color:</span>
+              {COLORS_PALETTE.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => updateBackgroundColor(c)}
+                  className={`w-6 h-6 rounded-md border-2 transition-all hover:scale-110 ${slideMeta[activeIdx]?.backgroundColor === c ? "border-cyan-500 ring-2 ring-cyan-500/30" : "border-border/40"}`}
+                  style={{ background: c }}
+                  title={c}
+                />
+              ))}
+              <input
+                type="color"
+                value={slideMeta[activeIdx]?.backgroundColor ?? "#ffffff"}
+                onChange={(e) => updateBackgroundColor(e.target.value)}
+                className="w-6 h-6 rounded cursor-pointer border border-border/40"
+                title="Custom color"
+              />
+            </div>
+            <div className="flex-1" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsBackgroundSelected(false)}
+              className="h-7 px-2 text-xs text-muted-foreground"
+            >
+              <X size={14} />
+            </Button>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -2314,7 +2412,9 @@ const Editor = () => {
                   onSelectElement={selectElement}
                   onUpdateElement={updateElement}
                   onDeleteElement={deleteElement}
-                  onDeselect={() => { setSelectedIds(new Set()); setEyedropperMode(false); }}
+                onDeselect={() => { setSelectedIds(new Set()); setEyedropperMode(false); setIsBackgroundSelected(true); }}
+                backgroundColor={slideMeta[activeIdx]?.backgroundColor ?? "#ffffff"}
+                onBackgroundClick={() => { setSelectedIds(new Set()); setIsBackgroundSelected(true); }}
                   eyedropperMode={eyedropperMode}
                   onImageClick={handleImageClick}
                   onMockupDrop={handleMockupDrop}
@@ -2335,15 +2435,56 @@ const Editor = () => {
           {/* ── Filmstrip ── */}
           <div className="h-28 bg-white border-t border-border/40 flex items-center px-4 gap-3 flex-shrink-0 overflow-x-auto">
             {slideMeta.map((meta, i) => (
-              <button
+              <div
                 key={meta.id}
-                onClick={() => setActiveIdx(i)}
-                className={`relative flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all duration-150 ${i === activeIdx ? "border-cyan-500 shadow-lg shadow-cyan-500/15 ring-1 ring-cyan-500/30" : "border-border/30 hover:border-primary/30"}`}
+                className="relative flex-shrink-0 group"
                 style={{ width: 160, height: 90 }}
               >
-                <SlideThumbnail elements={slidesElements[i] ?? []} bgImage={meta.image} />
-                <div className={`absolute top-1 left-1.5 text-[9px] font-bold rounded px-1 z-10 ${i === activeIdx ? "bg-cyan-500 text-slate-950" : "bg-black/40 text-white/70"}`}>{i + 1}</div>
-              </button>
+                <button
+                  onClick={() => setActiveIdx(i)}
+                  className={`w-full h-full rounded-lg overflow-hidden border-2 transition-all duration-150 ${i === activeIdx ? "border-cyan-500 shadow-lg shadow-cyan-500/15 ring-1 ring-cyan-500/30" : "border-border/30 hover:border-primary/30"}`}
+                >
+                  <SlideThumbnail elements={slidesElements[i] ?? []} bgImage={meta.image} backgroundColor={meta.backgroundColor} />
+                  <div className={`absolute top-1 left-1.5 text-[9px] font-bold rounded px-1 z-10 ${i === activeIdx ? "bg-cyan-500 text-slate-950" : "bg-black/40 text-white/70"}`}>{i + 1}</div>
+                </button>
+                {/* Hover Actions */}
+                <div className="absolute inset-0 rounded-lg bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 z-20 pointer-events-none group-hover:pointer-events-auto">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); duplicateSlide(i); }}
+                    className="w-7 h-7 rounded-md bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                    title="Duplicar"
+                  >
+                    <Copy size={13} />
+                  </button>
+                  {i > 0 && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); moveSlide(i, "left"); }}
+                      className="w-7 h-7 rounded-md bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                      title="Mover a la izquierda"
+                    >
+                      <MoveLeft size={13} />
+                    </button>
+                  )}
+                  {i < slideMeta.length - 1 && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); moveSlide(i, "right"); }}
+                      className="w-7 h-7 rounded-md bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                      title="Mover a la derecha"
+                    >
+                      <MoveRight size={13} />
+                    </button>
+                  )}
+                  {slideMeta.length > 1 && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); deleteSlide(i); }}
+                      className="w-7 h-7 rounded-md bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center text-red-400 transition-colors"
+                      title="Eliminar"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
+                </div>
+              </div>
             ))}
             <button
               onClick={addSlide}
@@ -2365,7 +2506,7 @@ const Editor = () => {
 /* ── Fullscreen Presentation Mode ── */
 const PresentationOverlay = forwardRef<HTMLDivElement, {
   allElements: SlideElement[][];
-  slideMeta: { id: string; type: string; image?: string }[];
+  slideMeta: { id: string; type: string; image?: string; backgroundColor?: string }[];
   activeIdx: number;
   setActiveIdx: React.Dispatch<React.SetStateAction<number>>;
   onClose: () => void;
@@ -2412,7 +2553,7 @@ const PresentationOverlay = forwardRef<HTMLDivElement, {
           transition={{ duration: 0.3 }}
           className="w-full h-full"
         >
-          <PresentationSlide elements={allElements[activeIdx] ?? []} bgImage={slideMeta[activeIdx]?.image} />
+          <PresentationSlide elements={allElements[activeIdx] ?? []} bgImage={slideMeta[activeIdx]?.image} backgroundColor={slideMeta[activeIdx]?.backgroundColor} />
         </motion.div>
       </AnimatePresence>
 
