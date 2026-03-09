@@ -3231,6 +3231,8 @@ const CodeModal = ({
   const [tab, setTab] = useState<"export" | "import">("export");
   const [importValue, setImportValue] = useState("");
   const [copied, setCopied] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const exportPayload = useMemo(() => {
     const data = slideMeta.map((m, i) => ({
@@ -3246,9 +3248,39 @@ const CodeModal = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleImport = () => {
+  const handleDownload = () => {
+    const blob = new Blob([exportPayload], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "presentacion_nexus.json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast({ title: "📁 Archivo descargado", description: "presentacion_nexus.json guardado." });
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadedFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      setImportValue(text);
+    };
+    reader.onerror = () => {
+      toast({ title: "❌ Error de lectura", description: "No se pudo leer el archivo.", variant: "destructive" });
+    };
+    reader.readAsText(file);
+    // Reset input so re-uploading the same file triggers onChange
+    e.target.value = "";
+  };
+
+  const processImport = (raw: string) => {
     try {
-      const parsed = JSON.parse(importValue);
+      const parsed = JSON.parse(raw);
       if (!Array.isArray(parsed) || parsed.length === 0) {
         toast({ title: "❌ JSON inválido", description: "El JSON debe ser un arreglo con al menos una diapositiva.", variant: "destructive" });
         return;
@@ -3267,6 +3299,8 @@ const CodeModal = ({
       toast({ title: "❌ Error de parseo", description: "Asegúrate de que el formato JSON sea correcto.", variant: "destructive" });
     }
   };
+
+  const handleImport = () => processImport(importValue);
 
   return (
     <motion.div
