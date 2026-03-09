@@ -898,9 +898,9 @@ const MockupFrame = ({ el, interactive, onDrop, onChildAdjust, onNativeFileDrop 
         </div>
       </div>
 
-      {/* Adjust Modal */}
-      <AnimatePresence>
-        {showAdjustModal && el.mockupChild && def && (
+      {/* Adjust Modal — portaled to document.body */}
+      {showAdjustModal && el.mockupChild && def && createPortal(
+        <AnimatePresence>
           <SmartFrameStation
             imgSrc={el.mockupChild}
             mockupDef={def}
@@ -910,8 +910,9 @@ const MockupFrame = ({ el, interactive, onDrop, onChildAdjust, onNativeFileDrop 
             onSave={(s, x, y) => onChildAdjust?.({ mockupChildScale: s, mockupChildX: x, mockupChildY: y })}
             onClose={() => setShowAdjustModal(false)}
           />
-        )}
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
     </>
   );
 };
