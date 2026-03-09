@@ -103,8 +103,44 @@ const tools = [
   { icon: LayoutTemplate, label: "Plantillas", action: "templates" },
   { icon: Type, label: "Texto", action: "text" },
   { icon: Image, label: "Imágenes", action: "image" },
+  { icon: Shapes, label: "Elementos", action: "elements" },
+  { icon: Film, label: "GIFs", action: "gifs" },
   { icon: Smartphone, label: "Mockups", action: "mockups" },
   { icon: Palette, label: "Brand Hub", action: "brand" },
+];
+
+/* ── SVG Shape Definitions ── */
+type ShapeDef = { id: string; name: string; icon: React.ReactNode; defaultColor: string };
+
+const SHAPE_DEFS: ShapeDef[] = [
+  { id: "rect", name: "Rectángulo", icon: <rect x="2" y="4" width="20" height="16" rx="2" fill="currentColor" />, defaultColor: "#06b6d4" },
+  { id: "circle", name: "Círculo", icon: <circle cx="12" cy="12" r="10" fill="currentColor" />, defaultColor: "#8b5cf6" },
+  { id: "triangle", name: "Triángulo", icon: <polygon points="12,2 22,22 2,22" fill="currentColor" />, defaultColor: "#22c55e" },
+  { id: "star", name: "Estrella", icon: <polygon points="12,2 15,9 22,9 17,14 19,22 12,18 5,22 7,14 2,9 9,9" fill="currentColor" />, defaultColor: "#f59e0b" },
+  { id: "line", name: "Línea", icon: <line x1="2" y1="12" x2="22" y2="12" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />, defaultColor: "#0f172a" },
+  { id: "arrow", name: "Flecha", icon: <><line x1="2" y1="12" x2="18" y2="12" stroke="currentColor" strokeWidth="3" strokeLinecap="round" /><polyline points="14,6 20,12 14,18" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" /></>, defaultColor: "#ef4444" },
+  { id: "blob1", name: "Blob 1", icon: <path d="M12 2C17 2 22 6 22 12C22 18 18 22 12 22C6 22 2 17 2 12C2 7 6 2 12 2Z" fill="currentColor" />, defaultColor: "#ec4899" },
+  { id: "blob2", name: "Blob 2", icon: <path d="M12 2C18 4 22 8 20 14C18 20 14 22 8 20C2 18 0 12 4 6C8 2 12 2 12 2Z" fill="currentColor" />, defaultColor: "#14b8a6" },
+];
+
+/* ── GIF Gallery (Static URLs) ── */
+const GIF_GALLERY = [
+  { id: "g1", url: "https://media.giphy.com/media/3o7abKhOpu0NwenH3O/giphy.gif", label: "Celebrating" },
+  { id: "g2", url: "https://media.giphy.com/media/l0HlHFRbmaZtBRhXG/giphy.gif", label: "Mind Blown" },
+  { id: "g3", url: "https://media.giphy.com/media/xT5LMHxhOfscxPfIfm/giphy.gif", label: "Rocket" },
+  { id: "g4", url: "https://media.giphy.com/media/3oriO0OEd9QIDdllqo/giphy.gif", label: "Thumbs Up" },
+  { id: "g5", url: "https://media.giphy.com/media/l46Cy1rHbQ92uuLXa/giphy.gif", label: "Fire" },
+  { id: "g6", url: "https://media.giphy.com/media/26u4cqiYI30juCOGY/giphy.gif", label: "Applause" },
+  { id: "g7", url: "https://media.giphy.com/media/xT9IgzoKnwFNmISR8I/giphy.gif", label: "Success" },
+  { id: "g8", url: "https://media.giphy.com/media/xUPGcguWZHRC2HyBRS/giphy.gif", label: "Tech" },
+];
+
+/* ── Animation Options ── */
+const ANIMATION_OPTIONS: { value: SlideElement["animation"]; label: string; icon: React.ReactNode }[] = [
+  { value: "none", label: "Ninguna", icon: <X size={14} /> },
+  { value: "fade-in", label: "Aparecer suave", icon: <span className="text-xs">✨</span> },
+  { value: "slide-up", label: "Deslizar arriba", icon: <ArrowUp size={14} /> },
+  { value: "pop-bounce", label: "Pop / Rebote", icon: <Zap size={14} /> },
 ];
 
 /* ── Brand Hub Data ── */

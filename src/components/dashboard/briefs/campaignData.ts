@@ -9,7 +9,7 @@ export type SlideStatus = "approved" | "in-progress" | "sent" | "draft";
 
 export interface SlideElement {
   id: string;
-  type: "text" | "image" | "shape" | "mockup";
+  type: "text" | "image" | "shape" | "mockup" | "gif";
   content: string;
   x: number;
   y: number;
@@ -33,6 +33,10 @@ export interface SlideElement {
   mockupChildScale?: number; // zoom factor (1 = 100%)
   mockupChildX?: number; // horizontal position as % of image width
   mockupChildY?: number; // vertical position as % of image height
+  /* Shape-specific */
+  shapeType?: "rect" | "circle" | "triangle" | "line" | "blob1" | "blob2" | "star" | "arrow";
+  /* Animation */
+  animation?: "none" | "fade-in" | "slide-up" | "pop-bounce";
 }
 
 export interface SlideData {
