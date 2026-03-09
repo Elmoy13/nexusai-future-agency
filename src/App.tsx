@@ -11,6 +11,7 @@ import Settings from "./pages/Settings";
 import Editor from "./pages/Editor";
 import Agent from "./pages/Agent";
 import Parrilla from "./pages/Parrilla";
+import Community from "./pages/Community";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/agente/nueva-marca" element={<Agent />} />
             <Route path="/parrilla/:id" element={<Parrilla />} />
+            <Route path="/community/:id" element={<Community />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/editor/:id" element={<Editor />} />
             <Route path="*" element={<NotFound />} />

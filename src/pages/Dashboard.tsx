@@ -3,6 +3,7 @@ import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import DashboardOverview from "@/components/dashboard/DashboardOverview";
 import BriefsModule from "@/components/dashboard/BriefsModule";
 import ParrillasHub from "@/components/dashboard/ParrillasHub";
+import CommunityHub from "@/components/dashboard/CommunityHub";
 
 type View = "overview" | "briefs" | "parrilla" | "community";
 
@@ -21,9 +22,8 @@ const Dashboard = () => {
           </div>
         )}
         {activeView === "community" && (
-          <div className="p-8 md:p-12">
-            <h2 className="text-2xl font-bold text-foreground">Community & Social</h2>
-            <p className="text-muted-foreground mt-2">Próximamente...</p>
+          <div className="p-8 md:p-12 max-w-6xl">
+            <CommunityHub />
           </div>
         )}
       </main>
