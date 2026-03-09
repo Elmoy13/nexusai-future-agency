@@ -2269,7 +2269,7 @@ const Editor = () => {
 
       {/* ── Format Bar (secondary, full width) ── */}
       <AnimatePresence>
-        {hasSelection && (
+        {hasSelection && !isBackgroundSelected && (
           <FormatBar
             elements={currentElements}
             selectedIds={selectedIds}
@@ -2278,6 +2278,52 @@ const Editor = () => {
             onBgRemove={handleBgRemoveStart}
             bgRemoveProcessing={bgRemoveProcessing}
           />
+        )}
+      </AnimatePresence>
+
+      {/* ── Background Format Bar ── */}
+      <AnimatePresence>
+        {isBackgroundSelected && !hasSelection && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="h-12 bg-white border-b border-border/40 flex items-center px-4 gap-4 flex-shrink-0 z-10"
+          >
+            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <PaintBucket size={14} />
+              <span>Fondo de la diapositiva</span>
+            </div>
+            <div className="h-5 w-px bg-border/40" />
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-medium text-muted-foreground">Color:</span>
+              {COLORS_PALETTE.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => updateBackgroundColor(c)}
+                  className={`w-6 h-6 rounded-md border-2 transition-all hover:scale-110 ${slideMeta[activeIdx]?.backgroundColor === c ? "border-cyan-500 ring-2 ring-cyan-500/30" : "border-border/40"}`}
+                  style={{ background: c }}
+                  title={c}
+                />
+              ))}
+              <input
+                type="color"
+                value={slideMeta[activeIdx]?.backgroundColor ?? "#ffffff"}
+                onChange={(e) => updateBackgroundColor(e.target.value)}
+                className="w-6 h-6 rounded cursor-pointer border border-border/40"
+                title="Custom color"
+              />
+            </div>
+            <div className="flex-1" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsBackgroundSelected(false)}
+              className="h-7 px-2 text-xs text-muted-foreground"
+            >
+              <X size={14} />
+            </Button>
+          </motion.div>
         )}
       </AnimatePresence>
 
