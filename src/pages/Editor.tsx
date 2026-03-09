@@ -1806,7 +1806,12 @@ const RndElement = ({
           </div>
         ) : el.type === "shape" ? (
           <div className="w-full h-full" style={{ transform, transformOrigin: "center center" }}>
-            <StaticShapeElement el={el} transform="none" />
+            <ShapeSvg 
+              shapeType={el.shapeType ?? "rect"} 
+              color={el.content || "#06b6d4"} 
+              width={el.width ?? 160} 
+              height={el.height ?? 160} 
+            />
           </div>
         ) : editing ? (
           <textarea
