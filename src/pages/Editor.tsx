@@ -2505,7 +2505,7 @@ const Editor = () => {
 /* ── Fullscreen Presentation Mode ── */
 const PresentationOverlay = forwardRef<HTMLDivElement, {
   allElements: SlideElement[][];
-  slideMeta: { id: string; type: string; image?: string }[];
+  slideMeta: { id: string; type: string; image?: string; backgroundColor?: string }[];
   activeIdx: number;
   setActiveIdx: React.Dispatch<React.SetStateAction<number>>;
   onClose: () => void;
