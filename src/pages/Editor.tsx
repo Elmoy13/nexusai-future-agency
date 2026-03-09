@@ -346,6 +346,7 @@ interface MockupDef {
 }
 
 const MOCKUP_DEFS: MockupDef[] = [
+  // ── Dispositivos Digitales ──
   {
     id: "iphone15", name: "iPhone 15 Pro", icon: Smartphone, category: "device",
     width: 340, height: 700,
@@ -365,6 +366,14 @@ const MOCKUP_DEFS: MockupDef[] = [
     frameColor: "#1f1f1f",
   },
   {
+    id: "browser", name: "Browser Window", icon: Globe, category: "device",
+    width: 800, height: 600,
+    screenRadius: "0.5rem", screenInset: { top: 44, right: 8, bottom: 8, left: 8 },
+    frameColor: "#f5f5f5", socialUI: "browser",
+  },
+
+  // ── Redes Sociales (B2C) ──
+  {
     id: "ig-post", name: "Instagram Post", icon: Smartphone, category: "social",
     width: 400, height: 500,
     screenRadius: "0.75rem", screenInset: { top: 52, right: 0, bottom: 56, left: 0 },
@@ -381,6 +390,40 @@ const MOCKUP_DEFS: MockupDef[] = [
     width: 340, height: 600,
     screenRadius: "1.25rem", screenInset: { top: 48, right: 0, bottom: 64, left: 0 },
     frameColor: "#000000", socialUI: "tiktok",
+  },
+
+  // ── Profesional & Video (B2B) ──
+  {
+    id: "linkedin", name: "LinkedIn Post", icon: Linkedin, category: "professional",
+    width: 520, height: 400,
+    screenRadius: "0.5rem", screenInset: { top: 60, right: 16, bottom: 50, left: 16 },
+    frameColor: "#ffffff", socialUI: "linkedin",
+  },
+  {
+    id: "youtube", name: "YouTube Video", icon: Youtube, category: "professional",
+    width: 640, height: 360,
+    screenRadius: "0.75rem", screenInset: { top: 0, right: 0, bottom: 40, left: 0 },
+    frameColor: "#000000", socialUI: "youtube",
+  },
+  {
+    id: "twitter", name: "X / Twitter Post", icon: Twitter, category: "professional",
+    width: 500, height: 280,
+    screenRadius: "1rem", screenInset: { top: 50, right: 16, bottom: 50, left: 16 },
+    frameColor: "#ffffff", socialUI: "twitter",
+  },
+
+  // ── Publicidad Exterior (OOH) ✨ ──
+  {
+    id: "billboard", name: "Espectacular", icon: RectangleHorizontal, category: "outdoor",
+    width: 800, height: 380,
+    screenRadius: "0.25rem", screenInset: { top: 40, right: 40, bottom: 80, left: 40 },
+    frameColor: "#424242", socialUI: "billboard",
+  },
+  {
+    id: "mupi", name: "Mupi / Parabús", icon: Square, category: "outdoor",
+    width: 400, height: 600,
+    screenRadius: "0.5rem", screenInset: { top: 40, right: 20, bottom: 40, left: 20 },
+    frameColor: "#2d3748", socialUI: "mupi",
   },
 ];
 
