@@ -18,7 +18,7 @@ import {
   ArrowUpToLine, ArrowDownToLine, ArrowUp, ArrowDown, Pipette,
   Smartphone, Monitor, Tablet, Globe, Linkedin, Youtube, Twitter, 
   RectangleHorizontal, Square, Copy, MoveLeft, MoveRight, PaintBucket,
-  Shapes, Film, Circle, Triangle, Star, Zap, ChevronDown,
+  Shapes, Film, Circle, Triangle, Star, Zap, ChevronDown, Wand2,
 } from "lucide-react";
 import { initialCampaigns } from "@/components/dashboard/briefs/campaignData";
 import type { SlideData, SlideElement } from "@/components/dashboard/briefs/campaignData";
