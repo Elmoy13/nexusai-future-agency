@@ -2619,9 +2619,9 @@ const Editor = () => {
           </button>
         </div>
 
-        {/* ── Slide-out Panel (Templates / Brand) ── */}
+        {/* ── Slide-out Panel (Templates / Brand / Mockups / Elements / GIFs) ── */}
         <AnimatePresence>
-          {(activeTool === "templates" || activeTool === "brand" || activeTool === "mockups") && (
+          {(activeTool === "templates" || activeTool === "brand" || activeTool === "mockups" || activeTool === "elements" || activeTool === "gifs") && (
             <motion.div
               initial={{ width: 0, opacity: 0 }}
               animate={{ width: 260, opacity: 1 }}
@@ -2631,13 +2631,19 @@ const Editor = () => {
             >
               <div className="w-[260px] h-full overflow-y-auto">
                 <div className="flex items-center justify-between p-3 border-b border-border/20">
-                  <span className="text-xs font-bold text-foreground">{activeTool === "brand" ? "Brand Hub" : activeTool === "mockups" ? "Mockups" : "Plantillas"}</span>
+                  <span className="text-xs font-bold text-foreground">
+                    {activeTool === "brand" ? "Brand Hub" : activeTool === "mockups" ? "Mockups" : activeTool === "elements" ? "Elementos" : activeTool === "gifs" ? "GIFs" : "Plantillas"}
+                  </span>
                   <button onClick={() => setActiveTool(null)} className="w-6 h-6 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground"><X size={14} /></button>
                 </div>
                 {activeTool === "brand" ? (
                   <BrandPanel selectedIds={selectedIds} elements={currentElements} onUpdate={updateElement} />
                 ) : activeTool === "mockups" ? (
                   <MockupsPanel onAddMockup={addMockup} />
+                ) : activeTool === "elements" ? (
+                  <ElementsPanel onAddShape={addShape} />
+                ) : activeTool === "gifs" ? (
+                  <GifsPanel onAddGif={addGif} />
                 ) : (
                   <TemplatesPanel onApplyTemplate={applyTemplate} />
                 )}
