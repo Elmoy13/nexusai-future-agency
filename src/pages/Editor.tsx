@@ -3003,18 +3003,30 @@ const Editor = () => {
   );
 };
 
-/* ── Fullscreen Presentation Mode with Slide Transitions ── */
-const PresentationOverlay = forwardRef<HTMLDivElement, {
-  allElements: SlideElement[][];
-  slideMeta: { id: string; type: string; image?: string; backgroundColor?: string; transition?: "none" | "fade" | "slide" | "zoom" }[];
-  activeIdx: number;
-  setActiveIdx: React.Dispatch<React.SetStateAction<number>>;
-  onClose: () => void;
-}>(({ allElements, slideMeta, activeIdx, setActiveIdx, onClose }, ref) => {
+/* ── Fullscreen Presentation Mode with Slide Transitions (Resolution Lock) ── */
+const PresentationOverlay = forwardRef<
+  HTMLDivElement,
+  {
+    allElements: SlideElement[][];
+    slideMeta: {
+      id: string;
+      type: string;
+      image?: string;
+      backgroundColor?: string;
+      transition?: "none" | "fade" | "slide" | "zoom";
+    }[];
+    activeIdx: number;
+    setActiveIdx: React.Dispatch<React.SetStateAction<number>>;
+    onClose: () => void;
+  }
+>(({ allElements, slideMeta, activeIdx, setActiveIdx, onClose }, ref) => {
   const [showControls, setShowControls] = useState(true);
   const [cursorHidden, setCursorHidden] = useState(false);
+  const [scale, setScale] = useState(1);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const cursorTimerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const SAFE_PAD = 48; // keeps a physical margin on most displays
 
   const hideAfterDelay = () => {
     clearTimeout(timerRef.current);
@@ -3027,78 +3039,130 @@ const PresentationOverlay = forwardRef<HTMLDivElement, {
 
   useEffect(() => {
     hideAfterDelay();
-    return () => { clearTimeout(timerRef.current); clearTimeout(cursorTimerRef.current); };
+    return () => {
+      clearTimeout(timerRef.current);
+      clearTimeout(cursorTimerRef.current);
+    };
   }, []);
 
   useEffect(() => {
-    const handler = () => { if (!document.fullscreenElement) onClose(); };
+    const handler = () => {
+      if (!document.fullscreenElement) onClose();
+    };
     document.addEventListener("fullscreenchange", handler);
     return () => document.removeEventListener("fullscreenchange", handler);
   }, [onClose]);
 
+  // Letterbox/pillarbox scale (never exceed viewport; keep margin)
+  useEffect(() => {
+    const calc = () => {
+      const w = Math.max(0, window.innerWidth - SAFE_PAD * 2);
+      const h = Math.max(0, window.innerHeight - SAFE_PAD * 2);
+      const s = Math.min(w / CANVAS_WIDTH, h / CANVAS_HEIGHT);
+      setScale(s || 1);
+    };
+    calc();
+    window.addEventListener("resize", calc);
+    return () => window.removeEventListener("resize", calc);
+  }, []);
+
   // Get slide transition animation variants
-  const getSlideTransitionVariants = (transition: "none" | "fade" | "slide" | "zoom" = "fade") => {
+  const getSlideTransitionVariants = (
+    transition: "none" | "fade" | "slide" | "zoom" = "fade",
+  ) => {
     switch (transition) {
       case "none":
-        return {
-          initial: {},
-          animate: {},
-          exit: {},
-        };
+        return { initial: {}, animate: {}, exit: {} };
       case "slide":
-        return {
-          initial: { opacity: 0, x: 300 },
-          animate: { opacity: 1, x: 0 },
-          exit: { opacity: 0, x: -300 },
-        };
+        return { initial: { opacity: 0, x: 300 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: -300 } };
       case "zoom":
-        return {
-          initial: { opacity: 0, scale: 0.8 },
-          animate: { opacity: 1, scale: 1 },
-          exit: { opacity: 0, scale: 1.2 },
-        };
+        return { initial: { opacity: 0, scale: 0.8 }, animate: { opacity: 1, scale: 1 }, exit: { opacity: 0, scale: 1.2 } };
       case "fade":
       default:
-        return {
-          initial: { opacity: 0 },
-          animate: { opacity: 1 },
-          exit: { opacity: 0 },
-        };
+        return { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } };
     }
   };
 
   const currentTransition = slideMeta[activeIdx]?.transition ?? "fade";
   const transitionVariants = getSlideTransitionVariants(currentTransition);
+  const currentBg = slideMeta[activeIdx]?.backgroundColor || "white";
 
   return (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[9999] bg-black flex items-center justify-center"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 w-screen h-screen bg-black flex items-center justify-center overflow-hidden z-[99999]"
       style={{ cursor: cursorHidden ? "none" : "default" }}
       onMouseMove={hideAfterDelay}
     >
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={slideMeta[activeIdx]?.id}
-          initial={transitionVariants.initial}
-          animate={transitionVariants.animate}
-          exit={transitionVariants.exit}
-          transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
-          className="w-full h-full"
-        >
-          <PresentationSlide elements={allElements[activeIdx] ?? []} bgImage={slideMeta[activeIdx]?.image} backgroundColor={slideMeta[activeIdx]?.backgroundColor} />
-        </motion.div>
-      </AnimatePresence>
+      {/* Scaled stage: must be a fixed 1920×1080 block scaled down */}
+      <div
+        style={{
+          width: `${CANVAS_WIDTH}px`,
+          height: `${CANVAS_HEIGHT}px`,
+          transform: `scale(${scale})`,
+          transformOrigin: "center center",
+          position: "relative",
+          overflow: "hidden",
+          backgroundColor: currentBg,
+        }}
+      >
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={slideMeta[activeIdx]?.id}
+            initial={transitionVariants.initial}
+            animate={transitionVariants.animate}
+            exit={transitionVariants.exit}
+            transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              width: `${CANVAS_WIDTH}px`,
+              height: `${CANVAS_HEIGHT}px`,
+            }}
+          >
+            <PresentationSlide
+              elements={allElements[activeIdx] ?? []}
+              bgImage={slideMeta[activeIdx]?.image}
+              backgroundColor={slideMeta[activeIdx]?.backgroundColor}
+            />
+          </motion.div>
+        </AnimatePresence>
+      </div>
 
       <motion.div animate={{ opacity: showControls ? 1 : 0 }} className="absolute top-4 right-4">
-        <button onClick={onClose} className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white backdrop-blur-sm transition"><X size={18} /></button>
+        <button
+          onClick={onClose}
+          className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white backdrop-blur-sm transition"
+        >
+          <X size={18} />
+        </button>
       </motion.div>
 
-      <motion.div animate={{ opacity: showControls ? 1 : 0 }} className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-white/10 backdrop-blur-md px-6 py-3 rounded-full text-white">
-        <button onClick={() => setActiveIdx((i) => Math.max(0, i - 1))} disabled={activeIdx === 0} className="disabled:opacity-30 hover:text-cyan-400 transition"><ChevronLeft size={20} /></button>
-        <span className="text-sm font-medium tabular-nums min-w-[80px] text-center">{activeIdx + 1} / {slideMeta.length}</span>
-        <button onClick={() => setActiveIdx((i) => Math.min(slideMeta.length - 1, i + 1))} disabled={activeIdx === slideMeta.length - 1} className="disabled:opacity-30 hover:text-cyan-400 transition"><ChevronRight size={20} /></button>
+      <motion.div
+        animate={{ opacity: showControls ? 1 : 0 }}
+        className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-white/10 backdrop-blur-md px-6 py-3 rounded-full text-white"
+      >
+        <button
+          onClick={() => setActiveIdx((i) => Math.max(0, i - 1))}
+          disabled={activeIdx === 0}
+          className="disabled:opacity-30 hover:text-cyan-400 transition"
+        >
+          <ChevronLeft size={20} />
+        </button>
+        <span className="text-sm font-medium tabular-nums min-w-[80px] text-center">
+          {activeIdx + 1} / {slideMeta.length}
+        </span>
+        <button
+          onClick={() => setActiveIdx((i) => Math.min(slideMeta.length - 1, i + 1))}
+          disabled={activeIdx === slideMeta.length - 1}
+          className="disabled:opacity-30 hover:text-cyan-400 transition"
+        >
+          <ChevronRight size={20} />
+        </button>
       </motion.div>
     </motion.div>
   );
