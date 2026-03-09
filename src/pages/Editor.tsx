@@ -1372,12 +1372,10 @@ const StaticElement = ({ el }: { el: SlideElement }) => {
   );
 };
 
-/* ── Static Shape Element with SVG support ── */
-const StaticShapeElement = ({ el, transform }: { el: SlideElement; transform: string }) => {
-  const w = el.width ?? 160;
-  const h = el.height ?? 160;
-  const color = el.content || "#06b6d4";
-  const shapeType = el.shapeType ?? "rect";
+/* ── Inline Shape SVG Renderer (for use inside positioned containers) ── */
+const ShapeSvg = ({ shapeType, color, width, height }: { shapeType: string; color: string; width: number; height: number }) => {
+  const w = width;
+  const h = height;
 
   const renderShape = () => {
     switch (shapeType) {
@@ -1413,10 +1411,28 @@ const StaticShapeElement = ({ el, transform }: { el: SlideElement; transform: st
   };
 
   return (
+    <svg 
+      width="100%" 
+      height="100%" 
+      viewBox={`0 0 ${w} ${h}`} 
+      preserveAspectRatio="none"
+      style={{ display: "block", width: "100%", height: "100%" }}
+    >
+      {renderShape()}
+    </svg>
+  );
+};
+
+/* ── Static Shape Element with SVG support (for absolute positioning in thumbnails/presentation) ── */
+const StaticShapeElement = ({ el, transform }: { el: SlideElement; transform: string }) => {
+  const w = el.width ?? 160;
+  const h = el.height ?? 160;
+  const color = el.content || "#06b6d4";
+  const shapeType = el.shapeType ?? "rect";
+
+  return (
     <div style={{ position: "absolute", left: el.x, top: el.y, width: w, height: h, zIndex: el.zIndex ?? 0, transform }}>
-      <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
-        {renderShape()}
-      </svg>
+      <ShapeSvg shapeType={shapeType} color={color} width={w} height={h} />
     </div>
   );
 };
@@ -1625,34 +1641,39 @@ const FormatBar = ({
         </>
       )}
 
-      {/* ── Animation Controls ── */}
+      {/* ── Animation Controls (Premium Style) ── */}
       <div className="relative">
         <button
           onClick={() => setShowAnimDropdown(!showAnimDropdown)}
-          className={`h-7 px-2.5 rounded-md text-[11px] font-semibold flex items-center gap-1.5 transition ${
+          className={`h-8 px-3 rounded-lg text-[11px] font-bold flex items-center gap-2 transition-all shadow-sm ${
             currentAnimation !== "none" 
-              ? "bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-600 border border-purple-500/30" 
-              : "bg-muted/50 text-muted-foreground hover:bg-muted border border-border/40"
+              ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white border border-indigo-400/50 shadow-indigo-500/25" 
+              : "bg-gradient-to-r from-indigo-500/10 to-purple-500/10 text-indigo-600 hover:from-indigo-500 hover:to-purple-500 hover:text-white border border-indigo-500/30 hover:border-indigo-400/50 hover:shadow-indigo-500/25"
           }`}
         >
-          <Sparkles size={12} className={currentAnimation !== "none" ? "text-purple-500" : ""} />
+          <Film size={14} className={currentAnimation !== "none" ? "text-white" : ""} />
           Animar
-          <ChevronDown size={10} />
+          <ChevronDown size={11} />
         </button>
         
         {showAnimDropdown && (
-          <div className="absolute top-full left-0 mt-1 w-44 bg-white rounded-lg shadow-xl border border-border/40 py-1 z-50">
+          <div className="absolute top-full left-0 mt-1.5 w-48 bg-white rounded-xl shadow-2xl border border-border/40 py-1.5 z-50 overflow-hidden">
+            <div className="px-3 py-1.5 border-b border-border/20 mb-1">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Animación de Elemento</span>
+            </div>
             {ANIMATION_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
                 onClick={() => { updateAllSelected({ animation: opt.value }); setShowAnimDropdown(false); }}
-                className={`w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-muted/50 transition ${
-                  currentAnimation === opt.value ? "bg-primary/10 text-primary font-medium" : "text-foreground"
+                className={`w-full px-3 py-2.5 text-left text-xs flex items-center gap-2.5 hover:bg-indigo-50 transition ${
+                  currentAnimation === opt.value ? "bg-indigo-100 text-indigo-700 font-semibold" : "text-foreground"
                 }`}
               >
-                {opt.icon}
+                <span className="w-5 h-5 rounded-md bg-indigo-100 flex items-center justify-center text-indigo-600">
+                  {opt.icon}
+                </span>
                 <span>{opt.label}</span>
-                {currentAnimation === opt.value && <Check size={12} className="ml-auto" />}
+                {currentAnimation === opt.value && <Check size={13} className="ml-auto text-indigo-600" />}
               </button>
             ))}
           </div>
@@ -1790,7 +1811,12 @@ const RndElement = ({
           </div>
         ) : el.type === "shape" ? (
           <div className="w-full h-full" style={{ transform, transformOrigin: "center center" }}>
-            <StaticShapeElement el={el} transform="none" />
+            <ShapeSvg 
+              shapeType={el.shapeType ?? "rect"} 
+              color={el.content || "#06b6d4"} 
+              width={el.width ?? 160} 
+              height={el.height ?? 160} 
+            />
           </div>
         ) : editing ? (
           <textarea
@@ -2043,7 +2069,7 @@ const Editor = () => {
     campaign.slides.map(slideToElements)
   );
   const [slideMeta, setSlideMeta] = useState(() =>
-    campaign.slides.map((s) => ({ id: s.id, type: s.type, image: s.type === "cover" ? s.image : undefined, backgroundColor: "#ffffff" }))
+    campaign.slides.map((s) => ({ id: s.id, type: s.type, image: s.type === "cover" ? s.image : undefined, backgroundColor: "#ffffff", transition: "fade" as "none" | "fade" | "slide" | "zoom" }))
   );
   const [isBackgroundSelected, setIsBackgroundSelected] = useState(false);
 
@@ -2270,7 +2296,7 @@ const Editor = () => {
 
   const addSlide = () => {
     const newId = `new-${Date.now()}`;
-    setSlideMeta((prev) => [...prev, { id: newId, type: "content" as const, image: undefined, backgroundColor: "#ffffff" }]);
+    setSlideMeta((prev) => [...prev, { id: newId, type: "content" as const, image: undefined, backgroundColor: "#ffffff", transition: "fade" as const }]);
     setSlidesElements((prev) => [...prev, [
       { id: uid(), type: "text", content: "Nueva Diapositiva", x: 80, y: 80, width: 800, height: 80, fontSize: 64, fontWeight: "800", color: "#0f172a", zIndex: 1 },
       { id: uid(), type: "text", content: "Haz clic para editar", x: 80, y: 200, width: 800, height: 50, fontSize: 32, fontWeight: "400", color: "#64748b", zIndex: 2 },
@@ -2316,9 +2342,13 @@ const Editor = () => {
     setActiveIdx(newIdx);
   };
 
-  /* ── Background Color ── */
+  /* ── Background Color & Transition ── */
   const updateBackgroundColor = (color: string) => {
     setSlideMeta((prev) => prev.map((m, i) => i === activeIdx ? { ...m, backgroundColor: color } : m));
+  };
+
+  const updateSlideTransition = (transition: "none" | "fade" | "slide" | "zoom") => {
+    setSlideMeta((prev) => prev.map((m, i) => i === activeIdx ? { ...m, transition } : m));
   };
 
   /* ── Background removal via chroma key ── */
@@ -2628,6 +2658,23 @@ const Editor = () => {
                 title="Custom color"
               />
             </div>
+            <div className="h-5 w-px bg-border/40" />
+            {/* ── Slide Transition Selector ── */}
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
+                <Film size={12} /> Transición:
+              </span>
+              <select
+                value={slideMeta[activeIdx]?.transition ?? "fade"}
+                onChange={(e) => updateSlideTransition(e.target.value as "none" | "fade" | "slide" | "zoom")}
+                className="h-7 px-2 text-xs font-medium bg-muted/50 border border-border/40 rounded-md outline-none cursor-pointer text-foreground"
+              >
+                <option value="none">Ninguna</option>
+                <option value="fade">Desvanecer</option>
+                <option value="slide">Deslizar Lateral</option>
+                <option value="zoom">Zoom In</option>
+              </select>
+            </div>
             <div className="flex-1" />
             <Button
               variant="ghost"
@@ -2821,10 +2868,10 @@ const Editor = () => {
   );
 };
 
-/* ── Fullscreen Presentation Mode ── */
+/* ── Fullscreen Presentation Mode with Slide Transitions ── */
 const PresentationOverlay = forwardRef<HTMLDivElement, {
   allElements: SlideElement[][];
-  slideMeta: { id: string; type: string; image?: string; backgroundColor?: string }[];
+  slideMeta: { id: string; type: string; image?: string; backgroundColor?: string; transition?: "none" | "fade" | "slide" | "zoom" }[];
   activeIdx: number;
   setActiveIdx: React.Dispatch<React.SetStateAction<number>>;
   onClose: () => void;
@@ -2854,6 +2901,40 @@ const PresentationOverlay = forwardRef<HTMLDivElement, {
     return () => document.removeEventListener("fullscreenchange", handler);
   }, [onClose]);
 
+  // Get slide transition animation variants
+  const getSlideTransitionVariants = (transition: "none" | "fade" | "slide" | "zoom" = "fade") => {
+    switch (transition) {
+      case "none":
+        return {
+          initial: {},
+          animate: {},
+          exit: {},
+        };
+      case "slide":
+        return {
+          initial: { opacity: 0, x: 300 },
+          animate: { opacity: 1, x: 0 },
+          exit: { opacity: 0, x: -300 },
+        };
+      case "zoom":
+        return {
+          initial: { opacity: 0, scale: 0.8 },
+          animate: { opacity: 1, scale: 1 },
+          exit: { opacity: 0, scale: 1.2 },
+        };
+      case "fade":
+      default:
+        return {
+          initial: { opacity: 0 },
+          animate: { opacity: 1 },
+          exit: { opacity: 0 },
+        };
+    }
+  };
+
+  const currentTransition = slideMeta[activeIdx]?.transition ?? "fade";
+  const transitionVariants = getSlideTransitionVariants(currentTransition);
+
   return (
     <motion.div
       ref={ref}
@@ -2865,10 +2946,10 @@ const PresentationOverlay = forwardRef<HTMLDivElement, {
       <AnimatePresence mode="wait">
         <motion.div
           key={slideMeta[activeIdx]?.id}
-          initial={{ opacity: 0, x: 40 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -40 }}
-          transition={{ duration: 0.3 }}
+          initial={transitionVariants.initial}
+          animate={transitionVariants.animate}
+          exit={transitionVariants.exit}
+          transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
           className="w-full h-full"
         >
           <PresentationSlide elements={allElements[activeIdx] ?? []} bgImage={slideMeta[activeIdx]?.image} backgroundColor={slideMeta[activeIdx]?.backgroundColor} />
