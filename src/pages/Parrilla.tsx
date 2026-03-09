@@ -13,7 +13,8 @@ import {
   Instagram, Linkedin, Play, Music, Calendar, Send, Clock, Eye,
   GripVertical, Image as ImageIcon, Video, FileText, Zap, Target, Users,
   TrendingUp, MessageSquare, Heart, Share2, Bookmark, MoreHorizontal,
-  Check, MessageCircle, LayoutGrid, CalendarDays, ChevronLeft, ChevronRight
+  Check, MessageCircle, LayoutGrid, CalendarDays, ChevronLeft, ChevronRight,
+  Wand2, Home, Hexagon, FileText as BriefIcon, Twitter
 } from "lucide-react";
 
 /* ── Types ── */
@@ -487,9 +488,12 @@ const Parrilla = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Agent Controls
-  const [platforms, setPlatforms] = useState({ instagram: true, tiktok: true, linkedin: false });
+  const [platforms, setPlatforms] = useState({ instagram: true, tiktok: true, linkedin: false, twitter: false });
   const [frequency, setFrequency] = useState("3-week");
   const [objective, setObjective] = useState("engagement");
+  const [customPrompt, setCustomPrompt] = useState("");
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [optionsPerPost, setOptionsPerPost] = useState(2);
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -513,12 +517,29 @@ const Parrilla = () => {
     setIsGenerating(true);
 
     setTimeout(() => {
-      setPosts(MOCK_POSTS.filter((p) => platforms[p.platform]));
+      setPosts(MOCK_POSTS.filter((p) => platforms[p.platform as keyof typeof platforms]));
       setHasGenerated(true);
       setIsGenerating(false);
-      toast({ title: "🚀 Parrilla generada", description: "9 posts listos para revisar y programar." });
+      toast({ title: "🚀 Parrilla generada", description: `${optionsPerPost * 9} variantes de posts listos para revisar.` });
     }, 2000);
-  }, [platforms]);
+  }, [platforms, optionsPerPost]);
+
+  const handleEnhancePrompt = useCallback(() => {
+    if (!customPrompt.trim()) {
+      toast({ title: "✏️ Escribe algo primero", description: "Ingresa una idea básica para mejorarla." });
+      return;
+    }
+    setIsEnhancing(true);
+    setTimeout(() => {
+      setCustomPrompt(`Actúa como un Copywriter Senior especializado en marketing de tecnología. Crea una secuencia de contenido para el Drone X10 destacando su certificación IP68 y resistencia extrema. Usa un tono épico y aspiracional, orientado a cineastas profesionales y creadores de contenido aventureros. Incluye:\n\n• Ganchos (hooks) de alta retención en los primeros 3 segundos\n• Storytelling visual con transiciones cinematográficas\n• CTA claro hacia la landing page de pre-orden\n• Hashtags estratégicos para máximo alcance orgánico`);
+      setIsEnhancing(false);
+      toast({ title: "✨ Prompt mejorado", description: "Tu idea ha sido transformada en un mega-prompt profesional." });
+    }, 1200);
+  }, [customPrompt]);
+
+  const togglePlatform = (key: keyof typeof platforms) => {
+    setPlatforms((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const updatePost = useCallback((id: string, patch: Partial<PostCard>) => {
     setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
@@ -550,39 +571,62 @@ const Parrilla = () => {
       <header className={`sticky top-0 z-50 border-b shadow-sm transition-colors duration-500 ${
         isClientView ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"
       }`}>
-        <div className="flex items-center justify-between px-6 h-16">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")} className={isClientView ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-700"}>
-              <ArrowLeft size={20} />
-            </Button>
-            <div>
-              <h1 className={`text-lg font-bold ${isClientView ? "text-white" : "text-slate-800"}`}>Parrilla de Contenido</h1>
-              <p className={`text-xs ${isClientView ? "text-slate-400" : "text-slate-500"}`}>Lanzamiento Drone X10 · Aero Dynamics</p>
+        <div className="flex flex-col px-6 py-3">
+          {/* Breadcrumbs */}
+          {!isClientView && (
+            <nav className="flex items-center gap-1.5 text-xs text-slate-500 mb-2">
+              <button onClick={() => navigate("/dashboard")} className="flex items-center gap-1 hover:text-slate-700 transition-colors">
+                <Home size={12} /> Directorio
+              </button>
+              <span>/</span>
+              <button className="flex items-center gap-1 hover:text-slate-700 transition-colors">
+                <Hexagon size={12} /> Aero Dynamics
+              </button>
+              <span>/</span>
+              <button className="flex items-center gap-1 hover:text-slate-700 transition-colors">
+                <BriefIcon size={12} /> Brief: Drone X10
+              </button>
+              <span>/</span>
+              <span className="flex items-center gap-1 text-slate-800 font-medium">
+                <CalendarDays size={12} /> Parrilla
+              </span>
+            </nav>
+          )}
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")} className={isClientView ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-700"}>
+                <ArrowLeft size={20} />
+              </Button>
+              <div>
+                <h1 className={`text-lg font-bold ${isClientView ? "text-white" : "text-slate-800"}`}>Parrilla de Contenido</h1>
+                <p className={`text-xs ${isClientView ? "text-slate-400" : "text-slate-500"}`}>Lanzamiento Drone X10 · Aero Dynamics</p>
+              </div>
             </div>
-          </div>
 
-          <div className="flex items-center gap-4">
-            {/* Client Mode Toggle */}
-            <div className={`flex items-center gap-3 px-4 py-2 rounded-full border transition-colors ${
-              isClientView ? "bg-violet-500/20 border-violet-500/40" : "bg-slate-100 border-slate-200"
-            }`}>
-              <Eye size={16} className={isClientView ? "text-violet-400" : "text-slate-500"} />
-              <span className={`text-sm font-medium ${isClientView ? "text-violet-300" : "text-slate-600"}`}>Modo Cliente</span>
-              <Switch
-                checked={isClientView}
-                onCheckedChange={setIsClientView}
-                className="data-[state=checked]:bg-violet-500"
-              />
+            <div className="flex items-center gap-4">
+              {/* Client Mode Toggle */}
+              <div className={`flex items-center gap-3 px-4 py-2 rounded-full border transition-colors ${
+                isClientView ? "bg-violet-500/20 border-violet-500/40" : "bg-slate-100 border-slate-200"
+              }`}>
+                <Eye size={16} className={isClientView ? "text-violet-400" : "text-slate-500"} />
+                <span className={`text-sm font-medium ${isClientView ? "text-violet-300" : "text-slate-600"}`}>Modo Cliente</span>
+                <Switch
+                  checked={isClientView}
+                  onCheckedChange={setIsClientView}
+                  className="data-[state=checked]:bg-violet-500"
+                />
+              </div>
+
+              <div className={`w-px h-8 ${isClientView ? "bg-slate-700" : "bg-slate-200"}`} />
+
+              <Button variant="outline" onClick={handleExportCSV} className={`gap-2 text-sm h-9 ${isClientView ? "border-slate-600 text-slate-300 hover:bg-slate-700" : "border-slate-300"}`}>
+                <Download size={14} /> Exportar CSV
+              </Button>
+              <Button onClick={handleApproveAll} className="gap-2 text-sm h-9 bg-emerald-500 hover:bg-emerald-600">
+                <CheckCircle2 size={14} /> Aprobar Todo
+              </Button>
             </div>
-
-            <div className={`w-px h-8 ${isClientView ? "bg-slate-700" : "bg-slate-200"}`} />
-
-            <Button variant="outline" onClick={handleExportCSV} className={`gap-2 text-sm h-9 ${isClientView ? "border-slate-600 text-slate-300 hover:bg-slate-700" : "border-slate-300"}`}>
-              <Download size={14} /> Exportar CSV
-            </Button>
-            <Button onClick={handleApproveAll} className="gap-2 text-sm h-9 bg-emerald-500 hover:bg-emerald-600">
-              <CheckCircle2 size={14} /> Aprobar Todo
-            </Button>
           </div>
         </div>
       </header>
@@ -653,7 +697,7 @@ const Parrilla = () => {
                 transition={{ duration: 0.3 }}
                 className="bg-white border-b border-slate-200 p-5 overflow-hidden"
               >
-                <div className="max-w-5xl mx-auto">
+                <div className="max-w-6xl mx-auto">
                   <div className="flex items-center gap-3 mb-5">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 via-purple-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-purple-500/25">
                       <Sparkles size={20} className="text-white" />
@@ -664,29 +708,73 @@ const Parrilla = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-                    {/* Platforms */}
-                    <div className="space-y-3">
+                  {/* Custom Prompt Textarea with Enhancer */}
+                  <div className="mb-5">
+                    <div className="relative">
+                      <Textarea
+                        value={customPrompt}
+                        onChange={(e) => setCustomPrompt(e.target.value)}
+                        placeholder="Ej: Quiero 3 posts sobre cómo el dron resiste la lluvia, tono épico, enfocado en cineastas aventureros..."
+                        className="min-h-[100px] pr-36 bg-slate-50 border-slate-200 text-sm resize-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 transition-all"
+                      />
+                      <button
+                        onClick={handleEnhancePrompt}
+                        disabled={isEnhancing}
+                        className="absolute bottom-3 right-3 flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-gradient-to-r from-violet-500 to-cyan-500 text-white shadow-lg shadow-violet-500/25 hover:from-violet-600 hover:to-cyan-600 transition-all disabled:opacity-70"
+                      >
+                        {isEnhancing ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Wand2 size={14} />
+                        )}
+                        {isEnhancing ? "Mejorando..." : "✨ Mejorar Prompt"}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1.5 ml-1">
+                      Escribe una idea básica y la IA la transformará en un mega-prompt profesional
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                    {/* Platform Selectable Cards */}
+                    <div className="lg:col-span-5 space-y-3">
                       <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Plataformas</p>
-                      <div className="space-y-2.5">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         {[
-                          { key: "instagram" as const, label: "Instagram", icon: Instagram, color: "text-pink-500" },
-                          { key: "tiktok" as const, label: "TikTok", icon: TikTokIcon, color: "text-slate-900" },
-                          { key: "linkedin" as const, label: "LinkedIn", icon: Linkedin, color: "text-blue-600" },
+                          { key: "instagram" as const, label: "Instagram", icon: Instagram, gradient: "from-pink-500 via-red-500 to-yellow-500", emoji: "📸" },
+                          { key: "tiktok" as const, label: "TikTok", icon: TikTokIcon, gradient: "from-slate-900 to-slate-700", emoji: "🎵" },
+                          { key: "linkedin" as const, label: "LinkedIn", icon: Linkedin, gradient: "from-blue-600 to-blue-700", emoji: "💼" },
+                          { key: "twitter" as const, label: "X / Twitter", icon: Twitter, gradient: "from-slate-800 to-slate-900", emoji: "🐦" },
                         ].map((p) => (
-                          <label key={p.key} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer">
-                            <div className="flex items-center gap-2.5">
-                              <p.icon size={16} className={p.color} />
-                              <span className="text-sm font-medium text-slate-700">{p.label}</span>
+                          <button
+                            key={p.key}
+                            onClick={() => togglePlatform(p.key)}
+                            className={`relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                              platforms[p.key]
+                                ? "border-violet-400 bg-violet-50 shadow-md shadow-violet-500/10"
+                                : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                            }`}
+                          >
+                            <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${p.gradient} flex items-center justify-center shadow-md`}>
+                              <p.icon size={16} className="text-white" />
                             </div>
-                            <Switch checked={platforms[p.key]} onCheckedChange={(v) => setPlatforms((prev) => ({ ...prev, [p.key]: v }))} />
-                          </label>
+                            <span className="text-xs font-semibold text-slate-700">{p.emoji} {p.label}</span>
+                            {platforms[p.key] && (
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-violet-500 flex items-center justify-center"
+                              >
+                                <Check size={12} className="text-white" />
+                              </motion.div>
+                            )}
+                          </button>
                         ))}
                       </div>
                     </div>
 
                     {/* Frequency */}
-                    <div className="space-y-3">
+                    <div className="lg:col-span-2 space-y-3">
                       <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Frecuencia</p>
                       <Select value={frequency} onValueChange={setFrequency}>
                         <SelectTrigger className="bg-slate-50 border-slate-200 h-11">
@@ -701,7 +789,7 @@ const Parrilla = () => {
                     </div>
 
                     {/* Objective */}
-                    <div className="space-y-3">
+                    <div className="lg:col-span-2 space-y-3">
                       <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Objetivo</p>
                       <Select value={objective} onValueChange={setObjective}>
                         <SelectTrigger className="bg-slate-50 border-slate-200 h-11">
@@ -715,19 +803,32 @@ const Parrilla = () => {
                       </Select>
                     </div>
 
-                    {/* Generate Button */}
-                    <div className="flex items-end">
-                      <Button
-                        onClick={handleGenerate}
-                        disabled={isGenerating || (!platforms.instagram && !platforms.tiktok && !platforms.linkedin)}
-                        className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-violet-600 via-purple-600 to-cyan-500 hover:from-violet-700 hover:via-purple-700 hover:to-cyan-600 shadow-lg shadow-purple-500/25 disabled:opacity-50"
-                      >
-                        {isGenerating ? (
-                          <><Loader2 size={16} className="animate-spin mr-2" /> Generando...</>
-                        ) : (
-                          <><Zap size={16} className="mr-2" /> Generar Parrilla Completa 🚀</>
-                        )}
-                      </Button>
+                    {/* Output Options + Generate */}
+                    <div className="lg:col-span-3 space-y-3">
+                      <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Opciones por post</p>
+                      <div className="flex items-center gap-3">
+                        <Select value={String(optionsPerPost)} onValueChange={(v) => setOptionsPerPost(Number(v))}>
+                          <SelectTrigger className="bg-slate-50 border-slate-200 h-11 w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">1</SelectItem>
+                            <SelectItem value="2">2</SelectItem>
+                            <SelectItem value="3">3</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          onClick={handleGenerate}
+                          disabled={isGenerating || (!platforms.instagram && !platforms.tiktok && !platforms.linkedin && !platforms.twitter)}
+                          className="flex-1 h-11 text-sm font-semibold bg-gradient-to-r from-violet-600 via-purple-600 to-cyan-500 hover:from-violet-700 hover:via-purple-700 hover:to-cyan-600 shadow-lg shadow-purple-500/25 disabled:opacity-50"
+                        >
+                          {isGenerating ? (
+                            <><Loader2 size={16} className="animate-spin mr-2" /> Generando...</>
+                          ) : (
+                            <><Zap size={16} className="mr-2" /> Generar Parrilla 🚀</>
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
