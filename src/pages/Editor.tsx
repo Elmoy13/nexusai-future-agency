@@ -2868,10 +2868,10 @@ const Editor = () => {
   );
 };
 
-/* ── Fullscreen Presentation Mode ── */
+/* ── Fullscreen Presentation Mode with Slide Transitions ── */
 const PresentationOverlay = forwardRef<HTMLDivElement, {
   allElements: SlideElement[][];
-  slideMeta: { id: string; type: string; image?: string; backgroundColor?: string }[];
+  slideMeta: { id: string; type: string; image?: string; backgroundColor?: string; transition?: "none" | "fade" | "slide" | "zoom" }[];
   activeIdx: number;
   setActiveIdx: React.Dispatch<React.SetStateAction<number>>;
   onClose: () => void;
