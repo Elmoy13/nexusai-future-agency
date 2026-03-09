@@ -1372,12 +1372,10 @@ const StaticElement = ({ el }: { el: SlideElement }) => {
   );
 };
 
-/* ── Static Shape Element with SVG support ── */
-const StaticShapeElement = ({ el, transform }: { el: SlideElement; transform: string }) => {
-  const w = el.width ?? 160;
-  const h = el.height ?? 160;
-  const color = el.content || "#06b6d4";
-  const shapeType = el.shapeType ?? "rect";
+/* ── Inline Shape SVG Renderer (for use inside positioned containers) ── */
+const ShapeSvg = ({ shapeType, color, width, height }: { shapeType: string; color: string; width: number; height: number }) => {
+  const w = width;
+  const h = height;
 
   const renderShape = () => {
     switch (shapeType) {
@@ -1413,10 +1411,28 @@ const StaticShapeElement = ({ el, transform }: { el: SlideElement; transform: st
   };
 
   return (
+    <svg 
+      width="100%" 
+      height="100%" 
+      viewBox={`0 0 ${w} ${h}`} 
+      preserveAspectRatio="none"
+      style={{ display: "block", width: "100%", height: "100%" }}
+    >
+      {renderShape()}
+    </svg>
+  );
+};
+
+/* ── Static Shape Element with SVG support (for absolute positioning in thumbnails/presentation) ── */
+const StaticShapeElement = ({ el, transform }: { el: SlideElement; transform: string }) => {
+  const w = el.width ?? 160;
+  const h = el.height ?? 160;
+  const color = el.content || "#06b6d4";
+  const shapeType = el.shapeType ?? "rect";
+
+  return (
     <div style={{ position: "absolute", left: el.x, top: el.y, width: w, height: h, zIndex: el.zIndex ?? 0, transform }}>
-      <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
-        {renderShape()}
-      </svg>
+      <ShapeSvg shapeType={shapeType} color={color} width={w} height={h} />
     </div>
   );
 };
