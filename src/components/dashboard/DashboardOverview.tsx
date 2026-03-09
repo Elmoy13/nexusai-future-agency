@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { Briefcase, Clock, AlertCircle, Plus, Check, Loader2, Circle, ArrowRight, Image } from "lucide-react";
 
 const kpis = [

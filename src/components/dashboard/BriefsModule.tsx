@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FolderOpen, PenTool } from "lucide-react";
 import BrandPortfolioDirectory from "./briefs/BrandPortfolioDirectory";
