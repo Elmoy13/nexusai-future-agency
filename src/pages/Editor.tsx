@@ -2296,7 +2296,7 @@ const Editor = () => {
 
   const addSlide = () => {
     const newId = `new-${Date.now()}`;
-    setSlideMeta((prev) => [...prev, { id: newId, type: "content" as const, image: undefined, backgroundColor: "#ffffff" }]);
+    setSlideMeta((prev) => [...prev, { id: newId, type: "content" as const, image: undefined, backgroundColor: "#ffffff", transition: "fade" as const }]);
     setSlidesElements((prev) => [...prev, [
       { id: uid(), type: "text", content: "Nueva Diapositiva", x: 80, y: 80, width: 800, height: 80, fontSize: 64, fontWeight: "800", color: "#0f172a", zIndex: 1 },
       { id: uid(), type: "text", content: "Haz clic para editar", x: 80, y: 200, width: 800, height: 50, fontSize: 32, fontWeight: "400", color: "#64748b", zIndex: 2 },
