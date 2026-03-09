@@ -384,8 +384,8 @@ const MOCKUP_DEFS: MockupDef[] = [
 
 const getMockupDef = (mockupType?: string) => MOCKUP_DEFS.find((m) => m.id === mockupType);
 
-/* ── Mockup Image Adjust Modal ── */
-const MockupAdjustModal = ({ imgSrc, mockupDef, initialScale, initialX, initialY, onSave, onClose }: {
+/* ── Smart Frame Station (Immersive Focus Mode) ── */
+const SmartFrameStation = ({ imgSrc, mockupDef, initialScale, initialX, initialY, onSave, onClose }: {
   imgSrc: string;
   mockupDef: MockupDef;
   initialScale: number;
@@ -412,112 +412,254 @@ const MockupAdjustModal = ({ imgSrc, mockupDef, initialScale, initialX, initialY
       const dx = e.clientX - lastPos.current.x;
       const dy = e.clientY - lastPos.current.y;
       lastPos.current = { x: e.clientX, y: e.clientY };
-      setPanX((v) => v + dx / scale);
-      setPanY((v) => v + dy / scale);
+      setPanX((v) => v + dx);
+      setPanY((v) => v + dy);
     };
     const handleUp = () => setDragging(false);
     window.addEventListener("mousemove", handleMove);
     window.addEventListener("mouseup", handleUp);
     return () => { window.removeEventListener("mousemove", handleMove); window.removeEventListener("mouseup", handleUp); };
-  }, [dragging, scale]);
+  }, [dragging]);
 
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const delta = e.deltaY > 0 ? -0.05 : 0.05;
+    setScale((s) => Math.max(0.2, Math.min(5, s + delta)));
+  };
+
+  const resetPosition = () => {
+    setScale(1);
+    setPanX(0);
+    setPanY(0);
+  };
+
+  const handleApprove = () => {
+    onSave(scale, panX, panY);
+    onClose();
+  };
+
+  // Calculate device screen dimensions for the mask
   const inset = mockupDef.screenInset;
-  const previewScale = 1.8;
+  const screenW = mockupDef.width - inset.left - inset.right;
+  const screenH = mockupDef.height - inset.top - inset.bottom;
+  const maskRadius = parseFloat(mockupDef.screenRadius.replace('rem', '')) * 16; // Convert rem to px
 
   return (
     <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[10000] bg-black/70 backdrop-blur-sm flex items-center justify-center"
-      onClick={onClose}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[9999] bg-black/95"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-background rounded-2xl shadow-2xl overflow-hidden flex flex-col"
-        style={{ width: 620, maxHeight: "90vh" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-border/40 flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-bold text-foreground">Ajustar imagen en {mockupDef.name}</h3>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Arrastra la imagen para reposicionar · Scroll para zoom</p>
-          </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center text-muted-foreground"><X size={16} /></button>
-        </div>
-
-        {/* Preview area */}
-        <div className="flex-1 flex items-center justify-center py-8 px-6 bg-muted/30">
-          <div
-            className="relative"
-            style={{ width: mockupDef.width * previewScale, height: mockupDef.height * previewScale }}
-          >
-            {/* Device frame (visual only) */}
-            <div
-              className="absolute inset-0 z-[3] pointer-events-none"
+      <div className="flex h-full">
+        {/* COLUMNA IZQUIERDA - Lienzo de Encuadre (75%) */}
+        <div className="w-3/4 bg-slate-900 flex items-center justify-center relative">
+          {/* Full Image Layer */}
+          <div className="relative max-w-[90%] max-h-[90%]">
+            <img
+              src={imgSrc}
+              alt="Frame adjustment"
+              draggable={false}
+              className="max-w-full max-h-full object-contain select-none"
               style={{
-                borderRadius: mockupDef.screenRadius,
-                border: `${Math.min(inset.top, inset.left) * previewScale}px solid ${mockupDef.frameColor}`,
-                borderTopWidth: inset.top * previewScale,
-                borderRightWidth: inset.right * previewScale,
-                borderBottomWidth: inset.bottom * previewScale,
-                borderLeftWidth: inset.left * previewScale,
-                boxSizing: "border-box",
-              }}
-            >
-              {mockupDef.notch && (
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 rounded-b-2xl" style={{ width: 50 * previewScale, height: 10 * previewScale, background: mockupDef.frameColor }} />
-              )}
-            </div>
-
-            {/* Screen area - draggable */}
-            <div
-              className="absolute z-[1] overflow-hidden"
-              style={{
-                top: inset.top * previewScale,
-                right: inset.right * previewScale,
-                bottom: inset.bottom * previewScale,
-                left: inset.left * previewScale,
-                borderRadius: `calc(${mockupDef.screenRadius} - ${Math.min(inset.top, inset.left) * previewScale}px)`,
+                transform: `scale(${scale}) translate(${panX}px, ${panY}px)`,
+                transformOrigin: "center center",
+                transition: dragging ? "none" : "transform 120ms ease-out",
                 cursor: dragging ? "grabbing" : "grab",
               }}
               onMouseDown={handleMouseDown}
-              onWheel={(e) => {
-                e.stopPropagation();
-                const delta = e.deltaY > 0 ? -0.05 : 0.05;
-                setScale((s) => Math.max(0.3, Math.min(4, s + delta)));
-              }}
+              onWheel={handleWheel}
+            />
+
+            {/* Smart Mask Overlay */}
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              style={{ transform: `scale(${scale}) translate(${panX}px, ${panY}px)`, transformOrigin: "center center" }}
             >
-              <img
-                src={imgSrc}
-                alt="Adjust"
-                draggable={false}
-                className="pointer-events-none select-none"
-                style={{
-                  width: "100%", height: "100%", objectFit: "cover",
-                  transform: `scale(${scale}) translate(${panX}px, ${panY}px)`,
-                  transformOrigin: "center center",
-                  transition: dragging ? "none" : "transform 80ms ease-out",
-                }}
-              />
-            </div>
+              <defs>
+                <mask id="device-mask">
+                  <rect width="100%" height="100%" fill="white" />
+                  {/* Device Screen Hole */}
+                  <rect
+                    x="50%"
+                    y="50%"
+                    width={screenW * 0.8}
+                    height={screenH * 0.8}
+                    rx={mockupDef.id === 'iphone15' ? 30 : 8}
+                    fill="black"
+                    style={{ transform: `translate(-${(screenW * 0.8) / 2}px, -${(screenH * 0.8) / 2}px)` }}
+                  />
+                  {/* Dynamic Island for iPhone */}
+                  {mockupDef.notch && mockupDef.id === 'iphone15' && (
+                    <rect
+                      x="50%"
+                      y="50%"
+                      width={120}
+                      height={32}
+                      rx={16}
+                      fill="white"
+                      style={{ transform: `translate(-60px, -${(screenH * 0.8) / 2 + 40}px)` }}
+                    />
+                  )}
+                </mask>
+              </defs>
+              <rect width="100%" height="100%" fill="rgba(0,0,0,0.72)" mask="url(#device-mask)" />
+            </svg>
+
+            {/* Device Frame Preview (Subtle) */}
+            <div
+              className="absolute top-1/2 left-1/2 pointer-events-none opacity-20"
+              style={{
+                width: screenW * 0.8,
+                height: screenH * 0.8,
+                transform: `translate(-50%, -50%) scale(${scale}) translate(${panX}px, ${panY}px)`,
+                border: '2px solid hsl(var(--primary))',
+                borderRadius: mockupDef.id === 'iphone15' ? '30px' : '8px',
+                transformOrigin: "center center",
+              }}
+            />
           </div>
         </div>
 
-        {/* Controls */}
-        <div className="px-6 py-4 border-t border-border/40 flex items-center gap-4">
-          {/* Zoom slider */}
-          <div className="flex items-center gap-3 flex-1">
-            <span className="text-[11px] text-muted-foreground font-medium w-10">Zoom</span>
-            <input
-              type="range"
-              min={30}
-              max={400}
-              value={Math.round(scale * 100)}
-              onChange={(e) => setScale(parseInt(e.target.value) / 100)}
-              className="flex-1 h-1.5 accent-cyan-500"
-            />
-            <span className="text-xs font-semibold text-foreground tabular-nums w-12 text-right">{Math.round(scale * 100)}%</span>
+        {/* COLUMNA DERECHA - Panel de Control (25%) */}
+        <div className="w-1/4 bg-black p-6 flex flex-col">
+          {/* Header */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-2">
+              <h1 className="text-xl font-bold text-white">Encuadre</h1>
+              <button
+                onClick={onClose}
+                className="w-8 h-8 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 flex items-center justify-center transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-sm text-gray-400">{mockupDef.name}</p>
+          </div>
+
+          {/* Precision Controls */}
+          <div className="flex-1 space-y-6">
+            {/* Zoom Control */}
+            <div className="space-y-3">
+              <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider">
+                Zoom
+              </label>
+              <div className="space-y-2">
+                <input
+                  type="range"
+                  min={20}
+                  max={500}
+                  value={Math.round(scale * 100)}
+                  onChange={(e) => setScale(parseInt(e.target.value) / 100)}
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-cyan"
+                />
+                <div className="flex justify-between text-xs text-gray-400">
+                  <span>20%</span>
+                  <span className="font-mono text-primary">{Math.round(scale * 100)}%</span>
+                  <span>500%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Position X Control */}
+            <div className="space-y-3">
+              <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider">
+                Posición X
+              </label>
+              <div className="space-y-2">
+                <input
+                  type="range"
+                  min={-200}
+                  max={200}
+                  value={panX}
+                  onChange={(e) => setPanX(parseInt(e.target.value))}
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-cyan"
+                />
+                <div className="flex justify-between text-xs text-gray-400">
+                  <span>-200</span>
+                  <span className="font-mono text-white">{Math.round(panX)}</span>
+                  <span>200</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Position Y Control */}
+            <div className="space-y-3">
+              <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider">
+                Posición Y
+              </label>
+              <div className="space-y-2">
+                <input
+                  type="range"
+                  min={-200}
+                  max={200}
+                  value={panY}
+                  onChange={(e) => setPanY(parseInt(e.target.value))}
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-cyan"
+                />
+                <div className="flex justify-between text-xs text-gray-400">
+                  <span>-200</span>
+                  <span className="font-mono text-white">{Math.round(panY)}</span>
+                  <span>200</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Reset Button */}
+            <button
+              onClick={resetPosition}
+              className="w-full py-2 px-4 rounded-lg border border-gray-600 text-gray-300 hover:text-white hover:border-gray-500 text-sm font-medium transition-colors"
+            >
+              Reset
+            </button>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="pt-6 space-y-3">
+            <button
+              onClick={onClose}
+              className="w-full py-3 px-6 rounded-lg border border-primary/30 text-primary hover:border-primary/50 hover:bg-primary/5 font-semibold transition-all"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleApprove}
+              className="w-full py-3 px-6 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-all shadow-lg shadow-primary/20"
+            >
+              Aprobar Encuadre
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <style jsx>{`
+        .slider-cyan {
+          background: linear-gradient(to right, #374151 0%, #374151 100%);
+        }
+        .slider-cyan::-webkit-slider-thumb {
+          appearance: none;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: hsl(var(--primary));
+          cursor: pointer;
+          box-shadow: 0 2px 6px rgba(6, 182, 212, 0.3);
+        }
+        .slider-cyan::-moz-range-thumb {
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: hsl(var(--primary));
+          cursor: pointer;
+          border: none;
+          box-shadow: 0 2px 6px rgba(6, 182, 212, 0.3);
+        }
+      `}</style>
+    </motion.div>
           </div>
           <div className="w-px h-8 bg-border/40" />
           <button
