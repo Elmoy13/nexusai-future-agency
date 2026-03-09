@@ -3215,4 +3215,172 @@ const ExportPdfOverlay = ({ progress, message, onClose }: { progress: number; me
   </motion.div>
 );
 
+/* ── Code Import/Export Modal ── */
+const CodeModal = ({
+  slidesElements,
+  slideMeta,
+  onImport,
+  onClose,
+}: {
+  slidesElements: SlideElement[][];
+  slideMeta: { id: string; type: string; image?: string; backgroundColor?: string; transition?: string }[];
+  onImport: (elements: SlideElement[][], meta: typeof slideMeta) => void;
+  onClose: () => void;
+}) => {
+  const [tab, setTab] = useState<"export" | "import">("export");
+  const [importValue, setImportValue] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const exportPayload = useMemo(() => {
+    const data = slideMeta.map((m, i) => ({
+      ...m,
+      elements: slidesElements[i] ?? [],
+    }));
+    return JSON.stringify(data, null, 2);
+  }, [slidesElements, slideMeta]);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(exportPayload);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleImport = () => {
+    try {
+      const parsed = JSON.parse(importValue);
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        toast({ title: "❌ JSON inválido", description: "El JSON debe ser un arreglo con al menos una diapositiva.", variant: "destructive" });
+        return;
+      }
+      const newElements: SlideElement[][] = parsed.map((slide: any) => slide.elements ?? []);
+      const newMeta = parsed.map((slide: any) => ({
+        id: slide.id ?? uid(),
+        type: slide.type ?? "cover",
+        image: slide.image,
+        backgroundColor: slide.backgroundColor ?? "#ffffff",
+        transition: (slide.transition ?? "fade") as "none" | "fade" | "slide" | "zoom",
+      }));
+      onImport(newElements, newMeta);
+      onClose();
+    } catch {
+      toast({ title: "❌ Error de parseo", description: "Asegúrate de que el formato JSON sea correcto.", variant: "destructive" });
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-6"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <motion.div
+        initial={{ scale: 0.92, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.92, opacity: 0 }}
+        className="w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl flex flex-col"
+        style={{ maxHeight: "85vh" }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 bg-slate-900 border-b border-slate-700/50">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+              <Braces size={16} className="text-emerald-400" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-white">Código Fuente (JSON)</h2>
+              <p className="text-[10px] text-slate-400">Exporta o importa el estado completo de tu presentación</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex bg-slate-800 border-b border-slate-700/50">
+          <button
+            onClick={() => setTab("export")}
+            className={`flex-1 px-4 py-2.5 text-xs font-semibold transition-all ${
+              tab === "export"
+                ? "text-emerald-400 border-b-2 border-emerald-400 bg-slate-800/80"
+                : "text-slate-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            ↑ Exportar Código
+          </button>
+          <button
+            onClick={() => setTab("import")}
+            className={`flex-1 px-4 py-2.5 text-xs font-semibold transition-all ${
+              tab === "import"
+                ? "text-cyan-400 border-b-2 border-cyan-400 bg-slate-800/80"
+                : "text-slate-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            ↓ Importar Código
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-hidden bg-slate-950 flex flex-col">
+          {tab === "export" ? (
+            <>
+              <div className="flex items-center justify-between px-4 py-2 bg-slate-900/60 border-b border-slate-800">
+                <span className="text-[10px] text-slate-500 font-mono">
+                  {slideMeta.length} slides · {exportPayload.length.toLocaleString()} chars
+                </span>
+                <button
+                  onClick={handleCopy}
+                  className={`h-7 px-3 rounded-md text-[11px] font-semibold flex items-center gap-1.5 transition-all ${
+                    copied
+                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                      : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20"
+                  }`}
+                >
+                  {copied ? <ClipboardCheck size={13} /> : <ClipboardCopy size={13} />}
+                  {copied ? "¡Copiado!" : "Copiar al Portapapeles"}
+                </button>
+              </div>
+              <textarea
+                readOnly
+                value={exportPayload}
+                className="flex-1 w-full resize-none bg-transparent text-emerald-400/90 font-mono text-xs leading-relaxed p-4 outline-none selection:bg-emerald-500/30"
+                style={{ minHeight: 360 }}
+              />
+            </>
+          ) : (
+            <>
+              <div className="px-4 py-3 bg-slate-900/60 border-b border-slate-800">
+                <p className="text-[11px] text-slate-400">
+                  Pega el JSON generado por IA o exportado previamente. Al importar se reemplazará la presentación actual.
+                </p>
+              </div>
+              <textarea
+                value={importValue}
+                onChange={(e) => setImportValue(e.target.value)}
+                placeholder='[\n  {\n    "id": "slide-1",\n    "type": "cover",\n    "backgroundColor": "#ffffff",\n    "transition": "fade",\n    "elements": [...]\n  }\n]'
+                className="flex-1 w-full resize-none bg-transparent text-cyan-400/90 font-mono text-xs leading-relaxed p-4 outline-none placeholder:text-slate-700 selection:bg-cyan-500/30"
+                style={{ minHeight: 300 }}
+              />
+              <div className="px-4 py-3 bg-slate-900/60 border-t border-slate-800 flex items-center justify-between">
+                <span className="text-[10px] text-slate-500 font-mono">
+                  {importValue.length > 0 ? `${importValue.length.toLocaleString()} chars` : "Vacío"}
+                </span>
+                <button
+                  onClick={handleImport}
+                  disabled={!importValue.trim()}
+                  className="h-9 px-5 rounded-lg text-xs font-bold flex items-center gap-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/20 disabled:opacity-40 disabled:pointer-events-none transition-all"
+                >
+                  <Play size={14} /> Renderizar Presentación
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
 export default Editor;
