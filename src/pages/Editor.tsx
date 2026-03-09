@@ -95,8 +95,12 @@ function computeSnapAndGuides(
   return { snappedX, snappedY, guides: { x: guideX, y: guideY } };
 }
 
-const CANVAS_W = 1920;
-const CANVAS_H = 1080;
+const CANVAS_WIDTH = 1920;
+const CANVAS_HEIGHT = 1080;
+
+// Backward compatible aliases (keep the rest of the file stable)
+const CANVAS_W = CANVAS_WIDTH;
+const CANVAS_H = CANVAS_HEIGHT;
 
 /* ── Toolbar items ── */
 const tools = [
