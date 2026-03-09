@@ -1749,8 +1749,9 @@ const Editor = () => {
     campaign.slides.map(slideToElements)
   );
   const [slideMeta, setSlideMeta] = useState(() =>
-    campaign.slides.map((s) => ({ id: s.id, type: s.type, image: s.type === "cover" ? s.image : undefined }))
+    campaign.slides.map((s) => ({ id: s.id, type: s.type, image: s.type === "cover" ? s.image : undefined, backgroundColor: "#ffffff" }))
   );
+  const [isBackgroundSelected, setIsBackgroundSelected] = useState(false);
 
   const [activeIdx, setActiveIdx] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
