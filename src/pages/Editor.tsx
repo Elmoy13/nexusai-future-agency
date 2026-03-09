@@ -2658,6 +2658,23 @@ const Editor = () => {
                 title="Custom color"
               />
             </div>
+            <div className="h-5 w-px bg-border/40" />
+            {/* ── Slide Transition Selector ── */}
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
+                <Film size={12} /> Transición:
+              </span>
+              <select
+                value={slideMeta[activeIdx]?.transition ?? "fade"}
+                onChange={(e) => updateSlideTransition(e.target.value as "none" | "fade" | "slide" | "zoom")}
+                className="h-7 px-2 text-xs font-medium bg-muted/50 border border-border/40 rounded-md outline-none cursor-pointer text-foreground"
+              >
+                <option value="none">Ninguna</option>
+                <option value="fade">Desvanecer</option>
+                <option value="slide">Deslizar Lateral</option>
+                <option value="zoom">Zoom In</option>
+              </select>
+            </div>
             <div className="flex-1" />
             <Button
               variant="ghost"
