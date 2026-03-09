@@ -2434,15 +2434,56 @@ const Editor = () => {
           {/* ── Filmstrip ── */}
           <div className="h-28 bg-white border-t border-border/40 flex items-center px-4 gap-3 flex-shrink-0 overflow-x-auto">
             {slideMeta.map((meta, i) => (
-              <button
+              <div
                 key={meta.id}
-                onClick={() => setActiveIdx(i)}
-                className={`relative flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all duration-150 ${i === activeIdx ? "border-cyan-500 shadow-lg shadow-cyan-500/15 ring-1 ring-cyan-500/30" : "border-border/30 hover:border-primary/30"}`}
+                className="relative flex-shrink-0 group"
                 style={{ width: 160, height: 90 }}
               >
-                <SlideThumbnail elements={slidesElements[i] ?? []} bgImage={meta.image} />
-                <div className={`absolute top-1 left-1.5 text-[9px] font-bold rounded px-1 z-10 ${i === activeIdx ? "bg-cyan-500 text-slate-950" : "bg-black/40 text-white/70"}`}>{i + 1}</div>
-              </button>
+                <button
+                  onClick={() => setActiveIdx(i)}
+                  className={`w-full h-full rounded-lg overflow-hidden border-2 transition-all duration-150 ${i === activeIdx ? "border-cyan-500 shadow-lg shadow-cyan-500/15 ring-1 ring-cyan-500/30" : "border-border/30 hover:border-primary/30"}`}
+                >
+                  <SlideThumbnail elements={slidesElements[i] ?? []} bgImage={meta.image} backgroundColor={meta.backgroundColor} />
+                  <div className={`absolute top-1 left-1.5 text-[9px] font-bold rounded px-1 z-10 ${i === activeIdx ? "bg-cyan-500 text-slate-950" : "bg-black/40 text-white/70"}`}>{i + 1}</div>
+                </button>
+                {/* Hover Actions */}
+                <div className="absolute inset-0 rounded-lg bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 z-20 pointer-events-none group-hover:pointer-events-auto">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); duplicateSlide(i); }}
+                    className="w-7 h-7 rounded-md bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                    title="Duplicar"
+                  >
+                    <Copy size={13} />
+                  </button>
+                  {i > 0 && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); moveSlide(i, "left"); }}
+                      className="w-7 h-7 rounded-md bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                      title="Mover a la izquierda"
+                    >
+                      <MoveLeft size={13} />
+                    </button>
+                  )}
+                  {i < slideMeta.length - 1 && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); moveSlide(i, "right"); }}
+                      className="w-7 h-7 rounded-md bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                      title="Mover a la derecha"
+                    >
+                      <MoveRight size={13} />
+                    </button>
+                  )}
+                  {slideMeta.length > 1 && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); deleteSlide(i); }}
+                      className="w-7 h-7 rounded-md bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center text-red-400 transition-colors"
+                      title="Eliminar"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
+                </div>
+              </div>
             ))}
             <button
               onClick={addSlide}
