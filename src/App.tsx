@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
 import Editor from "./pages/Editor";
 import Agent from "./pages/Agent";
+import Parrilla from "./pages/Parrilla";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
