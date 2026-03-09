@@ -1244,10 +1244,10 @@ const StaticElement = ({ el }: { el: SlideElement }) => {
 };
 
 /* ── Slide Thumbnail ── */
-const SlideThumbnail = ({ elements, bgImage }: { elements: SlideElement[]; bgImage?: string }) => {
+const SlideThumbnail = ({ elements, bgImage, backgroundColor }: { elements: SlideElement[]; bgImage?: string; backgroundColor?: string }) => {
   const sorted = [...elements].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
   return (
-    <div className="absolute inset-0 overflow-hidden bg-white">
+    <div className="absolute inset-0 overflow-hidden" style={{ backgroundColor: backgroundColor ?? "#ffffff" }}>
       <div style={{ width: 1920, height: 1080, transform: "scale(0.0833)", transformOrigin: "top left", position: "relative" }}>
         {bgImage && <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/20 z-[1]" />}
         <div className="absolute inset-0 z-[2]">
