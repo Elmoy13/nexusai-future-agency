@@ -13,7 +13,8 @@ import {
   Instagram, Linkedin, Play, Music, Calendar, Send, Clock, Eye,
   GripVertical, Image as ImageIcon, Video, FileText, Zap, Target, Users,
   TrendingUp, MessageSquare, Heart, Share2, Bookmark, MoreHorizontal,
-  Check, MessageCircle, LayoutGrid, CalendarDays, ChevronLeft, ChevronRight
+  Check, MessageCircle, LayoutGrid, CalendarDays, ChevronLeft, ChevronRight,
+  Wand2, Home, Hexagon, FileText as BriefIcon, Twitter
 } from "lucide-react";
 
 /* ── Types ── */
