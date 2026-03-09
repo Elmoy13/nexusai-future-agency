@@ -18,7 +18,7 @@ import {
   ArrowUpToLine, ArrowDownToLine, ArrowUp, ArrowDown, Pipette,
   Smartphone, Monitor, Tablet, Globe, Linkedin, Youtube, Twitter, 
   RectangleHorizontal, Square, Copy, MoveLeft, MoveRight, PaintBucket,
-  Shapes, Film, Circle, Triangle, Star, Zap, ChevronDown,
+  Shapes, Film, Circle, Triangle, Star, Zap, ChevronDown, Wand2,
 } from "lucide-react";
 import { initialCampaigns } from "@/components/dashboard/briefs/campaignData";
 import type { SlideData, SlideElement } from "@/components/dashboard/briefs/campaignData";
@@ -107,6 +107,7 @@ const tools = [
   { icon: Film, label: "GIFs", action: "gifs" },
   { icon: Smartphone, label: "Mockups", action: "mockups" },
   { icon: Palette, label: "Brand Hub", action: "brand" },
+  { icon: Wand2, label: "Transición", action: "transitions" },
 ];
 
 /* ── SVG Shape Definitions ── */
@@ -1282,7 +1283,68 @@ const GifsPanel = ({
   );
 };
 
-/* ── Chroma Key Background Removal ── */
+/* ── Slide Transition Options ── */
+const SLIDE_TRANSITION_OPTIONS: { value: "none" | "fade" | "slide" | "zoom"; label: string; desc: string; icon: React.ReactNode }[] = [
+  { value: "none", label: "Ninguna", desc: "Sin transición entre slides", icon: <X size={18} /> },
+  { value: "fade", label: "Desvanecer", desc: "Aparición suave con opacidad", icon: <Sparkles size={18} /> },
+  { value: "slide", label: "Deslizar Lateral", desc: "Entra desde la derecha", icon: <ChevronRight size={18} /> },
+  { value: "zoom", label: "Zoom In", desc: "Escala desde el centro", icon: <Plus size={18} /> },
+];
+
+/* ── Transitions Panel (Sidebar) ── */
+const TransitionsPanel = ({
+  currentTransition,
+  onSetTransition,
+}: {
+  currentTransition: "none" | "fade" | "slide" | "zoom";
+  onSetTransition: (t: "none" | "fade" | "slide" | "zoom") => void;
+}) => {
+  return (
+    <div className="flex flex-col gap-5 p-4">
+      <div>
+        <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-1">Transición de Diapositiva</h3>
+        <p className="text-[11px] text-muted-foreground">Elige cómo entra esta diapositiva en el Modo Presentación</p>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {SLIDE_TRANSITION_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => onSetTransition(opt.value)}
+            className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${
+              currentTransition === opt.value 
+                ? "border-indigo-500 bg-indigo-500/5 shadow-sm shadow-indigo-500/10" 
+                : "border-border/40 hover:border-indigo-500/40 hover:bg-indigo-500/5"
+            }`}
+          >
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+              currentTransition === opt.value 
+                ? "bg-gradient-to-br from-indigo-500 to-purple-500 text-white" 
+                : "bg-muted text-muted-foreground"
+            }`}>
+              {opt.icon}
+            </div>
+            <div>
+              <span className={`text-sm font-semibold block ${currentTransition === opt.value ? "text-indigo-600" : "text-foreground"}`}>{opt.label}</span>
+              <span className="text-[10px] text-muted-foreground">{opt.desc}</span>
+            </div>
+            {currentTransition === opt.value && (
+              <Check size={16} className="ml-auto text-indigo-500 flex-shrink-0" />
+            )}
+          </button>
+        ))}
+      </div>
+
+      <div className="bg-indigo-500/5 rounded-xl p-3.5 border border-indigo-500/10">
+        <p className="text-[10px] text-indigo-600/80 leading-relaxed">
+          💡 Las transiciones se aplican por diapositiva. Navega entre slides y configura cada una por separado.
+        </p>
+      </div>
+    </div>
+  );
+};
+
+
 async function chromaKeyRemove(
   imgSrc: string,
   clickX: number, clickY: number,
@@ -1478,6 +1540,19 @@ const FormatBar = ({
   const first = selectedEls[0];
 
   const [showAnimDropdown, setShowAnimDropdown] = useState(false);
+  const animDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Click outside to close anim dropdown
+  useEffect(() => {
+    if (!showAnimDropdown) return;
+    const handler = (e: MouseEvent) => {
+      if (animDropdownRef.current && !animDropdownRef.current.contains(e.target as Node)) {
+        setShowAnimDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showAnimDropdown]);
 
   if (selectedEls.length === 0) return null;
 
@@ -1642,7 +1717,7 @@ const FormatBar = ({
       )}
 
       {/* ── Animation Controls (Premium Style) ── */}
-      <div className="relative">
+      <div className="relative" ref={animDropdownRef}>
         <button
           onClick={() => setShowAnimDropdown(!showAnimDropdown)}
           className={`h-8 px-3 rounded-lg text-[11px] font-bold flex items-center gap-2 transition-all shadow-sm ${
@@ -1657,7 +1732,7 @@ const FormatBar = ({
         </button>
         
         {showAnimDropdown && (
-          <div className="absolute top-full left-0 mt-1.5 w-48 bg-white rounded-xl shadow-2xl border border-border/40 py-1.5 z-50 overflow-hidden">
+          <div className="absolute top-full left-0 mt-1.5 w-48 bg-white rounded-xl shadow-2xl border border-border/40 py-1.5 z-[9999] overflow-hidden">
             <div className="px-3 py-1.5 border-b border-border/20 mb-1">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Animación de Elemento</span>
             </div>
@@ -2724,9 +2799,9 @@ const Editor = () => {
           </button>
         </div>
 
-        {/* ── Slide-out Panel (Templates / Brand / Mockups / Elements / GIFs) ── */}
+        {/* ── Slide-out Panel (Templates / Brand / Mockups / Elements / GIFs / Transitions) ── */}
         <AnimatePresence>
-          {(activeTool === "templates" || activeTool === "brand" || activeTool === "mockups" || activeTool === "elements" || activeTool === "gifs") && (
+          {(activeTool === "templates" || activeTool === "brand" || activeTool === "mockups" || activeTool === "elements" || activeTool === "gifs" || activeTool === "transitions") && (
             <motion.div
               initial={{ width: 0, opacity: 0 }}
               animate={{ width: 260, opacity: 1 }}
@@ -2737,7 +2812,7 @@ const Editor = () => {
               <div className="w-[260px] h-full overflow-y-auto">
                 <div className="flex items-center justify-between p-3 border-b border-border/20">
                   <span className="text-xs font-bold text-foreground">
-                    {activeTool === "brand" ? "Brand Hub" : activeTool === "mockups" ? "Mockups" : activeTool === "elements" ? "Elementos" : activeTool === "gifs" ? "GIFs" : "Plantillas"}
+                    {activeTool === "brand" ? "Brand Hub" : activeTool === "mockups" ? "Mockups" : activeTool === "elements" ? "Elementos" : activeTool === "gifs" ? "GIFs" : activeTool === "transitions" ? "Transiciones" : "Plantillas"}
                   </span>
                   <button onClick={() => setActiveTool(null)} className="w-6 h-6 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground"><X size={14} /></button>
                 </div>
@@ -2749,6 +2824,11 @@ const Editor = () => {
                   <ElementsPanel onAddShape={addShape} />
                 ) : activeTool === "gifs" ? (
                   <GifsPanel onAddGif={addGif} />
+                ) : activeTool === "transitions" ? (
+                  <TransitionsPanel 
+                    currentTransition={slideMeta[activeIdx]?.transition ?? "fade"} 
+                    onSetTransition={updateSlideTransition} 
+                  />
                 ) : (
                   <TemplatesPanel onApplyTemplate={applyTemplate} />
                 )}
