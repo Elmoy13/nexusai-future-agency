@@ -160,6 +160,11 @@ const Community = () => {
 
   const [knowledgeFiles, setKnowledgeFiles] = useState<KnowledgeFile[]>(mockKnowledgeFiles);
   const [aiTemperature, setAiTemperature] = useState([30]);
+  const [showIntegrations, setShowIntegrations] = useState(false);
+  const [connectedChannels, setConnectedChannels] = useState<Record<string, boolean>>({});
+  const [connectingChannel, setConnectingChannel] = useState<string | null>(null);
+  const [whatsappPhone, setWhatsappPhone] = useState("");
+  const [showWhatsappInput, setShowWhatsappInput] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
