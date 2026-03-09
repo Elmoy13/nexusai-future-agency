@@ -1915,18 +1915,28 @@ const RndElement = ({
             onBlur={commitEdit}
             onKeyDown={(e) => { if (e.key === "Escape") commitEdit(); }}
             style={{
-              fontSize: el.fontSize ?? 28, fontWeight: el.fontWeight ?? "400",
-              color: el.color ?? "#0f172a", lineHeight: 1.3,
+              fontSize: el.fontSize ?? 28,
+              fontWeight: el.fontWeight ?? "400",
+              color: el.color ?? "#0f172a",
+              lineHeight: 1.3,
               fontFamily: el.fontFamily ?? "Inter",
               textAlign: (el.textAlign ?? "left") as any,
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+              overflowWrap: "anywhere",
             }}
             className="bg-transparent border-none outline-none resize-none w-full h-full px-2 py-1 ring-2 ring-cyan-400/60 rounded"
           />
         ) : (
           <div
             style={{
-              fontSize: el.fontSize ?? 28, fontWeight: el.fontWeight ?? "400",
-              color: el.color ?? "#0f172a", lineHeight: 1.3, whiteSpace: "pre-wrap",
+              fontSize: el.fontSize ?? 28,
+              fontWeight: el.fontWeight ?? "400",
+              color: el.color ?? "#0f172a",
+              lineHeight: 1.3,
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+              overflowWrap: "anywhere",
               fontFamily: el.fontFamily ?? "Inter",
               textAlign: (el.textAlign ?? "left") as any,
               overflow: "hidden",
