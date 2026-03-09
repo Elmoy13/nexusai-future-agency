@@ -805,7 +805,7 @@ const MockupFrame = ({ el, interactive, onDrop, onChildAdjust, onNativeFileDrop 
       {/* Adjust Modal */}
       <AnimatePresence>
         {showAdjustModal && el.mockupChild && def && (
-          <MockupAdjustModal
+          <SmartFrameStation
             imgSrc={el.mockupChild}
             mockupDef={def}
             initialScale={el.mockupChildScale ?? 1}
