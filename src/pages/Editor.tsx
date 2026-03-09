@@ -1479,8 +1479,19 @@ const FormatBar = ({
   const first = selectedEls[0];
 
   const [showAnimDropdown, setShowAnimDropdown] = useState(false);
+  const animDropdownRef = useRef<HTMLDivElement>(null);
 
-  if (selectedEls.length === 0) return null;
+  // Click outside to close anim dropdown
+  useEffect(() => {
+    if (!showAnimDropdown) return;
+    const handler = (e: MouseEvent) => {
+      if (animDropdownRef.current && !animDropdownRef.current.contains(e.target as Node)) {
+        setShowAnimDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showAnimDropdown]);
 
   const fontFamily = firstText?.fontFamily ?? "Inter";
   const textAlign = firstText?.textAlign ?? "left";
