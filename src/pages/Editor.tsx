@@ -1084,59 +1084,95 @@ const MockupsPanel = ({
 }) => {
   const devices = MOCKUP_DEFS.filter((m) => m.category === "device");
   const social = MOCKUP_DEFS.filter((m) => m.category === "social");
+  const professional = MOCKUP_DEFS.filter((m) => m.category === "professional");
+  const outdoor = MOCKUP_DEFS.filter((m) => m.category === "outdoor");
+
+  const renderMockupButton = (m: MockupDef) => {
+    const Icon = m.icon;
+    const isWhiteBg = m.frameColor === "#ffffff" || m.frameColor === "#f5f5f5";
+    
+    return (
+      <button
+        key={m.id}
+        onClick={() => onAddMockup(m.id)}
+        className="flex items-center gap-3 p-2.5 rounded-lg border border-border/40 hover:border-primary/40 hover:bg-primary/5 transition-all group"
+      >
+        <div 
+          className="w-10 h-14 rounded-lg flex items-center justify-center shadow-sm" 
+          style={{ 
+            background: m.frameColor, 
+            border: isWhiteBg ? "1px solid #e2e8f0" : "none" 
+          }}
+        >
+          <Icon 
+            size={16} 
+            className={isWhiteBg ? "text-gray-600" : "text-white/80"} 
+          />
+        </div>
+        <div className="text-left">
+          <span className="text-xs font-semibold text-foreground block">{m.name}</span>
+          <span className="text-[10px] text-muted-foreground">{m.width}×{m.height}</span>
+        </div>
+      </button>
+    );
+  };
 
   return (
-    <div className="flex flex-col gap-5 p-4">
+    <div className="flex flex-col gap-6 p-4">
       <div>
-        <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-1">Mockups & Previews</h3>
-        <p className="text-[11px] text-muted-foreground">Haz clic para agregar al lienzo</p>
+        <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-1">Smart Containers</h3>
+        <p className="text-[11px] text-muted-foreground">Haz clic para agregar · Arrastra imágenes dentro</p>
       </div>
 
+      {/* Dispositivos Digitales */}
       <div>
-        <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2.5">📱 Dispositivos</h4>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-2 h-2 rounded-full bg-primary" />
+          <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            💻 Dispositivos Digitales
+          </h4>
+        </div>
         <div className="flex flex-col gap-2">
-          {devices.map((m) => {
-            const Icon = m.icon;
-            return (
-              <button
-                key={m.id}
-                onClick={() => onAddMockup(m.id)}
-                className="flex items-center gap-3 p-2.5 rounded-lg border border-border/40 hover:border-primary/40 hover:bg-primary/5 transition-all group"
-              >
-                <div className="w-10 h-14 rounded-lg flex items-center justify-center" style={{ background: m.frameColor }}>
-                  <Icon size={16} className="text-white/80" />
-                </div>
-                <div className="text-left">
-                  <span className="text-xs font-semibold text-foreground block">{m.name}</span>
-                  <span className="text-[10px] text-muted-foreground">{m.width}×{m.height}</span>
-                </div>
-              </button>
-            );
-          })}
+          {devices.map(renderMockupButton)}
         </div>
       </div>
 
+      {/* Redes Sociales (B2C) */}
       <div>
-        <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2.5">📲 Social Media</h4>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-2 h-2 rounded-full bg-pink-500" />
+          <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            📲 Redes Sociales (B2C)
+          </h4>
+        </div>
         <div className="flex flex-col gap-2">
-          {social.map((m) => {
-            const Icon = m.icon;
-            return (
-              <button
-                key={m.id}
-                onClick={() => onAddMockup(m.id)}
-                className="flex items-center gap-3 p-2.5 rounded-lg border border-border/40 hover:border-primary/40 hover:bg-primary/5 transition-all group"
-              >
-                <div className="w-10 h-14 rounded-lg flex items-center justify-center" style={{ background: m.frameColor, border: m.frameColor === "#ffffff" ? "1px solid #e2e8f0" : "none" }}>
-                  <Icon size={16} className={m.frameColor === "#ffffff" ? "text-pink-500" : "text-white/80"} />
-                </div>
-                <div className="text-left">
-                  <span className="text-xs font-semibold text-foreground block">{m.name}</span>
-                  <span className="text-[10px] text-muted-foreground">{m.width}×{m.height}</span>
-                </div>
-              </button>
-            );
-          })}
+          {social.map(renderMockupButton)}
+        </div>
+      </div>
+
+      {/* Profesional & Video (B2B) */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-2 h-2 rounded-full bg-blue-500" />
+          <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            💼 Profesional & Video (B2B)
+          </h4>
+        </div>
+        <div className="flex flex-col gap-2">
+          {professional.map(renderMockupButton)}
+        </div>
+      </div>
+
+      {/* Publicidad Exterior (OOH) ✨ */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-2 h-2 rounded-full bg-orange-500" />
+          <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            🏗️ Publicidad Exterior (OOH) ✨
+          </h4>
+        </div>
+        <div className="flex flex-col gap-2">
+          {outdoor.map(renderMockupButton)}
         </div>
       </div>
     </div>
