@@ -1195,6 +1195,93 @@ const MockupsPanel = ({
   );
 };
 
+/* ── Elements Panel (SVG Shapes) ── */
+const ElementsPanel = ({
+  onAddShape,
+}: {
+  onAddShape: (shapeType: string, color: string) => void;
+}) => {
+  return (
+    <div className="flex flex-col gap-5 p-4">
+      <div>
+        <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-1">Elementos</h3>
+        <p className="text-[11px] text-muted-foreground">Haz clic para añadir al lienzo</p>
+      </div>
+
+      <div>
+        <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+          Formas Básicas
+        </h4>
+        <div className="grid grid-cols-4 gap-2">
+          {SHAPE_DEFS.map((shape) => (
+            <button
+              key={shape.id}
+              onClick={() => onAddShape(shape.id, shape.defaultColor)}
+              className="aspect-square rounded-xl border border-border/40 hover:border-primary/40 hover:bg-primary/5 flex items-center justify-center transition-all group"
+              title={shape.name}
+            >
+              <svg viewBox="0 0 24 24" className="w-8 h-8 text-muted-foreground group-hover:text-foreground transition-colors">
+                {shape.icon}
+              </svg>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-muted/30 rounded-lg p-3">
+        <p className="text-[10px] text-muted-foreground text-center">
+          💡 Usa el selector de color en la barra superior para cambiar el color del relleno
+        </p>
+      </div>
+    </div>
+  );
+};
+
+/* ── GIFs Panel ── */
+const GifsPanel = ({
+  onAddGif,
+}: {
+  onAddGif: (url: string) => void;
+}) => {
+  return (
+    <div className="flex flex-col gap-5 p-4">
+      <div>
+        <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-1">GIFs</h3>
+        <p className="text-[11px] text-muted-foreground">Arrastra o haz clic para añadir</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        {GIF_GALLERY.map((gif) => (
+          <button
+            key={gif.id}
+            onClick={() => onAddGif(gif.url)}
+            className="aspect-square rounded-lg border border-border/40 hover:border-primary/40 overflow-hidden relative group"
+            title={gif.label}
+          >
+            <img
+              src={gif.url}
+              alt={gif.label}
+              className="w-full h-full object-cover"
+              draggable={false}
+            />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
+              <span className="text-white text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 px-2 py-1 rounded">
+                {gif.label}
+              </span>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      <div className="bg-muted/30 rounded-lg p-3">
+        <p className="text-[10px] text-muted-foreground text-center">
+          🎬 Los GIFs se reproducen automáticamente en el Modo Presentación
+        </p>
+      </div>
+    </div>
+  );
+};
+
 /* ── Chroma Key Background Removal ── */
 async function chromaKeyRemove(
   imgSrc: string,
