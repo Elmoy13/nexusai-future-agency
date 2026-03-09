@@ -107,6 +107,7 @@ const tools = [
   { icon: Film, label: "GIFs", action: "gifs" },
   { icon: Smartphone, label: "Mockups", action: "mockups" },
   { icon: Palette, label: "Brand Hub", action: "brand" },
+  { icon: Wand2, label: "Transición", action: "transitions" },
 ];
 
 /* ── SVG Shape Definitions ── */
