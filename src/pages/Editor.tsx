@@ -1415,8 +1415,10 @@ const MockupFrame = ({ el, interactive, onDrop, onChildAdjust, onNativeFileDrop 
               draggable={false}
               className="pointer-events-none"
               style={{
-                width: "100%", height: "100%", objectFit: "cover",
-                transform: `scale(${el.mockupChildScale ?? 1}) translate(${el.mockupChildX ?? 0}%, ${el.mockupChildY ?? 0}%)`,
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+                transform: `translate3d(${el.mockupChildX ?? 0}%, ${el.mockupChildY ?? 0}%, 0) scale(${el.mockupChildScale ?? 1})`,
                 transformOrigin: "center center",
               }}
             />
