@@ -517,12 +517,29 @@ const Parrilla = () => {
     setIsGenerating(true);
 
     setTimeout(() => {
-      setPosts(MOCK_POSTS.filter((p) => platforms[p.platform]));
+      setPosts(MOCK_POSTS.filter((p) => platforms[p.platform as keyof typeof platforms]));
       setHasGenerated(true);
       setIsGenerating(false);
-      toast({ title: "🚀 Parrilla generada", description: "9 posts listos para revisar y programar." });
+      toast({ title: "🚀 Parrilla generada", description: `${optionsPerPost * 9} variantes de posts listos para revisar.` });
     }, 2000);
-  }, [platforms]);
+  }, [platforms, optionsPerPost]);
+
+  const handleEnhancePrompt = useCallback(() => {
+    if (!customPrompt.trim()) {
+      toast({ title: "✏️ Escribe algo primero", description: "Ingresa una idea básica para mejorarla." });
+      return;
+    }
+    setIsEnhancing(true);
+    setTimeout(() => {
+      setCustomPrompt(`Actúa como un Copywriter Senior especializado en marketing de tecnología. Crea una secuencia de contenido para el Drone X10 destacando su certificación IP68 y resistencia extrema. Usa un tono épico y aspiracional, orientado a cineastas profesionales y creadores de contenido aventureros. Incluye:\n\n• Ganchos (hooks) de alta retención en los primeros 3 segundos\n• Storytelling visual con transiciones cinematográficas\n• CTA claro hacia la landing page de pre-orden\n• Hashtags estratégicos para máximo alcance orgánico`);
+      setIsEnhancing(false);
+      toast({ title: "✨ Prompt mejorado", description: "Tu idea ha sido transformada en un mega-prompt profesional." });
+    }, 1200);
+  }, [customPrompt]);
+
+  const togglePlatform = (key: keyof typeof platforms) => {
+    setPlatforms((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const updatePost = useCallback((id: string, patch: Partial<PostCard>) => {
     setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
