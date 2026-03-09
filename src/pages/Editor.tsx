@@ -1663,10 +1663,13 @@ const InteractiveCanvas = ({
       <div style={{ transform: `scale(${scale})`, transformOrigin: "center center", willChange: "transform" }}>
         <div
           ref={canvasRef}
-          className={`bg-white shadow-2xl shadow-black/10 ring-1 ring-border/20 rounded-lg overflow-hidden transition-shadow ${canvasDragOver ? "ring-4 ring-cyan-500/60 shadow-cyan-500/20" : ""}`}
-          style={{ width: 1920, height: 1080, position: "relative" }}
+          className={`shadow-2xl shadow-black/10 ring-1 ring-border/20 rounded-lg overflow-hidden transition-shadow ${canvasDragOver ? "ring-4 ring-cyan-500/60 shadow-cyan-500/20" : ""}`}
+          style={{ width: 1920, height: 1080, position: "relative", backgroundColor: backgroundColor ?? "#ffffff" }}
           onMouseDown={(e) => {
-            if (e.target === e.currentTarget || (e.target as HTMLElement).dataset.canvas) onDeselect();
+            if (e.target === e.currentTarget || (e.target as HTMLElement).dataset.canvas) {
+              onDeselect();
+              onBackgroundClick?.();
+            }
           }}
           onDragOver={handleCanvasDragOver}
           onDragLeave={handleCanvasDragLeave}
