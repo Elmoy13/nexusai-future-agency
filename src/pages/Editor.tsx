@@ -402,6 +402,19 @@ const SmartFrameStation = ({ imgSrc, mockupDef, initialScale, initialX, initialY
   const lastPos = useRef({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
   const [imgNatural, setImgNatural] = useState({ w: 600, h: 400 });
+  const [denormalized, setDenormalized] = useState(false);
+
+  // Denormalize initial values when image loads and we have natural dimensions
+  useEffect(() => {
+    if (!denormalized && imgNatural.w > 600 && imgNatural.h > 400) {
+      // Convert percentage-based coordinates back to pixels for the modal
+      const pixelX = (initialX || 0) * imgNatural.w / 100;
+      const pixelY = (initialY || 0) * imgNatural.h / 100;
+      setPanX(pixelX);
+      setPanY(pixelY);
+      setDenormalized(true);
+    }
+  }, [imgNatural, initialX, initialY, denormalized]);
 
   // Lock body scroll on mount
   useEffect(() => {
@@ -447,7 +460,14 @@ const SmartFrameStation = ({ imgSrc, mockupDef, initialScale, initialX, initialY
 
   const resetPosition = () => { setScale(1); setPanX(0); setPanY(0); };
 
-  const handleApprove = () => { onSave(scale, panX, panY); onClose(); };
+  const handleApprove = () => {
+    // Normalize coordinates to percentages based on the image's natural dimensions
+    const normX = imgNatural.w > 0 ? (panX / imgNatural.w) * 100 : 0;
+    const normY = imgNatural.h > 0 ? (panY / imgNatural.h) * 100 : 0;
+    
+    onSave(scale, normX, normY);
+    onClose();
+  };
 
   // Device screen hole dimensions (display size in the modal)
   const inset = mockupDef.screenInset;
@@ -891,7 +911,7 @@ const MockupFrame = ({ el, interactive, onDrop, onChildAdjust, onNativeFileDrop 
               className="pointer-events-none"
               style={{
                 width: "100%", height: "100%", objectFit: "cover",
-                transform: `scale(${el.mockupChildScale ?? 1}) translate(${el.mockupChildX ?? 0}px, ${el.mockupChildY ?? 0}px)`,
+                transform: `scale(${el.mockupChildScale ?? 1}) translate(${el.mockupChildX ?? 0}%, ${el.mockupChildY ?? 0}%)`,
                 transformOrigin: "center center",
               }}
             />

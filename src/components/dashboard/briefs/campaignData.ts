@@ -30,9 +30,9 @@ export interface SlideElement {
   /* Mockup-specific */
   mockupType?: string;
   mockupChild?: string; // image src dropped inside
-  mockupChildScale?: number;
-  mockupChildX?: number;
-  mockupChildY?: number;
+  mockupChildScale?: number; // zoom factor (1 = 100%)
+  mockupChildX?: number; // horizontal position as % of image width
+  mockupChildY?: number; // vertical position as % of image height
 }
 
 export interface SlideData {
