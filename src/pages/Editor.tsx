@@ -805,15 +805,7 @@ const SmartFrameStation = ({ imgSrc, mockupDef, initialScale, initialX, initialY
   );
 };
 
-
-  imgSrc: string;
-  mockupDef: MockupDef;
-  initialScale: number;
-  initialX: number; // normalized (% of the image box)
-  initialY: number; // normalized (% of the image box)
-  onSave: (scale: number, x: number, y: number) => void;
-  onClose: () => void;
-}) => {
+/* ── Mockup Frame Renderer (used in canvas + thumbnails) ── */
   // Local state MUST hydrate from the current mockup state (no defaults if values exist)
   const [scale, setScale] = useState(initialScale || 1);
   const [normX, setNormX] = useState(initialX || 0);
