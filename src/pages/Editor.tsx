@@ -636,7 +636,7 @@ const SmartFrameStation = ({ imgSrc, mockupDef, initialScale, initialX, initialY
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .slider-cyan {
           background: linear-gradient(to right, #374151 0%, #374151 100%);
         }
