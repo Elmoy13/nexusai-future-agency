@@ -2260,15 +2260,43 @@ const Editor = () => {
   };
 
   const handleMockupDrop = useCallback((mockupId: string, imgSrc: string, imgElId: string) => {
+    const mockupEl = currentElements.find((e) => e.id === mockupId);
+    const def = getMockupDef(mockupEl?.mockupType);
+
+    // Immediate paint (then we upgrade to a proper "cover" scale once the image dimensions are known)
     history.set((prev) => {
       const updated = prev.map((e) =>
-        e.id === mockupId ? { ...e, mockupChild: imgSrc, mockupChildScale: 1, mockupChildX: 0, mockupChildY: 0 } : e
+        e.id === mockupId
+          ? { ...e, mockupChild: imgSrc, mockupChildScale: 1, mockupChildX: 0, mockupChildY: 0 }
+          : e,
       );
-      // Remove the original image element from the canvas
       return updated.filter((e) => e.id !== imgElId);
     });
-    toast({ title: "🎯 Imagen insertada en Mockup", description: "Doble clic en el mockup para ajustar escala." });
-  }, [history]);
+
+    if (def) {
+      const maskW = def.width - def.screenInset.left - def.screenInset.right;
+      const maskH = def.height - def.screenInset.top - def.screenInset.bottom;
+
+      const img = new window.Image();
+      img.onload = () => {
+        // We render with objectFit: contain at scale=1.
+        // Additional scale to behave like objectFit: cover is maxRatio/minRatio.
+        const rW = maskW / Math.max(1, img.naturalWidth);
+        const rH = maskH / Math.max(1, img.naturalHeight);
+        const coverScale = Math.max(rW, rH) / Math.min(rW, rH);
+        const scaleToFit = Math.max(1, coverScale * 1.03);
+
+        history.set((prev) => prev.map((e) =>
+          e.id === mockupId
+            ? { ...e, mockupChildScale: scaleToFit, mockupChildX: 0, mockupChildY: 0 }
+            : e,
+        ));
+      };
+      img.src = imgSrc;
+    }
+
+    toast({ title: "🎯 Imagen insertada en Mockup", description: "Doble clic en el mockup para re-encuadrar." });
+  }, [currentElements, history]);
 
   const handleMockupChildAdjust = useCallback((id: string, patch: Partial<SlideElement>) => {
     history.set((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
