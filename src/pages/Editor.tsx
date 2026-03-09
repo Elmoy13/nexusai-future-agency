@@ -2730,6 +2730,7 @@ const Editor = () => {
           </span>
           <Button onClick={startPresenting} variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 border-border/40"><Play size={13} /> Presentar</Button>
           <Button onClick={handleExport} disabled={exporting} variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 border-border/40"><FileDown size={13} /> Exportar PDF</Button>
+          <Button onClick={() => setShowCodeModal(true)} variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 border-border/40" title="Código Fuente (JSON)"><Braces size={13} /> Código</Button>
           <Button
             onClick={handleSave}
             disabled={saveState === "saving"}
