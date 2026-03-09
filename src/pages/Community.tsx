@@ -207,6 +207,26 @@ const Community = () => {
     if (!clientTags.includes(tag)) setClientTags((p) => [...p, tag]);
   };
 
+  const handleConnectChannel = (channelKey: string) => {
+    if (channelKey === "whatsapp" && !showWhatsappInput && !connectedChannels.whatsapp) {
+      setShowWhatsappInput(true);
+      return;
+    }
+    setConnectingChannel(channelKey);
+    setShowWhatsappInput(false);
+    setTimeout(() => {
+      setConnectedChannels((prev) => ({ ...prev, [channelKey]: true }));
+      setConnectingChannel(null);
+    }, 2000);
+  };
+
+  const integrationChannels = [
+    { key: "whatsapp", name: "WhatsApp Business API", description: "Mensajería directa con clientes vía API oficial de Meta", icon: Phone, color: "text-green-500", bgColor: "bg-green-500/15", borderColor: "border-green-500/30" },
+    { key: "instagram", name: "Instagram Direct", description: "DMs, comentarios y menciones de Instagram", icon: Instagram, color: "text-pink-500", bgColor: "bg-pink-500/15", borderColor: "border-pink-500/30" },
+    { key: "messenger", name: "Facebook Messenger", description: "Chat de Facebook Pages y Messenger API", icon: Facebook, color: "text-blue-500", bgColor: "bg-blue-500/15", borderColor: "border-blue-500/30" },
+    { key: "linkedin", name: "LinkedIn Pages", description: "Gestiona comentarios y mensajes de tu LinkedIn Company Page", icon: Linkedin, color: "text-blue-400", bgColor: "bg-blue-400/15", borderColor: "border-blue-400/30" },
+  ];
+
   return (
     <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* ═══ TOP BAR with KPIs ═══ */}
