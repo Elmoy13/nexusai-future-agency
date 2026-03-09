@@ -1776,7 +1776,7 @@ const RndElement = ({
             onChildAdjust={(patch) => onMockupChildAdjust?.(el.id, patch)}
             onNativeFileDrop={onMockupNativeFileDrop}
           />
-        ) : el.type === "image" ? (
+        ) : el.type === "image" || el.type === "gif" ? (
           <div
             className="w-full h-full"
             style={{
@@ -1789,7 +1789,7 @@ const RndElement = ({
             <img src={el.content} alt="" className="w-full h-full object-cover rounded-lg pointer-events-none" style={{ opacity: el.opacity ?? 1 }} draggable={false} />
           </div>
         ) : el.type === "shape" ? (
-          <div className="w-full h-full" style={{ background: el.content, borderRadius: 16 }} />
+          <InteractiveShapeElement el={el} transform={transform} />
         ) : editing ? (
           <textarea
             ref={textRef}
