@@ -1951,12 +1951,55 @@ const Editor = () => {
 
   const addSlide = () => {
     const newId = `new-${Date.now()}`;
-    setSlideMeta((prev) => [...prev, { id: newId, type: "content" as const, image: undefined }]);
+    setSlideMeta((prev) => [...prev, { id: newId, type: "content" as const, image: undefined, backgroundColor: "#ffffff" }]);
     setSlidesElements((prev) => [...prev, [
       { id: uid(), type: "text", content: "Nueva Diapositiva", x: 80, y: 80, width: 800, height: 80, fontSize: 64, fontWeight: "800", color: "#0f172a", zIndex: 1 },
       { id: uid(), type: "text", content: "Haz clic para editar", x: 80, y: 200, width: 800, height: 50, fontSize: 32, fontWeight: "400", color: "#64748b", zIndex: 2 },
     ]]);
     setActiveIdx(slideMeta.length);
+  };
+
+  /* ── Filmstrip CRUD ── */
+  const duplicateSlide = (idx: number) => {
+    const newId = `dup-${Date.now()}`;
+    const clonedElements = (slidesElements[idx] ?? []).map((el) => ({ ...el, id: uid() }));
+    const clonedMeta = { ...slideMeta[idx], id: newId };
+    setSlideMeta((prev) => [...prev.slice(0, idx + 1), clonedMeta, ...prev.slice(idx + 1)]);
+    setSlidesElements((prev) => [...prev.slice(0, idx + 1), clonedElements, ...prev.slice(idx + 1)]);
+    setActiveIdx(idx + 1);
+    toast({ title: "📋 Diapositiva duplicada" });
+  };
+
+  const deleteSlide = (idx: number) => {
+    if (slideMeta.length <= 1) {
+      toast({ title: "⚠️ No se puede eliminar", description: "Debe haber al menos una diapositiva." });
+      return;
+    }
+    setSlideMeta((prev) => prev.filter((_, i) => i !== idx));
+    setSlidesElements((prev) => prev.filter((_, i) => i !== idx));
+    if (activeIdx >= idx && activeIdx > 0) setActiveIdx(activeIdx - 1);
+    toast({ title: "🗑️ Diapositiva eliminada" });
+  };
+
+  const moveSlide = (idx: number, direction: "left" | "right") => {
+    const newIdx = direction === "left" ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= slideMeta.length) return;
+    setSlideMeta((prev) => {
+      const arr = [...prev];
+      [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+      return arr;
+    });
+    setSlidesElements((prev) => {
+      const arr = [...prev];
+      [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+      return arr;
+    });
+    setActiveIdx(newIdx);
+  };
+
+  /* ── Background Color ── */
+  const updateBackgroundColor = (color: string) => {
+    setSlideMeta((prev) => prev.map((m, i) => i === activeIdx ? { ...m, backgroundColor: color } : m));
   };
 
   /* ── Background removal via chroma key ── */
