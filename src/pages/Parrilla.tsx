@@ -488,9 +488,12 @@ const Parrilla = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Agent Controls
-  const [platforms, setPlatforms] = useState({ instagram: true, tiktok: true, linkedin: false });
+  const [platforms, setPlatforms] = useState({ instagram: true, tiktok: true, linkedin: false, twitter: false });
   const [frequency, setFrequency] = useState("3-week");
   const [objective, setObjective] = useState("engagement");
+  const [customPrompt, setCustomPrompt] = useState("");
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [optionsPerPost, setOptionsPerPost] = useState(2);
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
