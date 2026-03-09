@@ -660,6 +660,7 @@ const SmartFrameStation = ({ imgSrc, mockupDef, initialScale, initialX, initialY
         }
       `}</style>
     </motion.div>
+  );
 };
 
 /* ── Mockup Frame Renderer (used in canvas + thumbnails) ── */
