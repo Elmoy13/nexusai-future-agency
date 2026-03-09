@@ -3365,17 +3365,25 @@ const CodeModal = ({
                 <span className="text-[10px] text-slate-500 font-mono">
                   {slideMeta.length} slides · {exportPayload.length.toLocaleString()} chars
                 </span>
-                <button
-                  onClick={handleCopy}
-                  className={`h-7 px-3 rounded-md text-[11px] font-semibold flex items-center gap-1.5 transition-all ${
-                    copied
-                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                      : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20"
-                  }`}
-                >
-                  {copied ? <ClipboardCheck size={13} /> : <ClipboardCopy size={13} />}
-                  {copied ? "¡Copiado!" : "Copiar al Portapapeles"}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleDownload}
+                    className="h-7 px-3 rounded-md text-[11px] font-semibold flex items-center gap-1.5 bg-slate-700/60 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-600/40 transition-all"
+                  >
+                    <Download size={13} /> Descargar .json
+                  </button>
+                  <button
+                    onClick={handleCopy}
+                    className={`h-7 px-3 rounded-md text-[11px] font-semibold flex items-center gap-1.5 transition-all ${
+                      copied
+                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                        : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20"
+                    }`}
+                  >
+                    {copied ? <ClipboardCheck size={13} /> : <ClipboardCopy size={13} />}
+                    {copied ? "¡Copiado!" : "Copiar"}
+                  </button>
+                </div>
               </div>
               <textarea
                 readOnly
