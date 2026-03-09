@@ -434,6 +434,381 @@ const SmartFrameStation = ({ imgSrc, mockupDef, initialScale, initialX, initialY
   imgSrc: string;
   mockupDef: MockupDef;
   initialScale: number;
+  initialX: number; // normalized translate X (%)
+  initialY: number; // normalized translate Y (%)
+  onSave: (scale: number, x: number, y: number) => void;
+  onClose: () => void;
+}) => {
+  // Local state MUST hydrate from the current mockup state (no amnesia)
+  const [scale, setScale] = useState(initialScale || 1);
+  const [normX, setNormX] = useState(initialX || 0);
+  const [normY, setNormY] = useState(initialY || 0);
+  const [dragging, setDragging] = useState(false);
+  const lastPos = useRef({ x: 0, y: 0 });
+
+  // Lock body scroll while open
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  // Escape to close
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  // Screen aspect ratio MUST mirror the canvas dropzone
+  const inset = mockupDef.screenInset;
+  const screenW = mockupDef.width - inset.left - inset.right;
+  const screenH = mockupDef.height - inset.top - inset.bottom;
+  const aspectRatio = screenW / screenH;
+
+  // Hole dimensions in the modal
+  const HOLE_H = 520;
+  const HOLE_W = Math.round(HOLE_H * aspectRatio);
+  const holeRadius = mockupDef.id === "iphone15" ? 36 : mockupDef.id === "tablet" ? 16 : 12;
+
+  // Unique mask id
+  const maskId = useMemo(() => `sfs-mask-${Math.random().toString(36).slice(2, 8)}`, []);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(true);
+    lastPos.current = { x: e.clientX, y: e.clientY };
+  };
+
+  useEffect(() => {
+    if (!dragging) return;
+
+    const handleMove = (e: MouseEvent) => {
+      const dx = e.clientX - lastPos.current.x;
+      const dy = e.clientY - lastPos.current.y;
+      lastPos.current = { x: e.clientX, y: e.clientY };
+
+      // transform: translate(%) scale(scale) => translation scales too
+      const denomX = HOLE_W * Math.max(scale, 0.0001);
+      const denomY = HOLE_H * Math.max(scale, 0.0001);
+      setNormX((v) => v + (dx / denomX) * 100);
+      setNormY((v) => v + (dy / denomY) * 100);
+    };
+
+    const handleUp = () => setDragging(false);
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", handleUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+    };
+  }, [dragging, HOLE_W, HOLE_H, scale]);
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const delta = e.deltaY > 0 ? -0.05 : 0.05;
+    setScale((s) => Math.max(0.2, Math.min(5, +(s + delta).toFixed(2))));
+  }, []);
+
+  const resetPosition = () => {
+    setScale(1);
+    setNormX(0);
+    setNormY(0);
+  };
+
+  const handleApprove = () => {
+    onSave(scale, normX, normY);
+    onClose();
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.25 }}
+      className="fixed inset-0 w-screen h-screen z-[99999] flex"
+      style={{ background: "hsl(0 0% 0% / 0.95)" }}
+    >
+      {/* LEFT */}
+      <div
+        className="relative flex-[3] flex items-center justify-center overflow-hidden select-none"
+        style={{ background: "hsl(222 47% 11%)" }}
+        onMouseDown={handleMouseDown}
+        onWheel={handleWheel}
+      >
+        {/* Crop box */}
+        <div
+          className="absolute"
+          style={{
+            width: HOLE_W,
+            height: HOLE_H,
+            left: "50%",
+            top: "50%",
+            transform: "translate(-50%, -50%)",
+            borderRadius: holeRadius,
+            overflow: "hidden",
+          }}
+        >
+          <img
+            src={imgSrc}
+            alt="Encuadre"
+            draggable={false}
+            className="w-full h-full pointer-events-none"
+            style={{
+              objectFit: "contain",
+              transform: `translate3d(${normX}%, ${normY}%, 0) scale(${scale})`,
+              transformOrigin: "center center",
+              transition: dragging ? "none" : "transform 100ms ease-out",
+            }}
+          />
+        </div>
+
+        {/* Mask */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <mask id={maskId}>
+              <rect width="100%" height="100%" fill="white" />
+              <rect
+                x="50%"
+                y="50%"
+                width={HOLE_W}
+                height={HOLE_H}
+                rx={holeRadius}
+                ry={holeRadius}
+                fill="black"
+                transform={`translate(-${HOLE_W / 2}, -${HOLE_H / 2})`}
+              />
+            </mask>
+          </defs>
+          <rect width="100%" height="100%" fill="hsl(0 0% 0% / 0.7)" mask={`url(#${maskId})`} />
+        </svg>
+
+        {/* Outline */}
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            width: HOLE_W,
+            height: HOLE_H,
+            left: "50%",
+            top: "50%",
+            transform: "translate(-50%, -50%)",
+            borderRadius: holeRadius,
+            border: "2px solid hsl(var(--primary) / 0.35)",
+            boxShadow: "0 0 40px hsl(var(--primary) / 0.08), inset 0 0 20px hsl(var(--primary) / 0.04)",
+          }}
+        />
+
+        {/* Dynamic Island */}
+        {mockupDef.notch && mockupDef.id === "iphone15" && (
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              width: 110,
+              height: 30,
+              left: "50%",
+              top: "50%",
+              transform: `translate(-50%, calc(-50% - ${HOLE_H / 2 - 22}px))`,
+              borderRadius: 16,
+              background: "hsl(0 0% 0% / 0.9)",
+              border: "1px solid hsl(0 0% 100% / 0.06)",
+            }}
+          />
+        )}
+
+        {/* Status */}
+        <div
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3 px-4 py-2 rounded-full"
+          style={{
+            background: "hsl(0 0% 0% / 0.55)",
+            backdropFilter: "blur(12px)",
+            border: "1px solid hsl(0 0% 100% / 0.06)",
+          }}
+        >
+          <span className="text-[11px] font-mono" style={{ color: "hsl(var(--primary))" }}>
+            {Math.round(scale * 100)}%
+          </span>
+          <span className="w-px h-3" style={{ background: "hsl(0 0% 100% / 0.15)" }} />
+          <span className="text-[11px] font-mono" style={{ color: "hsl(0 0% 100% / 0.5)" }}>
+            X: {Math.round(normX)}% · Y: {Math.round(normY)}%
+          </span>
+          <span className="w-px h-3" style={{ background: "hsl(0 0% 100% / 0.15)" }} />
+          <span className="text-[10px]" style={{ color: "hsl(0 0% 100% / 0.35)" }}>
+            Scroll zoom · Drag pan
+          </span>
+        </div>
+
+        <div className="absolute inset-0" style={{ cursor: dragging ? "grabbing" : "grab" }} />
+      </div>
+
+      {/* RIGHT */}
+      <div className="flex-[1] flex flex-col" style={{ background: "hsl(0 0% 0%)", borderLeft: "1px solid hsl(0 0% 100% / 0.06)" }}>
+        <div className="p-6 pb-4" style={{ borderBottom: "1px solid hsl(0 0% 100% / 0.06)" }}>
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-base font-bold" style={{ color: "hsl(0 0% 100%)" }}>
+              Encuadre - {mockupDef.name}
+            </h2>
+            <button
+              onClick={onClose}
+              className="w-7 h-7 rounded-md flex items-center justify-center"
+              style={{ color: "hsl(0 0% 100% / 0.45)" }}
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <p className="text-xs" style={{ color: "hsl(0 0% 100% / 0.35)" }}>
+            Estado hidratado desde el lienzo
+          </p>
+        </div>
+
+        <div className="flex-1 p-6 space-y-7 overflow-y-auto">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "hsl(0 0% 100% / 0.55)" }}>
+                Zoom
+              </label>
+              <span className="text-xs font-mono font-semibold" style={{ color: "hsl(var(--primary))" }}>
+                {Math.round(scale * 100)}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min={20}
+              max={500}
+              value={Math.round(scale * 100)}
+              onChange={(e) => setScale(parseInt(e.target.value) / 100)}
+              className="sfs-slider w-full"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "hsl(0 0% 100% / 0.55)" }}>
+                Posición X
+              </label>
+              <span className="text-xs font-mono font-semibold" style={{ color: "hsl(0 0% 100% / 0.9)" }}>
+                {Math.round(normX)}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min={-200}
+              max={200}
+              value={Math.round(normX)}
+              onChange={(e) => setNormX(parseInt(e.target.value))}
+              className="sfs-slider w-full"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "hsl(0 0% 100% / 0.55)" }}>
+                Posición Y
+              </label>
+              <span className="text-xs font-mono font-semibold" style={{ color: "hsl(0 0% 100% / 0.9)" }}>
+                {Math.round(normY)}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min={-200}
+              max={200}
+              value={Math.round(normY)}
+              onChange={(e) => setNormY(parseInt(e.target.value))}
+              className="sfs-slider w-full"
+            />
+          </div>
+
+          <div style={{ height: 1, background: "hsl(0 0% 100% / 0.06)" }} />
+
+          <button
+            onClick={resetPosition}
+            className="w-full py-2.5 rounded-lg text-xs font-semibold uppercase tracking-wider"
+            style={{
+              border: "1px solid hsl(0 0% 100% / 0.12)",
+              color: "hsl(0 0% 100% / 0.55)",
+              background: "transparent",
+            }}
+          >
+            Resetear
+          </button>
+        </div>
+
+        <div className="p-6 space-y-3" style={{ borderTop: "1px solid hsl(0 0% 100% / 0.06)" }}>
+          <button
+            onClick={onClose}
+            className="w-full py-3 rounded-lg text-sm font-semibold"
+            style={{
+              border: "1px solid hsl(var(--primary) / 0.25)",
+              color: "hsl(var(--primary))",
+              background: "transparent",
+            }}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleApprove}
+            className="w-full py-3 rounded-lg text-sm font-bold"
+            style={{
+              background: "hsl(var(--primary))",
+              color: "hsl(var(--primary-foreground))",
+              boxShadow: "0 4px 20px hsl(var(--primary) / 0.3), 0 0 40px hsl(var(--primary) / 0.1)",
+            }}
+          >
+            Aprobar Encuadre
+          </button>
+        </div>
+      </div>
+
+      <style>{`
+        .sfs-slider {
+          -webkit-appearance: none;
+          appearance: none;
+          height: 4px;
+          border-radius: 2px;
+          background: hsl(0 0% 100% / 0.08);
+          outline: none;
+          cursor: pointer;
+        }
+        .sfs-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background: hsl(var(--primary));
+          cursor: pointer;
+          box-shadow: 0 0 10px hsl(var(--primary) / 0.4);
+        }
+        .sfs-slider::-moz-range-thumb {
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background: hsl(var(--primary));
+          cursor: pointer;
+          border: none;
+          box-shadow: 0 0 10px hsl(var(--primary) / 0.4);
+        }
+        .sfs-slider::-moz-range-track {
+          height: 4px;
+          border-radius: 2px;
+          background: hsl(0 0% 100% / 0.08);
+        }
+      `}</style>
+    </motion.div>
+  );
+};
+
+
+  imgSrc: string;
+  mockupDef: MockupDef;
+  initialScale: number;
   initialX: number; // normalized (% of the image box)
   initialY: number; // normalized (% of the image box)
   onSave: (scale: number, x: number, y: number) => void;
