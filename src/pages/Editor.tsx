@@ -2702,7 +2702,25 @@ const Editor = () => {
         )}
       </AnimatePresence>
 
-      {/* ── Top Bar ── */}
+      {/* Code Import/Export Modal */}
+      <AnimatePresence>
+        {showCodeModal && (
+          <CodeModal
+            slidesElements={slidesElements}
+            slideMeta={slideMeta}
+            onImport={(newElements, newMeta) => {
+              setSlidesElements(newElements);
+              setSlideMeta(newMeta);
+              setActiveIdx(0);
+              setSelectedIds(new Set());
+              history.reset(newElements[0] ?? []);
+              toast({ title: "✅ Presentación importada", description: `${newElements.length} diapositivas cargadas desde JSON.` });
+            }}
+            onClose={() => setShowCodeModal(false)}
+          />
+        )}
+      </AnimatePresence>
+
       <div className="h-14 bg-white border-b border-border/40 flex items-center justify-between px-4 flex-shrink-0 z-10">
         <div className="flex items-center gap-3">
           <Button onClick={() => navigate(-1)} variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-1.5 h-8 px-3 text-xs">
