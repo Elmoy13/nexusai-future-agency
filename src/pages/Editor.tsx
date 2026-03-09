@@ -1643,7 +1643,7 @@ const FormatBar = ({
       )}
 
       {/* ── Animation Controls (Premium Style) ── */}
-      <div className="relative">
+      <div className="relative" ref={animDropdownRef}>
         <button
           onClick={() => setShowAnimDropdown(!showAnimDropdown)}
           className={`h-8 px-3 rounded-lg text-[11px] font-bold flex items-center gap-2 transition-all shadow-sm ${
@@ -1658,7 +1658,7 @@ const FormatBar = ({
         </button>
         
         {showAnimDropdown && (
-          <div className="absolute top-full left-0 mt-1.5 w-48 bg-white rounded-xl shadow-2xl border border-border/40 py-1.5 z-50 overflow-hidden">
+          <div className="absolute top-full left-0 mt-1.5 w-48 bg-white rounded-xl shadow-2xl border border-border/40 py-1.5 z-[9999] overflow-hidden">
             <div className="px-3 py-1.5 border-b border-border/20 mb-1">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Animación de Elemento</span>
             </div>
