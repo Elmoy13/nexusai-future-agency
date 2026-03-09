@@ -1641,34 +1641,39 @@ const FormatBar = ({
         </>
       )}
 
-      {/* ── Animation Controls ── */}
+      {/* ── Animation Controls (Premium Style) ── */}
       <div className="relative">
         <button
           onClick={() => setShowAnimDropdown(!showAnimDropdown)}
-          className={`h-7 px-2.5 rounded-md text-[11px] font-semibold flex items-center gap-1.5 transition ${
+          className={`h-8 px-3 rounded-lg text-[11px] font-bold flex items-center gap-2 transition-all shadow-sm ${
             currentAnimation !== "none" 
-              ? "bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-600 border border-purple-500/30" 
-              : "bg-muted/50 text-muted-foreground hover:bg-muted border border-border/40"
+              ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white border border-indigo-400/50 shadow-indigo-500/25" 
+              : "bg-gradient-to-r from-indigo-500/10 to-purple-500/10 text-indigo-600 hover:from-indigo-500 hover:to-purple-500 hover:text-white border border-indigo-500/30 hover:border-indigo-400/50 hover:shadow-indigo-500/25"
           }`}
         >
-          <Sparkles size={12} className={currentAnimation !== "none" ? "text-purple-500" : ""} />
+          <Film size={14} className={currentAnimation !== "none" ? "text-white" : ""} />
           Animar
-          <ChevronDown size={10} />
+          <ChevronDown size={11} />
         </button>
         
         {showAnimDropdown && (
-          <div className="absolute top-full left-0 mt-1 w-44 bg-white rounded-lg shadow-xl border border-border/40 py-1 z-50">
+          <div className="absolute top-full left-0 mt-1.5 w-48 bg-white rounded-xl shadow-2xl border border-border/40 py-1.5 z-50 overflow-hidden">
+            <div className="px-3 py-1.5 border-b border-border/20 mb-1">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Animación de Elemento</span>
+            </div>
             {ANIMATION_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
                 onClick={() => { updateAllSelected({ animation: opt.value }); setShowAnimDropdown(false); }}
-                className={`w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-muted/50 transition ${
-                  currentAnimation === opt.value ? "bg-primary/10 text-primary font-medium" : "text-foreground"
+                className={`w-full px-3 py-2.5 text-left text-xs flex items-center gap-2.5 hover:bg-indigo-50 transition ${
+                  currentAnimation === opt.value ? "bg-indigo-100 text-indigo-700 font-semibold" : "text-foreground"
                 }`}
               >
-                {opt.icon}
+                <span className="w-5 h-5 rounded-md bg-indigo-100 flex items-center justify-center text-indigo-600">
+                  {opt.icon}
+                </span>
                 <span>{opt.label}</span>
-                {currentAnimation === opt.value && <Check size={12} className="ml-auto" />}
+                {currentAnimation === opt.value && <Check size={13} className="ml-auto text-indigo-600" />}
               </button>
             ))}
           </div>
