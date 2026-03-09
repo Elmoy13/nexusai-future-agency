@@ -1789,7 +1789,9 @@ const RndElement = ({
             <img src={el.content} alt="" className="w-full h-full object-cover rounded-lg pointer-events-none" style={{ opacity: el.opacity ?? 1 }} draggable={false} />
           </div>
         ) : el.type === "shape" ? (
-          <InteractiveShapeElement el={el} transform={transform} />
+          <div className="w-full h-full" style={{ transform, transformOrigin: "center center" }}>
+            <StaticShapeElement el={el} transform="none" />
+          </div>
         ) : editing ? (
           <textarea
             ref={textRef}
