@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import {
   ArrowLeft, Plus, Target, MessageSquare, Palette, Eye,
   Hexagon, Users, FileDown, Pencil, ImagePlus, Play,
-  ChevronDown, Check
+  ChevronDown, Check, CalendarDays
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -196,6 +196,9 @@ const BrandHub = ({ brandName, onBack }: Props) => {
                     </DropdownMenu>
 
                     <div className="flex items-center gap-1">
+                      <button onClick={() => navigate(`/parrilla/${campaign.id}`)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 transition-colors" title="Ver Parrilla">
+                        <CalendarDays size={14} />
+                      </button>
                       <button onClick={() => navigate(`/editor/${campaign.id}`)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors" title="Editar en Editor">
                         <Pencil size={14} />
                       </button>
