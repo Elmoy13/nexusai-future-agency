@@ -1916,11 +1916,37 @@ const Editor = () => {
   }, [currentElements, history]);
 
   const handleMockupNativeFileDrop = useCallback((mockupId: string, src: string) => {
+    const mockupEl = currentElements.find((e) => e.id === mockupId);
+    const def = getMockupDef(mockupEl?.mockupType);
+
+    // Immediate paint with scale=1, then upgrade to "cover" once dimensions are known
     history.set((prev) => prev.map((e) =>
       e.id === mockupId ? { ...e, mockupChild: src, mockupChildScale: 1, mockupChildX: 0, mockupChildY: 0 } : e
     ));
-    toast({ title: "🎯 Imagen insertada en Mockup" });
-  }, [history]);
+
+    if (def) {
+      const maskW = def.width - def.screenInset.left - def.screenInset.right;
+      const maskH = def.height - def.screenInset.top - def.screenInset.bottom;
+
+      const img = new window.Image();
+      img.onload = () => {
+        // Calculate scale to achieve object-fit: cover behavior
+        const rW = maskW / Math.max(1, img.naturalWidth);
+        const rH = maskH / Math.max(1, img.naturalHeight);
+        const coverScale = Math.max(rW, rH) / Math.min(rW, rH);
+        const scaleToFit = Math.max(1, coverScale * 1.03); // 3% margin
+
+        history.set((prev) => prev.map((e) =>
+          e.id === mockupId
+            ? { ...e, mockupChildScale: scaleToFit, mockupChildX: 0, mockupChildY: 0 }
+            : e,
+        ));
+      };
+      img.src = src;
+    }
+
+    toast({ title: "🎯 Imagen insertada en Mockup", description: "Doble clic para re-encuadrar." });
+  }, [currentElements, history]);
 
   const addSlide = () => {
     const newId = `new-${Date.now()}`;
