@@ -3394,17 +3394,39 @@ const CodeModal = ({
             </>
           ) : (
             <>
+              {/* File upload dropzone */}
               <div className="px-4 py-3 bg-slate-900/60 border-b border-slate-800">
-                <p className="text-[11px] text-slate-400">
-                  Pega el JSON generado por IA o exportado previamente. Al importar se reemplazará la presentación actual.
-                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full h-16 rounded-xl border-2 border-dashed border-slate-700/60 hover:border-cyan-500/40 hover:bg-cyan-500/5 flex items-center justify-center gap-3 text-slate-400 hover:text-cyan-400 transition-all group"
+                >
+                  <Upload size={18} className="group-hover:scale-110 transition-transform" />
+                  <div className="text-left">
+                    <span className="text-xs font-semibold block">
+                      {uploadedFileName ? uploadedFileName : "Subir archivo .json"}
+                    </span>
+                    <span className="text-[10px] text-slate-500">Haz clic para seleccionar un archivo</span>
+                  </div>
+                </button>
+              </div>
+
+              {/* Textarea for paste */}
+              <div className="px-4 pt-2">
+                <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">ó pega el JSON directamente:</span>
               </div>
               <textarea
                 value={importValue}
-                onChange={(e) => setImportValue(e.target.value)}
+                onChange={(e) => { setImportValue(e.target.value); setUploadedFileName(null); }}
                 placeholder='[\n  {\n    "id": "slide-1",\n    "type": "cover",\n    "backgroundColor": "#ffffff",\n    "transition": "fade",\n    "elements": [...]\n  }\n]'
                 className="flex-1 w-full resize-none bg-transparent text-cyan-400/90 font-mono text-xs leading-relaxed p-4 outline-none placeholder:text-slate-700 selection:bg-cyan-500/30"
-                style={{ minHeight: 300 }}
+                style={{ minHeight: 200 }}
               />
               <div className="px-4 py-3 bg-slate-900/60 border-t border-slate-800 flex items-center justify-between">
                 <span className="text-[10px] text-slate-500 font-mono">
