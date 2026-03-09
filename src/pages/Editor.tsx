@@ -1447,6 +1447,7 @@ const StaticElement = ({ el }: { el: SlideElement }) => {
       {el.content}
     </div>
   );
+};
 
 /* ── Inline Shape SVG Renderer (for use inside positioned containers) ── */
 const ShapeSvg = ({ shapeType, color, width, height }: { shapeType: string; color: string; width: number; height: number }) => {
