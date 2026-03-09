@@ -1454,10 +1454,14 @@ const FormatBar = ({
 }) => {
   const selectedEls = elements.filter((e) => selectedIds.has(e.id));
   const textEls = selectedEls.filter((e) => e.type === "text");
-  const imageEls = selectedEls.filter((e) => e.type === "image");
+  const imageEls = selectedEls.filter((e) => e.type === "image" || e.type === "gif");
+  const shapeEls = selectedEls.filter((e) => e.type === "shape");
   const firstText = textEls[0];
   const firstImage = imageEls[0];
+  const firstShape = shapeEls[0];
   const first = selectedEls[0];
+
+  const [showAnimDropdown, setShowAnimDropdown] = useState(false);
 
   if (selectedEls.length === 0) return null;
 
@@ -1466,6 +1470,8 @@ const FormatBar = ({
   const fontSize = firstText?.fontSize ?? 28;
   const color = firstText?.color ?? "#0f172a";
   const fontWeight = firstText?.fontWeight ?? "400";
+  const shapeColor = firstShape?.content ?? "#06b6d4";
+  const currentAnimation = first?.animation ?? "none";
 
   const updateAllSelected = (patch: Partial<SlideElement>) => {
     selectedIds.forEach((id) => onUpdate(id, patch));
