@@ -1493,6 +1493,8 @@ const FormatBar = ({
     return () => document.removeEventListener("mousedown", handler);
   }, [showAnimDropdown]);
 
+  if (selectedEls.length === 0) return null;
+
   const fontFamily = firstText?.fontFamily ?? "Inter";
   const textAlign = firstText?.textAlign ?? "left";
   const fontSize = firstText?.fontSize ?? 28;
