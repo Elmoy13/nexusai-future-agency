@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, forwardRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Rnd } from "react-rnd";
@@ -401,6 +402,12 @@ const SmartFrameStation = ({ imgSrc, mockupDef, initialScale, initialX, initialY
   const lastPos = useRef({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
   const [imgNatural, setImgNatural] = useState({ w: 600, h: 400 });
+
+  // Lock body scroll on mount
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
 
   // Escape to close
   useEffect(() => {
@@ -897,9 +904,9 @@ const MockupFrame = ({ el, interactive, onDrop, onChildAdjust, onNativeFileDrop 
         </div>
       </div>
 
-      {/* Adjust Modal */}
-      <AnimatePresence>
-        {showAdjustModal && el.mockupChild && def && (
+      {/* Adjust Modal — portaled to document.body */}
+      {showAdjustModal && el.mockupChild && def && createPortal(
+        <AnimatePresence>
           <SmartFrameStation
             imgSrc={el.mockupChild}
             mockupDef={def}
@@ -909,8 +916,9 @@ const MockupFrame = ({ el, interactive, onDrop, onChildAdjust, onNativeFileDrop 
             onSave={(s, x, y) => onChildAdjust?.({ mockupChildScale: s, mockupChildX: x, mockupChildY: y })}
             onClose={() => setShowAdjustModal(false)}
           />
-        )}
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
     </>
   );
 };
