@@ -1347,10 +1347,15 @@ const StaticElement = ({ el }: { el: SlideElement }) => {
       </div>
     );
   }
-  if (el.type === "shape") {
+  if (el.type === "gif") {
     return (
-      <div style={{ position: "absolute", left: el.x, top: el.y, width: el.width ?? 160, height: el.height ?? 160, background: el.content, borderRadius: 16, zIndex: el.zIndex ?? 0, transform }} />
+      <div style={{ position: "absolute", left: el.x, top: el.y, width: el.width ?? 400, height: el.height ?? 300, opacity: el.opacity ?? 1, zIndex: el.zIndex ?? 0, transform }}>
+        <img src={el.content} alt="" className="w-full h-full object-cover" draggable={false} />
+      </div>
     );
+  }
+  if (el.type === "shape") {
+    return <StaticShapeElement el={el} transform={transform} />;
   }
   return (
     <div style={{
@@ -1363,6 +1368,55 @@ const StaticElement = ({ el }: { el: SlideElement }) => {
       zIndex: el.zIndex ?? 0, transform,
     }}>
       {el.content}
+    </div>
+  );
+};
+
+/* ── Static Shape Element with SVG support ── */
+const StaticShapeElement = ({ el, transform }: { el: SlideElement; transform: string }) => {
+  const w = el.width ?? 160;
+  const h = el.height ?? 160;
+  const color = el.content || "#06b6d4";
+  const shapeType = el.shapeType ?? "rect";
+
+  const renderShape = () => {
+    switch (shapeType) {
+      case "circle":
+        return <ellipse cx="50%" cy="50%" rx="50%" ry="50%" fill={color} />;
+      case "triangle":
+        return <polygon points={`${w/2},0 ${w},${h} 0,${h}`} fill={color} />;
+      case "star":
+        const cx = w / 2, cy = h / 2, r = Math.min(w, h) / 2;
+        const points = Array.from({ length: 10 }, (_, i) => {
+          const angle = (i * 36 - 90) * Math.PI / 180;
+          const radius = i % 2 === 0 ? r : r * 0.5;
+          return `${cx + radius * Math.cos(angle)},${cy + radius * Math.sin(angle)}`;
+        }).join(" ");
+        return <polygon points={points} fill={color} />;
+      case "line":
+        return <line x1="0" y1={h/2} x2={w} y2={h/2} stroke={color} strokeWidth={Math.max(4, h * 0.1)} strokeLinecap="round" />;
+      case "arrow":
+        const arrowW = w * 0.7, arrowH = h * 0.3;
+        return (
+          <>
+            <line x1="0" y1={h/2} x2={arrowW} y2={h/2} stroke={color} strokeWidth={Math.max(4, h * 0.1)} strokeLinecap="round" />
+            <polygon points={`${arrowW - arrowH/2},${h/2 - arrowH/2} ${w},${h/2} ${arrowW - arrowH/2},${h/2 + arrowH/2}`} fill={color} />
+          </>
+        );
+      case "blob1":
+        return <ellipse cx="50%" cy="50%" rx="48%" ry="45%" fill={color} />;
+      case "blob2":
+        return <path d={`M ${w*0.5} ${h*0.05} Q ${w*0.95} ${h*0.15} ${w*0.9} ${h*0.5} Q ${w*0.85} ${h*0.9} ${w*0.4} ${h*0.95} Q ${h*0.05} ${h*0.8} ${w*0.1} ${h*0.4} Q ${w*0.15} ${h*0.1} ${w*0.5} ${h*0.05}`} fill={color} />;
+      default: // rect
+        return <rect x="0" y="0" width={w} height={h} rx={Math.min(w, h) * 0.1} fill={color} />;
+    }
+  };
+
+  return (
+    <div style={{ position: "absolute", left: el.x, top: el.y, width: w, height: h, zIndex: el.zIndex ?? 0, transform }}>
+      <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
+        {renderShape()}
+      </svg>
     </div>
   );
 };
