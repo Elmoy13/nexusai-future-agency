@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import {
   ArrowLeft, Plus, Target, MessageSquare, Palette, Eye,
   Hexagon, Users, FileDown, Pencil, ImagePlus, Play,
-  ChevronDown, Check
+  ChevronDown, Check, CalendarDays
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
