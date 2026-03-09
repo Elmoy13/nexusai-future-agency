@@ -2216,6 +2216,7 @@ const Editor = () => {
   const [clipboard, setClipboard] = useState<SlideElement[]>([]);
   const [eyedropperMode, setEyedropperMode] = useState(false);
   const [bgRemoveProcessing, setBgRemoveProcessing] = useState(false);
+  const [showCodeModal, setShowCodeModal] = useState(false);
 
   const history = useHistory(slidesElements[activeIdx] ?? []);
 
