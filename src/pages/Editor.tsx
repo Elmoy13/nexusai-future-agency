@@ -1283,7 +1283,68 @@ const GifsPanel = ({
   );
 };
 
-/* ── Chroma Key Background Removal ── */
+/* ── Slide Transition Options ── */
+const SLIDE_TRANSITION_OPTIONS: { value: "none" | "fade" | "slide" | "zoom"; label: string; desc: string; icon: React.ReactNode }[] = [
+  { value: "none", label: "Ninguna", desc: "Sin transición entre slides", icon: <X size={18} /> },
+  { value: "fade", label: "Desvanecer", desc: "Aparición suave con opacidad", icon: <Sparkles size={18} /> },
+  { value: "slide", label: "Deslizar Lateral", desc: "Entra desde la derecha", icon: <ChevronRight size={18} /> },
+  { value: "zoom", label: "Zoom In", desc: "Escala desde el centro", icon: <Plus size={18} /> },
+];
+
+/* ── Transitions Panel (Sidebar) ── */
+const TransitionsPanel = ({
+  currentTransition,
+  onSetTransition,
+}: {
+  currentTransition: "none" | "fade" | "slide" | "zoom";
+  onSetTransition: (t: "none" | "fade" | "slide" | "zoom") => void;
+}) => {
+  return (
+    <div className="flex flex-col gap-5 p-4">
+      <div>
+        <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-1">Transición de Diapositiva</h3>
+        <p className="text-[11px] text-muted-foreground">Elige cómo entra esta diapositiva en el Modo Presentación</p>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {SLIDE_TRANSITION_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => onSetTransition(opt.value)}
+            className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${
+              currentTransition === opt.value 
+                ? "border-indigo-500 bg-indigo-500/5 shadow-sm shadow-indigo-500/10" 
+                : "border-border/40 hover:border-indigo-500/40 hover:bg-indigo-500/5"
+            }`}
+          >
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+              currentTransition === opt.value 
+                ? "bg-gradient-to-br from-indigo-500 to-purple-500 text-white" 
+                : "bg-muted text-muted-foreground"
+            }`}>
+              {opt.icon}
+            </div>
+            <div>
+              <span className={`text-sm font-semibold block ${currentTransition === opt.value ? "text-indigo-600" : "text-foreground"}`}>{opt.label}</span>
+              <span className="text-[10px] text-muted-foreground">{opt.desc}</span>
+            </div>
+            {currentTransition === opt.value && (
+              <Check size={16} className="ml-auto text-indigo-500 flex-shrink-0" />
+            )}
+          </button>
+        ))}
+      </div>
+
+      <div className="bg-indigo-500/5 rounded-xl p-3.5 border border-indigo-500/10">
+        <p className="text-[10px] text-indigo-600/80 leading-relaxed">
+          💡 Las transiciones se aplican por diapositiva. Navega entre slides y configura cada una por separado.
+        </p>
+      </div>
+    </div>
+  );
+};
+
+
 async function chromaKeyRemove(
   imgSrc: string,
   clickX: number, clickY: number,
