@@ -28,6 +28,8 @@ const accentMap = {
 };
 
 const DashboardOverview = () => {
+  const navigate = useNavigate();
+
   return (
     <div className="p-6 md:p-10 lg:p-12 space-y-8">
       {/* Header */}
