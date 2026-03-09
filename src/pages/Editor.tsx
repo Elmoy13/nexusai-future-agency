@@ -1808,6 +1808,7 @@ const Editor = () => {
   }, [recalcScale]);
 
   const selectElement = (elId: string, multi: boolean) => {
+    setIsBackgroundSelected(false);
     setSelectedIds((prev) => {
       if (multi) {
         const next = new Set(prev);
