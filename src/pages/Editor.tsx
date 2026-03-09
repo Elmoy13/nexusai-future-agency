@@ -19,6 +19,7 @@ import {
   Smartphone, Monitor, Tablet, Globe, Linkedin, Youtube, Twitter, 
   RectangleHorizontal, Square, Copy, MoveLeft, MoveRight, PaintBucket,
   Shapes, Film, Circle, Triangle, Star, Zap, ChevronDown, Wand2, Braces, ClipboardCopy, ClipboardCheck,
+  Download, Upload,
 } from "lucide-react";
 import { initialCampaigns } from "@/components/dashboard/briefs/campaignData";
 import type { SlideData, SlideElement } from "@/components/dashboard/briefs/campaignData";
@@ -3230,6 +3231,8 @@ const CodeModal = ({
   const [tab, setTab] = useState<"export" | "import">("export");
   const [importValue, setImportValue] = useState("");
   const [copied, setCopied] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const exportPayload = useMemo(() => {
     const data = slideMeta.map((m, i) => ({
@@ -3245,9 +3248,39 @@ const CodeModal = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleImport = () => {
+  const handleDownload = () => {
+    const blob = new Blob([exportPayload], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "presentacion_nexus.json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast({ title: "📁 Archivo descargado", description: "presentacion_nexus.json guardado." });
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadedFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      setImportValue(text);
+    };
+    reader.onerror = () => {
+      toast({ title: "❌ Error de lectura", description: "No se pudo leer el archivo.", variant: "destructive" });
+    };
+    reader.readAsText(file);
+    // Reset input so re-uploading the same file triggers onChange
+    e.target.value = "";
+  };
+
+  const processImport = (raw: string) => {
     try {
-      const parsed = JSON.parse(importValue);
+      const parsed = JSON.parse(raw);
       if (!Array.isArray(parsed) || parsed.length === 0) {
         toast({ title: "❌ JSON inválido", description: "El JSON debe ser un arreglo con al menos una diapositiva.", variant: "destructive" });
         return;
@@ -3266,6 +3299,8 @@ const CodeModal = ({
       toast({ title: "❌ Error de parseo", description: "Asegúrate de que el formato JSON sea correcto.", variant: "destructive" });
     }
   };
+
+  const handleImport = () => processImport(importValue);
 
   return (
     <motion.div
@@ -3330,17 +3365,25 @@ const CodeModal = ({
                 <span className="text-[10px] text-slate-500 font-mono">
                   {slideMeta.length} slides · {exportPayload.length.toLocaleString()} chars
                 </span>
-                <button
-                  onClick={handleCopy}
-                  className={`h-7 px-3 rounded-md text-[11px] font-semibold flex items-center gap-1.5 transition-all ${
-                    copied
-                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                      : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20"
-                  }`}
-                >
-                  {copied ? <ClipboardCheck size={13} /> : <ClipboardCopy size={13} />}
-                  {copied ? "¡Copiado!" : "Copiar al Portapapeles"}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleDownload}
+                    className="h-7 px-3 rounded-md text-[11px] font-semibold flex items-center gap-1.5 bg-slate-700/60 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-600/40 transition-all"
+                  >
+                    <Download size={13} /> Descargar .json
+                  </button>
+                  <button
+                    onClick={handleCopy}
+                    className={`h-7 px-3 rounded-md text-[11px] font-semibold flex items-center gap-1.5 transition-all ${
+                      copied
+                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                        : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20"
+                    }`}
+                  >
+                    {copied ? <ClipboardCheck size={13} /> : <ClipboardCopy size={13} />}
+                    {copied ? "¡Copiado!" : "Copiar"}
+                  </button>
+                </div>
               </div>
               <textarea
                 readOnly
@@ -3351,17 +3394,39 @@ const CodeModal = ({
             </>
           ) : (
             <>
+              {/* File upload dropzone */}
               <div className="px-4 py-3 bg-slate-900/60 border-b border-slate-800">
-                <p className="text-[11px] text-slate-400">
-                  Pega el JSON generado por IA o exportado previamente. Al importar se reemplazará la presentación actual.
-                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full h-16 rounded-xl border-2 border-dashed border-slate-700/60 hover:border-cyan-500/40 hover:bg-cyan-500/5 flex items-center justify-center gap-3 text-slate-400 hover:text-cyan-400 transition-all group"
+                >
+                  <Upload size={18} className="group-hover:scale-110 transition-transform" />
+                  <div className="text-left">
+                    <span className="text-xs font-semibold block">
+                      {uploadedFileName ? uploadedFileName : "Subir archivo .json"}
+                    </span>
+                    <span className="text-[10px] text-slate-500">Haz clic para seleccionar un archivo</span>
+                  </div>
+                </button>
+              </div>
+
+              {/* Textarea for paste */}
+              <div className="px-4 pt-2">
+                <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">ó pega el JSON directamente:</span>
               </div>
               <textarea
                 value={importValue}
-                onChange={(e) => setImportValue(e.target.value)}
+                onChange={(e) => { setImportValue(e.target.value); setUploadedFileName(null); }}
                 placeholder='[\n  {\n    "id": "slide-1",\n    "type": "cover",\n    "backgroundColor": "#ffffff",\n    "transition": "fade",\n    "elements": [...]\n  }\n]'
                 className="flex-1 w-full resize-none bg-transparent text-cyan-400/90 font-mono text-xs leading-relaxed p-4 outline-none placeholder:text-slate-700 selection:bg-cyan-500/30"
-                style={{ minHeight: 300 }}
+                style={{ minHeight: 200 }}
               />
               <div className="px-4 py-3 bg-slate-900/60 border-t border-slate-800 flex items-center justify-between">
                 <span className="text-[10px] text-slate-500 font-mono">
