@@ -384,24 +384,14 @@ const Parrilla = () => {
       });
     }
 
-    // Build optimized prompt with reference type context
-    let finalPrompt = promptText;
-    let subjectDescription: string | undefined;
-    if (contextImage) {
-      const refConfig = REFERENCE_CONFIG[referenceType];
-      const userScene = promptText.trim() || "a clean, minimalist surface";
-      finalPrompt = referenceType === "logo"
-        ? `A high-end, photorealistic product mockup of ${userScene}. ${refConfig.promptSuffix}`
-        : `${promptText}\n\n${refConfig.promptSuffix}`;
-      subjectDescription = refConfig.subjectDescription;
-    }
+    // Build payload — prompt is now just the user's raw text
+    const productType = contextImage ? REFERENCE_CONFIG[referenceType].productType : undefined;
 
     try {
       const { data, error } = await supabase.functions.invoke("generate-nano-banano", {
-        body: { 
-          prompt: finalPrompt,
-          context_image: contextImage,
-          subject_description: subjectDescription,
+        body: {
+          prompt: promptText,
+          ...(contextImage && { context_image: contextImage, product_type: productType }),
           platform: activePlatforms,
           objective,
           opciones: optionsPerPost,
