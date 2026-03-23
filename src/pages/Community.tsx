@@ -58,7 +58,7 @@ interface Conversation {
 interface DbMessage {
   id: string;
   conversation_id: string;
-  sender: "customer" | "agent";
+  sender: "customer" | "agent" | "ai";
   content: string;
   sent_at: string;
 }
