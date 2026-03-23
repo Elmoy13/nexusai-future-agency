@@ -388,6 +388,7 @@ const Parrilla = () => {
       });
     }
 
+    try {
       const { data, error } = await supabase.functions.invoke("generate-nano-banano", {
         body: {
           prompt: finalPrompt,
@@ -405,7 +406,6 @@ const Parrilla = () => {
 
       if (error) throw error;
 
-      // If edge function returns images, map them to post cards
       if (data?.images && Array.isArray(data.images)) {
         const generatedPosts: PostCard[] = data.images.map((img: any, idx: number) => ({
           id: `gen-${idx}`,
@@ -431,15 +431,13 @@ const Parrilla = () => {
         }));
         setPosts(generatedPosts);
       } else {
-        // Fallback to mock data if response shape is unexpected
         setPosts(MOCK_POSTS.filter((p) => platforms[p.platform as keyof typeof platforms]));
       }
 
       setHasGenerated(true);
-      toast({ title: "🚀 Parrilla generada", description: `Contenido generado con Vertex AI exitosamente.` });
+      toast({ title: "🚀 Parrilla generada", description: "Contenido generado con Vertex AI exitosamente." });
     } catch (err: any) {
       console.error("Edge function error:", err);
-      // Fallback to mock data on error
       setPosts(MOCK_POSTS.filter((p) => platforms[p.platform as keyof typeof platforms]));
       setHasGenerated(true);
       toast({ 
@@ -450,7 +448,7 @@ const Parrilla = () => {
     } finally {
       setIsGenerating(false);
     }
-  }, [platforms, optionsPerPost, customPrompt, frequency, objective, brandAssetBlobs, adFormat]);
+  }, [platforms, optionsPerPost, customPrompt, agentPrompt, frequency, objective, brandAssetBlobs, adFormat]);
 
   const handleEnhancePrompt = useCallback(() => {
     if (!customPrompt.trim()) { toast({ title: "✏️ Escribe algo primero", description: "Ingresa una idea básica para mejorarla." }); return; }
