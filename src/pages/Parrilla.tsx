@@ -327,15 +327,74 @@ const Parrilla = () => {
     e.target.value = "";
   }, []);
 
-  const handleGenerate = useCallback(() => {
+  const handleGenerate = useCallback(async () => {
     setIsGenerating(true);
-    setTimeout(() => {
+    
+    const activePlatforms = Object.entries(platforms)
+      .filter(([_, v]) => v)
+      .map(([k]) => k);
+    
+    const promptText = customPrompt.trim() || `Genera contenido para ${activePlatforms.join(", ")} sobre el Drone X10 de Aero Dynamics. Frecuencia: ${frequency}. Objetivo: ${objective}.`;
+
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-nano-banano", {
+        body: { 
+          prompt: promptText, 
+          platforms: activePlatforms,
+          frequency,
+          objective,
+          optionsPerPost 
+        },
+      });
+
+      if (error) throw error;
+
+      // If edge function returns images, map them to post cards
+      if (data?.images && Array.isArray(data.images)) {
+        const generatedPosts: PostCard[] = data.images.map((img: any, idx: number) => ({
+          id: `gen-${idx}`,
+          platform: activePlatforms[idx % activePlatforms.length] as Platform,
+          status: "draft" as PostStatus,
+          image: img.url || img,
+          caption: img.caption || data.captions?.[idx] || "",
+          title: img.title || "",
+          hashtags: img.hashtags || [],
+          calendarDay: (idx * 3) + 1,
+        }));
+        setPosts(generatedPosts);
+      } else if (data?.posts && Array.isArray(data.posts)) {
+        const generatedPosts: PostCard[] = data.posts.map((post: any, idx: number) => ({
+          id: `gen-${idx}`,
+          platform: post.platform || activePlatforms[idx % activePlatforms.length] as Platform,
+          status: "draft" as PostStatus,
+          image: post.image || "/placeholder.svg",
+          caption: post.caption || post.content || post.copy || "",
+          title: post.title || "",
+          hashtags: post.hashtags || [],
+          calendarDay: post.calendarDay || (idx * 3) + 1,
+        }));
+        setPosts(generatedPosts);
+      } else {
+        // Fallback to mock data if response shape is unexpected
+        setPosts(MOCK_POSTS.filter((p) => platforms[p.platform as keyof typeof platforms]));
+      }
+
+      setHasGenerated(true);
+      toast({ title: "🚀 Parrilla generada", description: `Contenido generado con Vertex AI exitosamente.` });
+    } catch (err: any) {
+      console.error("Edge function error:", err);
+      // Fallback to mock data on error
       setPosts(MOCK_POSTS.filter((p) => platforms[p.platform as keyof typeof platforms]));
       setHasGenerated(true);
+      toast({ 
+        title: "⚠️ Usando datos de demostración", 
+        description: err?.message || "Error conectando con el motor de IA. Revisa los logs de Supabase.",
+        variant: "destructive"
+      });
+    } finally {
       setIsGenerating(false);
-      toast({ title: "🚀 Parrilla generada", description: `${optionsPerPost * 9} variantes de posts listos para revisar.` });
-    }, 2000);
-  }, [platforms, optionsPerPost]);
+    }
+  }, [platforms, optionsPerPost, customPrompt, frequency, objective]);
 
   const handleEnhancePrompt = useCallback(() => {
     if (!customPrompt.trim()) { toast({ title: "✏️ Escribe algo primero", description: "Ingresa una idea básica para mejorarla." }); return; }
