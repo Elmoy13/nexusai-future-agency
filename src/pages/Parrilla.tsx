@@ -314,6 +314,22 @@ const Parrilla = () => {
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [optionsPerPost, setOptionsPerPost] = useState(2);
   const [autoRemoveBg, setAutoRemoveBg] = useState(true);
+  const [referenceType, setReferenceType] = useState<"logo" | "product" | "mascot">("logo");
+
+  const REFERENCE_CONFIG = {
+    logo: {
+      promptBase: "The main visual element is the specific brand logo [1]. The logo [1] must be perfectly printed or integrated into the scene without distorting its shape.",
+      subjectDescription: "the specific brand logo",
+    },
+    product: {
+      promptBase: "The main subject is the physical product [1]. The product [1] must maintain its exact shape, label, and physical characteristics.",
+      subjectDescription: "a specific physical product or bottle",
+    },
+    mascot: {
+      promptBase: "The main character is [1]. The character [1] must be kept consistent in its visual identity.",
+      subjectDescription: "a specific mascot or character",
+    },
+  };
 
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -377,11 +393,21 @@ const Parrilla = () => {
       });
     }
 
+    // Build optimized prompt with reference type context
+    let finalPrompt = promptText;
+    let subjectDescription: string | undefined;
+    if (contextImage) {
+      const refConfig = REFERENCE_CONFIG[referenceType];
+      finalPrompt = `${promptText}\n\n${refConfig.promptBase}`;
+      subjectDescription = refConfig.subjectDescription;
+    }
+
     try {
       const { data, error } = await supabase.functions.invoke("generate-nano-banano", {
         body: { 
-          prompt: promptText,
+          prompt: finalPrompt,
           context_image: contextImage,
+          subject_description: subjectDescription,
           platform: activePlatforms,
           objective,
           opciones: optionsPerPost,
@@ -436,7 +462,7 @@ const Parrilla = () => {
     } finally {
       setIsGenerating(false);
     }
-  }, [platforms, optionsPerPost, customPrompt, frequency, objective, brandAssetBlobs]);
+  }, [platforms, optionsPerPost, customPrompt, frequency, objective, brandAssetBlobs, referenceType]);
 
   const handleEnhancePrompt = useCallback(() => {
     if (!customPrompt.trim()) { toast({ title: "✏️ Escribe algo primero", description: "Ingresa una idea básica para mejorarla." }); return; }
@@ -540,6 +566,22 @@ const Parrilla = () => {
                 <label htmlFor="auto-remove-bg" className="text-xs font-medium text-muted-foreground cursor-pointer">Remover Fondo Automatizado</label>
                 <Switch id="auto-remove-bg" checked={autoRemoveBg} onCheckedChange={setAutoRemoveBg} className="data-[state=checked]:bg-primary" />
               </div>
+
+              {brandAssets.length > 0 && (
+                <div className="mb-5 space-y-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tipo de Referencia</p>
+                  <Select value={referenceType} onValueChange={(v) => setReferenceType(v as "logo" | "product" | "mascot")}>
+                    <SelectTrigger className="bg-secondary/50 border-border h-10 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="logo">🏷️ Logo plano / Marca</SelectItem>
+                      <SelectItem value="product">📦 Producto físico (Botella, empaque, etc.)</SelectItem>
+                      <SelectItem value="mascot">🐾 Mascota / Personaje</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="flex-1 overflow-y-auto">
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Assets procesados</p>
