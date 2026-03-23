@@ -316,19 +316,10 @@ const Parrilla = () => {
   const [autoRemoveBg, setAutoRemoveBg] = useState(true);
   const [referenceType, setReferenceType] = useState<"logo" | "product" | "mascot">("logo");
 
-  const REFERENCE_CONFIG = {
-    logo: {
-      promptSuffix: "The complete and exact graphic pattern, including all visual elements, text, shapes, and colors from [1], must be flawlessly applied as a high-definition direct-to-surface print. The design from [1] must be treated as an immutable graphic asset, preserving its exact proportions, text legibility, and internal details with no artistic re-interpretation or distortion. The model must perform a strict visual transfer of [1] as if it were a direct file-to-print process. Avoid any text generation from outside sources.",
-      subjectDescription: "the specific brand logo",
-    },
-    product: {
-      promptSuffix: "The main subject is the physical product [1]. The product [1] must maintain its exact shape, label, and physical characteristics.",
-      subjectDescription: "a specific physical product or bottle",
-    },
-    mascot: {
-      promptSuffix: "The main character is [1]. The character [1] must be kept consistent in its visual identity.",
-      subjectDescription: "a specific mascot or character",
-    },
+   const REFERENCE_CONFIG = {
+    logo: { productType: "logo" },
+    product: { productType: "producto" },
+    mascot: { productType: "mascota" },
   };
 
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
