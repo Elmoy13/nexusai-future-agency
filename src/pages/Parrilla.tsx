@@ -517,9 +517,17 @@ const Parrilla = () => {
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Assets procesados</p>
                 <div className="grid grid-cols-2 gap-3">
                   {brandAssets.map((src, i) => (
-                    <CheckerboardBg key={i} className="aspect-square rounded-xl overflow-hidden border border-border shadow-sm">
-                      <img src={src} alt="" className="w-full h-full object-contain p-2" />
-                    </CheckerboardBg>
+                    <div key={i} className="relative group">
+                      <CheckerboardBg className="aspect-square rounded-xl overflow-hidden border border-border shadow-sm">
+                        <img src={src} alt="" className="w-full h-full object-contain p-2" />
+                      </CheckerboardBg>
+                      <a href={src} download={`asset-${i}.png`}
+                        className="absolute bottom-1.5 right-1.5 p-1.5 rounded-lg bg-card/80 backdrop-blur-sm border border-border opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Descargar"
+                      >
+                        <Download size={12} className="text-foreground" />
+                      </a>
+                    </div>
                   ))}
                   {brandAssets.length === 0 && <p className="col-span-2 text-xs text-muted-foreground text-center py-6">Sin assets aún</p>}
                 </div>
