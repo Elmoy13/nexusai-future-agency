@@ -391,6 +391,7 @@ const Parrilla = () => {
     }
 
     try {
+      setGeneratingStatus("🧠 Enviando prompt a Vertex AI...");
       const { data, error } = await supabase.functions.invoke("generate-nano-banano", {
         body: {
           prompt: finalPrompt,
