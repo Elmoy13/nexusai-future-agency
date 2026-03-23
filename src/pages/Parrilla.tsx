@@ -303,6 +303,7 @@ const Parrilla = () => {
   const [isClientView, setIsClientView] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("kanban");
   const [brandAssets, setBrandAssets] = useState<string[]>([]);
+  const [brandAssetBlobs, setBrandAssetBlobs] = useState<Blob[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingImage, setProcessingImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -331,14 +332,17 @@ const Parrilla = () => {
         const resultBlob = await removeBackground(file);
         const resultUrl = URL.createObjectURL(resultBlob);
         setBrandAssets((prev) => [...prev, resultUrl]);
+        setBrandAssetBlobs((prev) => [...prev, resultBlob]);
         toast({ title: "✨ ¡Producto aislado con éxito!", description: "Fondo removido exitosamente." });
       } else {
         setBrandAssets((prev) => [...prev, previewUrl]);
+        setBrandAssetBlobs((prev) => [...prev, file]);
         toast({ title: "✅ Asset cargado", description: "Imagen agregada sin procesar." });
       }
     } catch (err: any) {
       console.error("background-removal error:", err);
       setBrandAssets((prev) => [...prev, previewUrl]);
+      setBrandAssetBlobs((prev) => [...prev, file]);
       toast({
         title: "Error al procesar imagen",
         description: err?.message?.includes("WebGL") 
@@ -361,8 +365,17 @@ const Parrilla = () => {
     
     const promptText = customPrompt.trim() || `Genera contenido para ${activePlatforms.join(", ")}. Frecuencia: ${frequency}. Objetivo: ${objective}.`;
 
-    // Use the first brand asset as context image if available
-    const contextImage = brandAssets.length > 0 ? brandAssets[0] : undefined;
+    // Convert first brand asset blob to Base64 for the backend
+    let contextImage: string | undefined;
+    if (brandAssetBlobs.length > 0) {
+      const blob = brandAssetBlobs[0];
+      contextImage = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
 
     try {
       const { data, error } = await supabase.functions.invoke("generate-nano-banano", {
@@ -423,7 +436,7 @@ const Parrilla = () => {
     } finally {
       setIsGenerating(false);
     }
-  }, [platforms, optionsPerPost, customPrompt, frequency, objective, brandAssets]);
+  }, [platforms, optionsPerPost, customPrompt, frequency, objective, brandAssetBlobs]);
 
   const handleEnhancePrompt = useCallback(() => {
     if (!customPrompt.trim()) { toast({ title: "✏️ Escribe algo primero", description: "Ingresa una idea básica para mejorarla." }); return; }
