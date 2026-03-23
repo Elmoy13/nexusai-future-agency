@@ -329,7 +329,7 @@ const Parrilla = () => {
       const resultBlob = await removeBackground(file);
       const resultUrl = URL.createObjectURL(resultBlob);
       setBrandAssets((prev) => [...prev, resultUrl]);
-      toast({ title: "✨ ¡Producto aislado con éxito!", description: "Procesado localmente — Costo $0." });
+      toast({ title: "✨ ¡Producto aislado con éxito!", description: "Fondo removido exitosamente." });
     } catch (err: any) {
       console.error("background-removal error:", err);
       setBrandAssets((prev) => [...prev, previewUrl]);
