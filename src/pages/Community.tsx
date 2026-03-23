@@ -249,6 +249,15 @@ const Community = () => {
         console.error("Edge function error:", error);
         toast({ title: "Error al enviar", description: error.message, variant: "destructive" });
         setInputMessage(text); // Restore input on error
+      } else {
+        // Re-fetch messages to ensure the sent message appears immediately
+        const { data: freshMessages } = await supabase
+          .from("messages")
+          .select("*")
+          .eq("conversation_id", selectedConversationId)
+          .order("sent_at", { ascending: true });
+        if (freshMessages) setMessages(freshMessages);
+        fetchConversations();
       }
     } catch (err: any) {
       console.error("Send error:", err);
