@@ -670,7 +670,7 @@ const Parrilla = () => {
           </AnimatePresence>
 
           {/* Content Grid */}
-          <div className="flex-1 overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-y-auto flex flex-col">
             {hasGenerated ? (
               <>
                 <Tabs value={activePlatform} onValueChange={(v) => setActivePlatform(v as Platform)} className="flex-1 flex flex-col overflow-hidden">
