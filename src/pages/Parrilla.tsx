@@ -312,19 +312,40 @@ const Parrilla = () => {
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [optionsPerPost, setOptionsPerPost] = useState(2);
 
-  const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    setProcessingImage(url);
+    const previewUrl = URL.createObjectURL(file);
+    setProcessingImage(previewUrl);
     setIsProcessing(true);
-    setTimeout(() => {
+    e.target.value = "";
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const { data, error } = await supabase.functions.invoke("remove-background", {
+        body: formData,
+      });
+
+      if (error) throw error;
+
+      const resultUrl = data?.url || data?.image || previewUrl;
+      setBrandAssets((prev) => [...prev, resultUrl]);
+      toast({ title: "✨ ¡Producto aislado con éxito!", description: "PNG transparente listo para usar." });
+    } catch (err: any) {
+      console.error("remove-background error:", err);
+      // Fallback: keep original image so UI doesn't break
+      setBrandAssets((prev) => [...prev, previewUrl]);
+      toast({
+        title: "Error al procesar imagen",
+        description: err?.message || "No se pudo conectar con el motor de IA. Revisa los logs de Supabase.",
+        variant: "destructive",
+      });
+    } finally {
       setIsProcessing(false);
       setProcessingImage(null);
-      setBrandAssets((prev) => [...prev, url]);
-      toast({ title: "✨ Fondo eliminado", description: "PNG transparente creado exitosamente." });
-    }, 3000);
-    e.target.value = "";
+    }
   }, []);
 
   const handleGenerate = useCallback(async () => {
@@ -721,7 +742,7 @@ const Parrilla = () => {
               </div>
               <div className="flex items-center justify-center gap-3">
                 <Loader2 size={20} className="animate-spin text-primary" />
-                <p className="text-foreground font-semibold">✨ IA Nexus analizando y creando PNG transparente...</p>
+                <p className="text-foreground font-semibold">✨ IA Nexus aislando producto...</p>
               </div>
             </motion.div>
           </motion.div>
