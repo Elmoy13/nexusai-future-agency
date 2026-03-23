@@ -316,6 +316,7 @@ const Parrilla = () => {
   const [optionsPerPost, setOptionsPerPost] = useState(2);
   const [autoRemoveBg, setAutoRemoveBg] = useState(true);
   const [adFormat, setAdFormat] = useState<"mobile_screen" | "watermark" | "merch">("merch");
+  const [agentPrompt, setAgentPrompt] = useState<string | null>(null);
 
   // Ad format options — prompt construction is now handled entirely by the backend
 
