@@ -16,11 +16,7 @@ const Dashboard = () => {
       <main className="flex-1 min-h-screen overflow-y-auto">
         {activeView === "overview" && <DashboardOverview />}
         {activeView === "briefs" && <BriefsModule />}
-        {activeView === "parrilla" && (
-          <div className="p-8 md:p-12 max-w-6xl">
-            <ParrillasHub />
-          </div>
-        )}
+        {activeView === "parrilla" && <ParrillasHub />}
         {activeView === "community" && (
           <div className="p-8 md:p-12 max-w-6xl">
             <CommunityHub />
