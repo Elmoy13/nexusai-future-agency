@@ -398,7 +398,10 @@ const Parrilla = () => {
     let subjectDescription: string | undefined;
     if (contextImage) {
       const refConfig = REFERENCE_CONFIG[referenceType];
-      finalPrompt = `${promptText}\n\n${refConfig.promptBase}`;
+      const userScene = promptText.trim() || "a clean, minimalist surface";
+      finalPrompt = referenceType === "logo"
+        ? `A high-end, photorealistic product mockup of ${userScene}. ${refConfig.promptSuffix}`
+        : `${promptText}\n\n${refConfig.promptSuffix}`;
       subjectDescription = refConfig.subjectDescription;
     }
 
