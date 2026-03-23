@@ -362,7 +362,7 @@ const Parrilla = () => {
     }
   }, [autoRemoveBg]);
 
-  const handleGenerateWithPromptRef = useRef<(p?: string) => Promise<void>>();
+  
 
   const handleGenerateWithPrompt = useCallback(async (promptOverride?: string) => {
     setIsGenerating(true);
