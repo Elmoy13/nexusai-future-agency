@@ -303,6 +303,7 @@ const Parrilla = () => {
   const [isClientView, setIsClientView] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("kanban");
   const [brandAssets, setBrandAssets] = useState<string[]>([]);
+  const [brandAssetBlobs, setBrandAssetBlobs] = useState<Blob[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingImage, setProcessingImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
