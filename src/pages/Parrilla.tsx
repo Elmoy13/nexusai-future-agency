@@ -362,11 +362,7 @@ const Parrilla = () => {
     }
   }, [autoRemoveBg]);
 
-  const handleAgentReady = useCallback((payload: { prompt: string; brandContext: string; audience: string; style: string }) => {
-    setAgentPrompt(payload.prompt);
-    // Auto-trigger generation
-    handleGenerateWithPrompt(payload.prompt);
-  }, [handleGenerateWithPrompt]);
+  const handleGenerateWithPromptRef = useRef<(p?: string) => Promise<void>>();
 
   const handleGenerateWithPrompt = useCallback(async (promptOverride?: string) => {
     setIsGenerating(true);
