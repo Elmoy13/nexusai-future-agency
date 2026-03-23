@@ -327,10 +327,15 @@ const Parrilla = () => {
     e.target.value = "";
 
     try {
-      const resultBlob = await removeBackground(file);
-      const resultUrl = URL.createObjectURL(resultBlob);
-      setBrandAssets((prev) => [...prev, resultUrl]);
-      toast({ title: "✨ ¡Producto aislado con éxito!", description: "Fondo removido exitosamente." });
+      if (autoRemoveBg) {
+        const resultBlob = await removeBackground(file);
+        const resultUrl = URL.createObjectURL(resultBlob);
+        setBrandAssets((prev) => [...prev, resultUrl]);
+        toast({ title: "✨ ¡Producto aislado con éxito!", description: "Fondo removido exitosamente." });
+      } else {
+        setBrandAssets((prev) => [...prev, previewUrl]);
+        toast({ title: "✅ Asset cargado", description: "Imagen agregada sin procesar." });
+      }
     } catch (err: any) {
       console.error("background-removal error:", err);
       setBrandAssets((prev) => [...prev, previewUrl]);
