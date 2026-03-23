@@ -329,112 +329,70 @@ const Community = () => {
 
         {/* ── COL 1: SMART INBOX (30%) ── */}
         <div className="w-[30%] border-r border-border/20 flex flex-col bg-card/30">
-          {/* Triage Tabs */}
-          <div className="px-3 pt-3">
-            <div className="flex gap-1 bg-muted/20 rounded-lg p-1">
-              {[
-                { key: "dm" as const, label: "DMs", icon: MessageSquare },
-                { key: "comment" as const, label: "Comentarios", icon: MessageCircle },
-                { key: "mention" as const, label: "Menciones", icon: AtSign },
-                { key: "review" as const, label: "Reseñas", icon: Star },
-              ].map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setInboxTab(tab.key)}
-                  className={cn(
-                    "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-[11px] font-medium transition-all",
-                    inboxTab === tab.key
-                      ? "bg-primary/15 text-primary shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <tab.icon size={12} />
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Search */}
           <div className="p-3 pb-2">
             <div className="relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Buscar..." className="pl-9 h-8 text-xs bg-muted/20 border-border/30" />
+              <Input
+                placeholder="Buscar contacto..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-8 text-xs bg-muted/20 border-border/30"
+              />
             </div>
           </div>
 
-          {/* Contact List / Tickets */}
+          {/* Conversation List */}
           <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-1">
-            {filteredContacts.length === 0 && (
+            {loadingConversations ? (
+              <div className="text-center py-12">
+                <Loader2 size={24} className="mx-auto mb-2 animate-spin text-primary" />
+                <p className="text-xs text-muted-foreground">Cargando conversaciones...</p>
+              </div>
+            ) : conversations.filter((c) =>
+              c.contact_name.toLowerCase().includes(searchQuery.toLowerCase())
+            ).length === 0 ? (
               <div className="text-center py-12 text-muted-foreground/40">
                 <MessageSquare size={24} className="mx-auto mb-2 opacity-30" />
-                <p className="text-xs">Sin conversaciones en esta categoría</p>
+                <p className="text-xs">Sin conversaciones</p>
               </div>
+            ) : (
+              conversations
+                .filter((c) => c.contact_name.toLowerCase().includes(searchQuery.toLowerCase()))
+                .map((conv) => (
+                  <motion.div
+                    key={conv.id}
+                    onClick={() => setSelectedConversationId(conv.id)}
+                    className={cn(
+                      "p-3 rounded-xl cursor-pointer transition-all group",
+                      selectedConversationId === conv.id
+                        ? "bg-primary/10 border border-primary/20"
+                        : "hover:bg-muted/15 border border-transparent"
+                    )}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <div className="relative shrink-0">
+                        <Avatar className="w-9 h-9">
+                          <AvatarFallback className="bg-gradient-to-br from-primary/20 to-accent/20 text-[11px] font-semibold">
+                            {conv.contact_name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-card flex items-center justify-center border border-border/40">
+                          {getPlatformIcon(conv.contact_platform, 9)}
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="font-medium text-xs">{conv.contact_name}</span>
+                          <span className="text-[9px] text-muted-foreground">{formatRelative(conv.last_message_at)}</span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground truncate capitalize">{conv.contact_platform}</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))
             )}
-
-            {filteredContacts.map((contact) => (
-              <motion.div
-                key={contact.id}
-                onClick={() => { setSelectedContact(contact); setShowSuggestion(true); }}
-                className={cn(
-                  "p-3 rounded-xl cursor-pointer transition-all group",
-                  selectedContact.id === contact.id
-                    ? "bg-primary/10 border border-primary/20"
-                    : "hover:bg-muted/15 border border-transparent"
-                )}
-                whileTap={{ scale: 0.98 }}
-              >
-                <div className="flex items-start gap-2.5">
-                  {/* Sentiment Dot */}
-                  <div className="pt-1.5">
-                    <div className={cn("w-2.5 h-2.5 rounded-full", getSentimentDot(contact.sentiment))} />
-                  </div>
-
-                  {/* Avatar */}
-                  <div className="relative shrink-0">
-                    <Avatar className="w-9 h-9">
-                      <AvatarFallback className="bg-gradient-to-br from-primary/20 to-accent/20 text-[11px] font-semibold">
-                        {contact.name.split(" ").map((n) => n[0]).join("")}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-card flex items-center justify-center border border-border/40">
-                      {getPlatformIcon(contact.platform, 9)}
-                    </div>
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="font-medium text-xs">{contact.name}</span>
-                      <span className="text-[9px] text-muted-foreground">{contact.timestamp}</span>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground truncate">{contact.lastMessage}</p>
-
-                    {/* Badges Row */}
-                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                      <Badge variant="outline" className={cn(
-                        "text-[8px] py-0 px-1.5 h-4",
-                        contact.aiActive
-                          ? "border-primary/30 text-primary bg-primary/10"
-                          : "border-amber-500/30 text-amber-400 bg-amber-500/10"
-                      )}>
-                        {contact.aiActive ? "🤖 AI" : "🧑‍💻 Humano"}
-                      </Badge>
-                      <Badge variant="outline" className="text-[8px] py-0 px-1.5 h-4 border-border/30 text-muted-foreground">
-                        {getSentimentLabel(contact.sentiment)}
-                      </Badge>
-                      {contact.slaAlert && (
-                        <span className="text-[8px] text-red-400 font-medium animate-pulse">
-                          ⏱ {contact.slaAlert}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {contact.unread && <div className="w-2 h-2 rounded-full bg-primary animate-pulse mt-1.5 shrink-0" />}
-                </div>
-              </motion.div>
-            ))}
           </div>
         </div>
 
@@ -443,23 +401,24 @@ const Community = () => {
           {/* Chat Header */}
           <div className="h-14 border-b border-border/20 px-4 flex items-center justify-between bg-card/50 shrink-0">
             <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className={cn("w-2 h-2 rounded-full absolute -left-4 top-1/2 -translate-y-1/2", getSentimentDot(selectedContact.sentiment))} />
-                <Avatar className="w-8 h-8">
-                  <AvatarFallback className="bg-gradient-to-br from-primary/20 to-accent/20 text-[10px] font-semibold">
-                    {selectedContact.name.split(" ").map((n) => n[0]).join("")}
-                  </AvatarFallback>
-                </Avatar>
-              </div>
-              <div>
-                <h3 className="font-semibold text-sm">{selectedContact.name}</h3>
-                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                  {getPlatformIcon(selectedContact.platform, 10)}
-                  <span className="capitalize">{selectedContact.platform}</span>
-                  <span className="text-border">·</span>
-                  <span>{getSentimentLabel(selectedContact.sentiment)}</span>
-                </div>
-              </div>
+              {selectedConversation ? (
+                <>
+                  <Avatar className="w-8 h-8">
+                    <AvatarFallback className="bg-gradient-to-br from-primary/20 to-accent/20 text-[10px] font-semibold">
+                      {selectedConversation.contact_name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h3 className="font-semibold text-sm">{selectedConversation.contact_name}</h3>
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                      {getPlatformIcon(selectedConversation.contact_platform, 10)}
+                      <span className="capitalize">{selectedConversation.contact_platform}</span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <span className="text-sm text-muted-foreground">Selecciona una conversación</span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -482,86 +441,57 @@ const Community = () => {
             </div>
           </div>
 
-          {/* Unified Timeline */}
+          {/* Messages Timeline */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            <AnimatePresence>
-              {messages.map((msg) => (
-                <motion.div
-                  key={msg.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={cn("flex", msg.sender === "user" ? "justify-start" : "justify-end")}
-                >
-                  <div className={cn(
-                    "max-w-[78%] rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed",
-                    msg.sender === "user" && "bg-muted/25 border border-border/25",
-                    msg.sender === "ai" && "bg-gradient-to-br from-primary/15 to-cyan-500/10 border border-primary/20",
-                    msg.sender === "agent" && "bg-amber-500/15 border border-amber-500/25"
-                  )}>
-                    {msg.sender !== "user" && (
-                      <div className="flex items-center gap-1.5 mb-1">
-                        {msg.sender === "ai" ? (
+            {loadingMessages ? (
+              <div className="text-center py-20">
+                <Loader2 size={24} className="mx-auto mb-2 animate-spin text-primary" />
+                <p className="text-xs text-muted-foreground">Cargando mensajes...</p>
+              </div>
+            ) : messages.length === 0 ? (
+              <div className="text-center py-20 text-muted-foreground/40">
+                <Bot size={32} className="mx-auto mb-3 opacity-30" />
+                <p className="text-sm">Sin mensajes aún</p>
+              </div>
+            ) : (
+              <AnimatePresence>
+                {messages.map((msg) => (
+                  <motion.div
+                    key={msg.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={cn("flex", msg.sender === "customer" ? "justify-start" : "justify-end")}
+                  >
+                    <div className={cn(
+                      "max-w-[78%] rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed",
+                      msg.sender === "customer" && "bg-muted/25 border border-border/25",
+                      msg.sender === "agent" && "bg-gradient-to-br from-primary/15 to-cyan-500/10 border border-primary/20",
+                    )}>
+                      {msg.sender === "agent" && (
+                        <div className="flex items-center gap-1.5 mb-1">
                           <span className="text-[9px] font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                            <Bot size={9} /> IA Autónoma
+                            <Bot size={9} /> Agente
                           </span>
-                        ) : (
-                          <span className="text-[9px] font-mono text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                            <UserCheck size={9} /> Agente
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    <p>{msg.content}</p>
-                    <span className="text-[9px] text-muted-foreground/60 mt-1 block text-right">{msg.timestamp}</span>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+                        </div>
+                      )}
+                      <p>{msg.content}</p>
+                      <span className="text-[9px] text-muted-foreground/60 mt-1 block text-right">{formatTime(msg.sent_at)}</span>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            )}
 
-            {isTyping && (
+            {isSending && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-end">
                 <div className="bg-primary/10 border border-primary/20 rounded-2xl px-4 py-2.5 flex items-center gap-2">
                   <Loader2 size={13} className="animate-spin text-primary" />
-                  <span className="text-xs text-primary">NexusAI escribiendo...</span>
+                  <span className="text-xs text-primary">Enviando...</span>
                 </div>
               </motion.div>
             )}
             <div ref={messagesEndRef} />
           </div>
-
-          {/* ✨ AI Suggested Draft */}
-          {showSuggestion && !isManualMode && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mx-4 mb-2 rounded-xl border border-primary/30 bg-gradient-to-r from-primary/5 to-cyan-500/5 p-3"
-              style={{ boxShadow: "0 0 20px hsl(var(--primary) / 0.1), inset 0 1px 0 hsl(var(--primary) / 0.1)" }}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles size={13} className="text-primary" />
-                <span className="text-[11px] font-semibold text-primary">Sugerencia de NexusAI</span>
-                <span className="text-[9px] text-muted-foreground bg-muted/20 px-1.5 py-0.5 rounded-full">Basado en Manual_Drone.pdf</span>
-              </div>
-              <p className="text-[12px] text-foreground/80 leading-relaxed mb-3">
-                "¡Hola Carlos! Sí, el Drone X10 es resistente al agua con certificación IP68. Puede volar bajo lluvia ligera sin problemas. ¿Te gustaría ver un video de prueba en condiciones reales?"
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  className="h-7 text-[11px] bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30"
-                  onClick={() => handleSendMessage("¡Hola Carlos! Sí, el Drone X10 es resistente al agua con certificación IP68. Puede volar bajo lluvia ligera sin problemas. ¿Te gustaría ver un video de prueba en condiciones reales?")}
-                >
-                  <Send size={11} className="mr-1" /> Enviar esto
-                </Button>
-                <Button size="sm" variant="ghost" className="h-7 text-[11px] text-muted-foreground">
-                  <PenLine size={11} className="mr-1" /> Editar
-                </Button>
-                <Button size="sm" variant="ghost" className="h-7 text-[11px] text-muted-foreground">
-                  <RefreshCw size={11} className="mr-1" /> Otra opción
-                </Button>
-              </div>
-            </motion.div>
-          )}
 
           {/* Input Bar */}
           <div className="p-3 border-t border-border/20 bg-card/50 shrink-0">
@@ -575,10 +505,11 @@ const Community = () => {
                 onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
                 placeholder={isManualMode ? "Responder como agente humano..." : "Escribe un mensaje..."}
                 className="h-9 text-sm bg-muted/15 border-border/30"
+                disabled={!selectedConversationId || isSending}
               />
               <Button
                 onClick={() => handleSendMessage()}
-                disabled={!inputMessage.trim()}
+                disabled={!inputMessage.trim() || !selectedConversationId || isSending}
                 size="icon"
                 className="h-9 w-9 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30"
               >
