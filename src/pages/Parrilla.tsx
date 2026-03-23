@@ -380,14 +380,6 @@ const Parrilla = () => {
       });
     }
 
-    // Build final prompt: user's creative idea + ad format context
-    let finalPrompt = promptText;
-    if (contextImage) {
-      const formatConfig = AD_FORMAT_CONFIG[adFormat];
-      const userScene = customPrompt.trim() || "a dynamic, energetic social scene";
-      finalPrompt = `${userScene}. ${formatConfig.promptSuffix}`;
-    }
-
     try {
       const { data, error } = await supabase.functions.invoke("generate-nano-banano", {
         body: {
