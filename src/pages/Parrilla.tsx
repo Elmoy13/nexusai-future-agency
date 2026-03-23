@@ -611,21 +611,13 @@ const Parrilla = () => {
                     </div>
                   </div>
 
-                  {/* Custom Prompt */}
+                  {/* Creative Agent Chat */}
                   <div className="mb-5">
-                    <div className="relative">
-                      <Textarea value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)}
-                        placeholder="Activa tu Agente Visual: Escribe instrucciones detalladas (ej: 'Post visual del producto en una fiesta neón, tono épico, 1:1, cinematográfico...'). El agente integrará automáticamente la imagen activa del panel izquierdo."
-                        className="min-h-[100px] pr-36 bg-secondary/50 border-border text-sm resize-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-foreground placeholder:text-muted-foreground"
-                      />
-                      <button onClick={handleEnhancePrompt} disabled={isEnhancing}
-                        className="absolute bottom-3 right-3 flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-gradient-to-r from-violet-500 to-primary text-white shadow-lg shadow-primary/25 hover:from-violet-600 hover:to-primary/80 transition-all disabled:opacity-70"
-                      >
-                        {isEnhancing ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
-                        {isEnhancing ? "Mejorando..." : "✨ Mejorar Prompt"}
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground mt-1.5 ml-1">Escribe una idea básica y la IA la transformará en un mega-prompt profesional</p>
+                    <CreativeAgentChat
+                      onPromptReady={handleAgentReady}
+                      isGenerating={isGenerating}
+                      hasContextImage={brandAssetBlobs.length > 0}
+                    />
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
