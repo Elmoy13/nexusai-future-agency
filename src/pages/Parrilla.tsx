@@ -362,11 +362,7 @@ const Parrilla = () => {
     }
   }, [autoRemoveBg]);
 
-  const handleAgentReady = useCallback((payload: { prompt: string; brandContext: string; audience: string; style: string }) => {
-    setAgentPrompt(payload.prompt);
-    // Auto-trigger generation
-    handleGenerateWithPrompt(payload.prompt);
-  }, []);
+  
 
   const handleGenerateWithPrompt = useCallback(async (promptOverride?: string) => {
     setIsGenerating(true);
@@ -391,20 +387,20 @@ const Parrilla = () => {
     }
 
     try {
+      const payload = {
+        prompt: finalPrompt,
+        context_image: contextImage || undefined,
+        ad_format: adFormat,
+        platform: activePlatforms,
+        objective,
+        opciones: optionsPerPost,
+        frequency,
+      };
+      console.log("📦 Payload enviado a generate-nano-banano:", JSON.stringify({ ...payload, context_image: payload.context_image ? `${payload.context_image.substring(0, 60)}...` : null }, null, 2));
+
       setGeneratingStatus("🧠 Enviando prompt a Vertex AI...");
       const { data, error } = await supabase.functions.invoke("generate-nano-banano", {
-        body: {
-          prompt: finalPrompt,
-          ...(contextImage && {
-            context_image: contextImage,
-            ad_format: adFormat,
-            subject_description: "the precise and immutable brand logo design",
-          }),
-          platform: activePlatforms,
-          objective,
-          opciones: optionsPerPost,
-          frequency,
-        },
+        body: payload,
       });
 
       if (error) {
@@ -458,6 +454,11 @@ const Parrilla = () => {
       setGeneratingStatus("");
     }
   }, [platforms, optionsPerPost, customPrompt, agentPrompt, frequency, objective, brandAssetBlobs, adFormat]);
+
+  const handleAgentReady = useCallback((payload: { prompt: string; brandContext: string; audience: string; style: string }) => {
+    setAgentPrompt(payload.prompt);
+    handleGenerateWithPrompt(payload.prompt);
+  }, [handleGenerateWithPrompt]);
 
   const handleEnhancePrompt = useCallback(() => {
     if (!customPrompt.trim()) { toast({ title: "✏️ Escribe algo primero", description: "Ingresa una idea básica para mejorarla." }); return; }
