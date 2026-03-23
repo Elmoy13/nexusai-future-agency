@@ -238,7 +238,7 @@ const Community = () => {
     setInputMessage("");
 
     try {
-      const { data, error } = await supabase.functions.invoke("send-message", {
+      const { data, error } = await supabase.functions.invoke("send-agent-message", {
         body: {
           conversation_id: selectedConversationId,
           message_text: text,
