@@ -455,6 +455,11 @@ const Parrilla = () => {
     }
   }, [platforms, optionsPerPost, customPrompt, agentPrompt, frequency, objective, brandAssetBlobs, adFormat]);
 
+  const handleAgentReady = useCallback((payload: { prompt: string; brandContext: string; audience: string; style: string }) => {
+    setAgentPrompt(payload.prompt);
+    handleGenerateWithPrompt(payload.prompt);
+  }, [handleGenerateWithPrompt]);
+
   const handleEnhancePrompt = useCallback(() => {
     if (!customPrompt.trim()) { toast({ title: "✏️ Escribe algo primero", description: "Ingresa una idea básica para mejorarla." }); return; }
     setIsEnhancing(true);
