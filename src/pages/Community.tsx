@@ -469,11 +469,15 @@ const Community = () => {
                       "max-w-[78%] rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed",
                       msg.sender === "customer" && "bg-muted/25 border border-border/25",
                       msg.sender === "agent" && "bg-gradient-to-br from-primary/15 to-cyan-500/10 border border-primary/20",
+                      msg.sender === "ai" && "bg-gradient-to-br from-violet-500/15 to-primary/10 border border-violet-500/20",
                     )}>
-                      {msg.sender === "agent" && (
+                      {(msg.sender === "agent" || msg.sender === "ai") && (
                         <div className="flex items-center gap-1.5 mb-1">
-                          <span className="text-[9px] font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                            <Bot size={9} /> Agente
+                          <span className={cn(
+                            "text-[9px] font-mono px-1.5 py-0.5 rounded-full flex items-center gap-1",
+                            msg.sender === "ai" ? "text-violet-400 bg-violet-500/10" : "text-primary bg-primary/10"
+                          )}>
+                            <Bot size={9} /> {msg.sender === "ai" ? "IA" : "Agente"}
                           </span>
                         </div>
                       )}
