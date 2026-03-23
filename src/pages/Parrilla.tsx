@@ -342,6 +342,7 @@ const Parrilla = () => {
     } catch (err: any) {
       console.error("background-removal error:", err);
       setBrandAssets((prev) => [...prev, previewUrl]);
+      setBrandAssetBlobs((prev) => [...prev, file]);
       toast({
         title: "Error al procesar imagen",
         description: err?.message?.includes("WebGL") 
