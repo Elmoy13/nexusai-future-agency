@@ -370,6 +370,7 @@ const Parrilla = () => {
 
   const handleGenerateWithPrompt = useCallback(async (promptOverride?: string) => {
     setIsGenerating(true);
+    setGeneratingStatus("🔗 Conectando con Vertex AI...");
     
     const activePlatforms = Object.entries(platforms)
       .filter(([_, v]) => v)
