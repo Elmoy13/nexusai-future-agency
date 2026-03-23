@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
+import CreativeAgentChat from "@/components/dashboard/CreativeAgentChat";
 import {
   ArrowLeft, Download, CheckCircle2, Upload, Sparkles, Loader2, X,
   Instagram, Linkedin, Play, Music, Calendar, Send, Clock, Eye,
@@ -315,6 +316,7 @@ const Parrilla = () => {
   const [optionsPerPost, setOptionsPerPost] = useState(2);
   const [autoRemoveBg, setAutoRemoveBg] = useState(true);
   const [adFormat, setAdFormat] = useState<"mobile_screen" | "watermark" | "merch">("merch");
+  const [agentPrompt, setAgentPrompt] = useState<string | null>(null);
 
   // Ad format options — prompt construction is now handled entirely by the backend
 
@@ -359,14 +361,20 @@ const Parrilla = () => {
     }
   }, [autoRemoveBg]);
 
-  const handleGenerate = useCallback(async () => {
+  const handleAgentReady = useCallback((payload: { prompt: string; brandContext: string; audience: string; style: string }) => {
+    setAgentPrompt(payload.prompt);
+    // Auto-trigger generation
+    handleGenerateWithPrompt(payload.prompt);
+  }, []);
+
+  const handleGenerateWithPrompt = useCallback(async (promptOverride?: string) => {
     setIsGenerating(true);
     
     const activePlatforms = Object.entries(platforms)
       .filter(([_, v]) => v)
       .map(([k]) => k);
     
-    const promptText = customPrompt.trim() || `Genera contenido para ${activePlatforms.join(", ")}. Frecuencia: ${frequency}. Objetivo: ${objective}.`;
+    const finalPrompt = promptOverride || agentPrompt || customPrompt.trim() || `Genera contenido para ${activePlatforms.join(", ")}. Frecuencia: ${frequency}. Objetivo: ${objective}.`;
 
     // Convert first brand asset blob to Base64 for the backend
     let contextImage: string | undefined;
@@ -381,13 +389,6 @@ const Parrilla = () => {
     }
 
     try {
-      // Build the final prompt: if there's a context image, wrap user idea in technical prompt engineering template
-      let finalPrompt = promptText;
-      if (contextImage) {
-        const userScene = promptText.trim() || "a dynamic, energetic advertising scene";
-        finalPrompt = `A high-end, photorealistic advertisement mockup of ${userScene}. The complete visual appearance, lines, smiling icon, and precise typography from [1] (the brand logo) must be flawlessly preserved without any artistic re-interpretation or modification. The exact design [1] must be integrated not as a flat overlay, but embedded with depth, texture, and realistic lighting into the central game component (e.g., carved into a wooden token, printed on cards, or embossed on the board itself). The model must generate real shadows and highlights over the embedded logo [1] as if it were a physical object of the game, not a post-process overlay. Preserve text legibility.`;
-      }
-
       const { data, error } = await supabase.functions.invoke("generate-nano-banano", {
         body: {
           prompt: finalPrompt,
@@ -405,7 +406,6 @@ const Parrilla = () => {
 
       if (error) throw error;
 
-      // If edge function returns images, map them to post cards
       if (data?.images && Array.isArray(data.images)) {
         const generatedPosts: PostCard[] = data.images.map((img: any, idx: number) => ({
           id: `gen-${idx}`,
@@ -431,15 +431,13 @@ const Parrilla = () => {
         }));
         setPosts(generatedPosts);
       } else {
-        // Fallback to mock data if response shape is unexpected
         setPosts(MOCK_POSTS.filter((p) => platforms[p.platform as keyof typeof platforms]));
       }
 
       setHasGenerated(true);
-      toast({ title: "🚀 Parrilla generada", description: `Contenido generado con Vertex AI exitosamente.` });
+      toast({ title: "🚀 Parrilla generada", description: "Contenido generado con Vertex AI exitosamente." });
     } catch (err: any) {
       console.error("Edge function error:", err);
-      // Fallback to mock data on error
       setPosts(MOCK_POSTS.filter((p) => platforms[p.platform as keyof typeof platforms]));
       setHasGenerated(true);
       toast({ 
@@ -450,7 +448,7 @@ const Parrilla = () => {
     } finally {
       setIsGenerating(false);
     }
-  }, [platforms, optionsPerPost, customPrompt, frequency, objective, brandAssetBlobs, adFormat]);
+  }, [platforms, optionsPerPost, customPrompt, agentPrompt, frequency, objective, brandAssetBlobs, adFormat]);
 
   const handleEnhancePrompt = useCallback(() => {
     if (!customPrompt.trim()) { toast({ title: "✏️ Escribe algo primero", description: "Ingresa una idea básica para mejorarla." }); return; }
@@ -613,21 +611,13 @@ const Parrilla = () => {
                     </div>
                   </div>
 
-                  {/* Custom Prompt */}
+                  {/* Creative Agent Chat */}
                   <div className="mb-5">
-                    <div className="relative">
-                      <Textarea value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)}
-                        placeholder="Activa tu Agente Visual: Escribe instrucciones detalladas (ej: 'Post visual del producto en una fiesta neón, tono épico, 1:1, cinematográfico...'). El agente integrará automáticamente la imagen activa del panel izquierdo."
-                        className="min-h-[100px] pr-36 bg-secondary/50 border-border text-sm resize-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-foreground placeholder:text-muted-foreground"
-                      />
-                      <button onClick={handleEnhancePrompt} disabled={isEnhancing}
-                        className="absolute bottom-3 right-3 flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-gradient-to-r from-violet-500 to-primary text-white shadow-lg shadow-primary/25 hover:from-violet-600 hover:to-primary/80 transition-all disabled:opacity-70"
-                      >
-                        {isEnhancing ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
-                        {isEnhancing ? "Mejorando..." : "✨ Mejorar Prompt"}
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground mt-1.5 ml-1">Escribe una idea básica y la IA la transformará en un mega-prompt profesional</p>
+                    <CreativeAgentChat
+                      onPromptReady={handleAgentReady}
+                      isGenerating={isGenerating}
+                      hasContextImage={brandAssetBlobs.length > 0}
+                    />
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
@@ -698,11 +688,11 @@ const Parrilla = () => {
                             <SelectItem value="3">3</SelectItem>
                           </SelectContent>
                         </Select>
-                        <Button onClick={handleGenerate}
+                        <Button onClick={() => handleGenerateWithPrompt()}
                           disabled={isGenerating || (!platforms.instagram && !platforms.tiktok && !platforms.linkedin && !platforms.twitter)}
                           className="flex-1 h-11 text-sm font-semibold bg-gradient-to-r from-violet-600 via-purple-600 to-primary hover:from-violet-700 hover:via-purple-700 hover:to-primary/80 shadow-lg shadow-primary/25 disabled:opacity-50 text-white"
                         >
-                          {isGenerating ? <><Loader2 size={16} className="animate-spin mr-2" /> ✨ Nano Banano procesando instrucciones y asset visual...</> : <><Zap size={16} className="mr-2" /> Generar Parrilla 🚀</>}
+                          {isGenerating ? <><Loader2 size={16} className="animate-spin mr-2" /> ✨ Procesando...</> : <><Zap size={16} className="mr-2" /> Generar Parrilla 🚀</>}
                         </Button>
                       </div>
                     </div>
