@@ -365,8 +365,17 @@ const Parrilla = () => {
     
     const promptText = customPrompt.trim() || `Genera contenido para ${activePlatforms.join(", ")}. Frecuencia: ${frequency}. Objetivo: ${objective}.`;
 
-    // Use the first brand asset as context image if available
-    const contextImage = brandAssets.length > 0 ? brandAssets[0] : undefined;
+    // Convert first brand asset blob to Base64 for the backend
+    let contextImage: string | undefined;
+    if (brandAssetBlobs.length > 0) {
+      const blob = brandAssetBlobs[0];
+      contextImage = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
 
     try {
       const { data, error } = await supabase.functions.invoke("generate-nano-banano", {
