@@ -562,15 +562,15 @@ const Parrilla = () => {
 
               {brandAssets.length > 0 && (
                 <div className="mb-5 space-y-2">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tipo de Referencia</p>
-                  <Select value={referenceType} onValueChange={(v) => setReferenceType(v as "logo" | "product" | "mascot")}>
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Formato de Anuncio</p>
+                  <Select value={adFormat} onValueChange={(v) => setAdFormat(v as "mobile_screen" | "watermark" | "merch")}>
                     <SelectTrigger className="bg-secondary/50 border-border h-10 text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="logo">🏷️ Logo plano / Marca</SelectItem>
-                      <SelectItem value="product">📦 Producto físico (Botella, empaque, etc.)</SelectItem>
-                      <SelectItem value="mascot">🐾 Mascota / Personaje</SelectItem>
+                      <SelectItem value="mobile_screen">📱 App en Pantalla</SelectItem>
+                      <SelectItem value="watermark">💧 Sello / Marca de Agua Publicitaria</SelectItem>
+                      <SelectItem value="merch">👕 Mercancía</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
