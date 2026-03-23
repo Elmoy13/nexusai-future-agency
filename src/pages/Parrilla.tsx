@@ -407,7 +407,11 @@ const Parrilla = () => {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        const errMsg = typeof error === "object" ? JSON.stringify(error) : String(error);
+        throw new Error(`Edge Function: ${errMsg}`);
+      }
+      setGeneratingStatus("🎨 Procesando resultados...");
 
       if (data?.images && Array.isArray(data.images)) {
         const generatedPosts: PostCard[] = data.images.map((img: any, idx: number) => ({
