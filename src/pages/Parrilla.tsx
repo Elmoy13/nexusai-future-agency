@@ -318,7 +318,7 @@ const Parrilla = () => {
 
   const REFERENCE_CONFIG = {
     logo: {
-      promptBase: "The main visual element is the specific brand logo [1]. The logo [1] must be perfectly printed or integrated into the scene without distorting its shape.",
+      promptBase: "A high-end, photorealistic product mockup featuring the precise visual pattern from [1] printed on a textured matte paper card. The surrounding scene is a sophisticated flat-lay composition with a minimalist cup of black coffee and a small succulent branch on a pastel surface. The exact visual appearance, color, and precise shape of the pattern [1] must be replicated without any distortions or alterations, as if it were a direct file-to-print application. No text from the input should be translated into a new visual element; the model must only perform a strict visual transfer of [1].",
       subjectDescription: "the specific brand logo",
     },
     product: {
