@@ -626,6 +626,7 @@ const Parrilla = () => {
                       onPromptReady={handleAgentReady}
                       isGenerating={isGenerating}
                       hasContextImage={brandAssetBlobs.length > 0}
+                      generatingStatus={generatingStatus}
                     />
                   </div>
 
