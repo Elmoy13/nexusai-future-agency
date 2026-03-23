@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
+import CreativeAgentChat from "@/components/dashboard/CreativeAgentChat";
 import {
   ArrowLeft, Download, CheckCircle2, Upload, Sparkles, Loader2, X,
   Instagram, Linkedin, Play, Music, Calendar, Send, Clock, Eye,
