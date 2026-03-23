@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -43,26 +43,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 /* ── Types ── */
-interface ChatContact {
+interface Conversation {
   id: string;
-  name: string;
-  platform: "whatsapp" | "instagram" | "messenger";
-  lastMessage: string;
-  timestamp: string;
-  unread: boolean;
-  aiActive: boolean;
-  sentiment: "complaint" | "lead" | "question";
-  slaAlert?: string;
-  type: "dm" | "comment" | "mention" | "review";
+  contact_id: string;
+  last_message_at: string;
+  contact_name: string;
+  contact_platform: string;
 }
 
-interface Message {
+interface DbMessage {
   id: string;
-  sender: "user" | "ai" | "agent";
+  conversation_id: string;
+  sender: "customer" | "agent";
   content: string;
-  timestamp: string;
+  sent_at: string;
 }
 
 interface KnowledgeFile {
@@ -71,47 +69,7 @@ interface KnowledgeFile {
   size: string;
 }
 
-/* ── Mock Data ── */
-const mockContacts: ChatContact[] = [
-  {
-    id: "1", name: "Carlos Ruiz", platform: "whatsapp",
-    lastMessage: "¿El dron puede volar con lluvia?", timestamp: "hace 2 min",
-    unread: true, aiActive: true, sentiment: "lead", type: "dm",
-  },
-  {
-    id: "2", name: "María González", platform: "instagram",
-    lastMessage: "Me interesa el modelo X10 Pro", timestamp: "hace 15 min",
-    unread: true, aiActive: true, sentiment: "lead", type: "dm",
-  },
-  {
-    id: "3", name: "Tech Reviews MX", platform: "messenger",
-    lastMessage: "¿Tienen programa de afiliados?", timestamp: "hace 1 hora",
-    unread: false, aiActive: false, sentiment: "question", slaAlert: "Esperando 10m", type: "dm",
-  },
-  {
-    id: "4", name: "Andrés López", platform: "whatsapp",
-    lastMessage: "Esto es un desastre, mi dron llegó roto", timestamp: "hace 25 min",
-    unread: true, aiActive: false, sentiment: "complaint", slaAlert: "Esperando 10m", type: "dm",
-  },
-  {
-    id: "5", name: "Laura Soto", platform: "instagram",
-    lastMessage: "¡Increíble toma! ¿Qué dron usaron?", timestamp: "hace 40 min",
-    unread: false, aiActive: true, sentiment: "lead", type: "comment",
-  },
-  {
-    id: "6", name: "DronesMX", platform: "instagram",
-    lastMessage: "Nos encantaría hacer un review del X10", timestamp: "hace 2 horas",
-    unread: false, aiActive: true, sentiment: "question", type: "mention",
-  },
-];
-
-const mockMessages: Message[] = [
-  { id: "1", sender: "user", content: "Hola, tengo una pregunta sobre el Drone X10", timestamp: "10:30" },
-  { id: "2", sender: "ai", content: "¡Hola Carlos! 👋 Soy el asistente virtual de Aero Dynamics. Estaré encantado de ayudarte con cualquier duda sobre el Drone X10. ¿Qué te gustaría saber?", timestamp: "10:30" },
-  { id: "3", sender: "user", content: "¿El dron puede volar con lluvia? Necesito usarlo para filmaciones en exteriores", timestamp: "10:32" },
-  { id: "4", sender: "ai", content: "¡Excelente pregunta! El Drone X10 cuenta con certificación IP68, lo que significa que es resistente al agua y polvo. Puede operar bajo lluvia ligera a moderada sin problemas. Para condiciones más extremas, recomendamos revisar el manual de operaciones incluido. ¿Te gustaría conocer más especificaciones técnicas?", timestamp: "10:32" },
-];
-
+/* ── Mock data for CRM sidebar (unchanged) ── */
 const mockKnowledgeFiles: KnowledgeFile[] = [
   { id: "1", name: "manual_drone_x10.pdf", size: "2.4 MB" },
   { id: "2", name: "politicas_de_devolucion.pdf", size: "156 KB" },
@@ -119,28 +77,34 @@ const mockKnowledgeFiles: KnowledgeFile[] = [
 ];
 
 /* ── Helpers ── */
-const getSentimentDot = (s: ChatContact["sentiment"]) => {
-  switch (s) {
-    case "complaint": return "bg-red-500 shadow-[0_0_8px_hsl(0_84%_60%/0.6)]";
-    case "lead": return "bg-green-500 shadow-[0_0_8px_hsl(142_71%_45%/0.6)]";
-    case "question": return "bg-muted-foreground/50";
-  }
-};
-
-const getSentimentLabel = (s: ChatContact["sentiment"]) => {
-  switch (s) {
-    case "complaint": return "😡 Queja";
-    case "lead": return "🤑 Lead";
-    case "question": return "❓ Duda";
-  }
-};
-
 const getPlatformIcon = (platform: string, size = 12) => {
   switch (platform) {
     case "whatsapp": return <Phone size={size} className="text-green-500" />;
     case "instagram": return <Instagram size={size} className="text-pink-500" />;
     case "messenger": return <MessageSquare size={size} className="text-blue-500" />;
-    default: return null;
+    default: return <Globe size={size} className="text-muted-foreground" />;
+  }
+};
+
+const formatTime = (iso: string) => {
+  try {
+    return new Date(iso).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return "";
+  }
+};
+
+const formatRelative = (iso: string) => {
+  try {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "ahora";
+    if (mins < 60) return `hace ${mins} min`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `hace ${hrs}h`;
+    return `hace ${Math.floor(hrs / 24)}d`;
+  } catch {
+    return "";
   }
 };
 
@@ -148,15 +112,20 @@ const getPlatformIcon = (platform: string, size = 12) => {
 const Community = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
-  const [inboxTab, setInboxTab] = useState<"dm" | "comment" | "mention" | "review">("dm");
-  const [selectedContact, setSelectedContact] = useState<ChatContact>(mockContacts[0]);
-  const [messages, setMessages] = useState<Message[]>(mockMessages);
+  // Supabase state
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [loadingConversations, setLoadingConversations] = useState(true);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<DbMessage[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+
+  // UI state
   const [inputMessage, setInputMessage] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [isManualMode, setIsManualMode] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
-  const [showSuggestion, setShowSuggestion] = useState(true);
-  const [clientTags, setClientTags] = useState<string[]>(["Lead Caliente"]);
 
   const [knowledgeFiles, setKnowledgeFiles] = useState<KnowledgeFile[]>(mockKnowledgeFiles);
   const [aiTemperature, setAiTemperature] = useState([30]);
@@ -165,41 +134,128 @@ const Community = () => {
   const [connectingChannel, setConnectingChannel] = useState<string | null>(null);
   const [whatsappPhone, setWhatsappPhone] = useState("");
   const [showWhatsappInput, setShowWhatsappInput] = useState(false);
+  const [clientTags, setClientTags] = useState<string[]>(["Lead Caliente"]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Derived
+  const selectedConversation = conversations.find((c) => c.id === selectedConversationId) || null;
+
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const filteredContacts = mockContacts.filter((c) => c.type === inboxTab);
+  // ─── 1. Load conversations with contact join ───
+  const fetchConversations = useCallback(async () => {
+    setLoadingConversations(true);
+    const { data, error } = await supabase
+      .from("conversations")
+      .select("id, contact_id, last_message_at, contacts(name, platform)")
+      .order("last_message_at", { ascending: false });
 
-  const handleSendMessage = (content?: string) => {
-    const text = content || inputMessage.trim();
-    if (!text) return;
+    if (error) {
+      console.error("Error fetching conversations:", error);
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else if (data) {
+      const mapped: Conversation[] = data.map((row: any) => ({
+        id: row.id,
+        contact_id: row.contact_id,
+        last_message_at: row.last_message_at,
+        contact_name: row.contacts?.name || "Sin nombre",
+        contact_platform: row.contacts?.platform || "web",
+      }));
+      setConversations(mapped);
+      // Auto-select first if none selected
+      if (!selectedConversationId && mapped.length > 0) {
+        setSelectedConversationId(mapped[0].id);
+      }
+    }
+    setLoadingConversations(false);
+  }, [toast, selectedConversationId]);
 
-    const newMsg: Message = {
-      id: Date.now().toString(),
-      sender: isManualMode ? "agent" : (content ? "ai" : "user"),
-      content: text,
-      timestamp: new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }),
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
+
+  // ─── 2. Load messages for active conversation ───
+  useEffect(() => {
+    if (!selectedConversationId) return;
+
+    const loadMessages = async () => {
+      setLoadingMessages(true);
+      const { data, error } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("conversation_id", selectedConversationId)
+        .order("sent_at", { ascending: true });
+
+      if (error) {
+        console.error("Error fetching messages:", error);
+        toast({ title: "Error cargando mensajes", description: error.message, variant: "destructive" });
+      } else {
+        setMessages(data || []);
+      }
+      setLoadingMessages(false);
     };
 
-    setMessages((prev) => [...prev, newMsg]);
-    setInputMessage("");
-    if (content) { setShowSuggestion(false); return; }
+    loadMessages();
+  }, [selectedConversationId, toast]);
 
-    if (!isManualMode) {
-      setIsTyping(true);
-      setTimeout(() => {
-        setMessages((prev) => [...prev, {
-          id: (Date.now() + 1).toString(),
-          sender: "ai",
-          content: "Gracias por tu mensaje. Basándome en nuestra documentación, puedo confirmar que el Drone X10 es ideal para tus necesidades. ¿Hay algo más en lo que pueda ayudarte?",
-          timestamp: new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }),
-        }]);
-        setIsTyping(false);
-      }, 1500);
+  // ─── 3. Realtime subscription on messages ───
+  useEffect(() => {
+    const channel = supabase
+      .channel("realtime-messages")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        (payload) => {
+          const newMsg = payload.new as DbMessage;
+          if (newMsg.conversation_id === selectedConversationId) {
+            setMessages((prev) => {
+              // Avoid duplicates
+              if (prev.some((m) => m.id === newMsg.id)) return prev;
+              return [...prev, newMsg];
+            });
+          }
+          // Refresh conversations list to update last_message_at
+          fetchConversations();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedConversationId, fetchConversations]);
+
+  // ─── 4. Send message via Edge Function ───
+  const handleSendMessage = async () => {
+    const text = inputMessage.trim();
+    if (!text || !selectedConversationId) return;
+
+    setIsSending(true);
+    setInputMessage("");
+
+    try {
+      const { data, error } = await supabase.functions.invoke("send-message", {
+        body: {
+          conversation_id: selectedConversationId,
+          message_text: text,
+        },
+      });
+
+      if (error) {
+        console.error("Edge function error:", error);
+        toast({ title: "Error al enviar", description: error.message, variant: "destructive" });
+        setInputMessage(text); // Restore input on error
+      }
+    } catch (err: any) {
+      console.error("Send error:", err);
+      toast({ title: "Error de conexión", description: err.message, variant: "destructive" });
+      setInputMessage(text);
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -276,112 +332,70 @@ const Community = () => {
 
         {/* ── COL 1: SMART INBOX (30%) ── */}
         <div className="w-[30%] border-r border-border/20 flex flex-col bg-card/30">
-          {/* Triage Tabs */}
-          <div className="px-3 pt-3">
-            <div className="flex gap-1 bg-muted/20 rounded-lg p-1">
-              {[
-                { key: "dm" as const, label: "DMs", icon: MessageSquare },
-                { key: "comment" as const, label: "Comentarios", icon: MessageCircle },
-                { key: "mention" as const, label: "Menciones", icon: AtSign },
-                { key: "review" as const, label: "Reseñas", icon: Star },
-              ].map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setInboxTab(tab.key)}
-                  className={cn(
-                    "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-[11px] font-medium transition-all",
-                    inboxTab === tab.key
-                      ? "bg-primary/15 text-primary shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <tab.icon size={12} />
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Search */}
           <div className="p-3 pb-2">
             <div className="relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Buscar..." className="pl-9 h-8 text-xs bg-muted/20 border-border/30" />
+              <Input
+                placeholder="Buscar contacto..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-8 text-xs bg-muted/20 border-border/30"
+              />
             </div>
           </div>
 
-          {/* Contact List / Tickets */}
+          {/* Conversation List */}
           <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-1">
-            {filteredContacts.length === 0 && (
+            {loadingConversations ? (
+              <div className="text-center py-12">
+                <Loader2 size={24} className="mx-auto mb-2 animate-spin text-primary" />
+                <p className="text-xs text-muted-foreground">Cargando conversaciones...</p>
+              </div>
+            ) : conversations.filter((c) =>
+              c.contact_name.toLowerCase().includes(searchQuery.toLowerCase())
+            ).length === 0 ? (
               <div className="text-center py-12 text-muted-foreground/40">
                 <MessageSquare size={24} className="mx-auto mb-2 opacity-30" />
-                <p className="text-xs">Sin conversaciones en esta categoría</p>
+                <p className="text-xs">Sin conversaciones</p>
               </div>
+            ) : (
+              conversations
+                .filter((c) => c.contact_name.toLowerCase().includes(searchQuery.toLowerCase()))
+                .map((conv) => (
+                  <motion.div
+                    key={conv.id}
+                    onClick={() => setSelectedConversationId(conv.id)}
+                    className={cn(
+                      "p-3 rounded-xl cursor-pointer transition-all group",
+                      selectedConversationId === conv.id
+                        ? "bg-primary/10 border border-primary/20"
+                        : "hover:bg-muted/15 border border-transparent"
+                    )}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <div className="relative shrink-0">
+                        <Avatar className="w-9 h-9">
+                          <AvatarFallback className="bg-gradient-to-br from-primary/20 to-accent/20 text-[11px] font-semibold">
+                            {conv.contact_name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-card flex items-center justify-center border border-border/40">
+                          {getPlatformIcon(conv.contact_platform, 9)}
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="font-medium text-xs">{conv.contact_name}</span>
+                          <span className="text-[9px] text-muted-foreground">{formatRelative(conv.last_message_at)}</span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground truncate capitalize">{conv.contact_platform}</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))
             )}
-
-            {filteredContacts.map((contact) => (
-              <motion.div
-                key={contact.id}
-                onClick={() => { setSelectedContact(contact); setShowSuggestion(true); }}
-                className={cn(
-                  "p-3 rounded-xl cursor-pointer transition-all group",
-                  selectedContact.id === contact.id
-                    ? "bg-primary/10 border border-primary/20"
-                    : "hover:bg-muted/15 border border-transparent"
-                )}
-                whileTap={{ scale: 0.98 }}
-              >
-                <div className="flex items-start gap-2.5">
-                  {/* Sentiment Dot */}
-                  <div className="pt-1.5">
-                    <div className={cn("w-2.5 h-2.5 rounded-full", getSentimentDot(contact.sentiment))} />
-                  </div>
-
-                  {/* Avatar */}
-                  <div className="relative shrink-0">
-                    <Avatar className="w-9 h-9">
-                      <AvatarFallback className="bg-gradient-to-br from-primary/20 to-accent/20 text-[11px] font-semibold">
-                        {contact.name.split(" ").map((n) => n[0]).join("")}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-card flex items-center justify-center border border-border/40">
-                      {getPlatformIcon(contact.platform, 9)}
-                    </div>
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="font-medium text-xs">{contact.name}</span>
-                      <span className="text-[9px] text-muted-foreground">{contact.timestamp}</span>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground truncate">{contact.lastMessage}</p>
-
-                    {/* Badges Row */}
-                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                      <Badge variant="outline" className={cn(
-                        "text-[8px] py-0 px-1.5 h-4",
-                        contact.aiActive
-                          ? "border-primary/30 text-primary bg-primary/10"
-                          : "border-amber-500/30 text-amber-400 bg-amber-500/10"
-                      )}>
-                        {contact.aiActive ? "🤖 AI" : "🧑‍💻 Humano"}
-                      </Badge>
-                      <Badge variant="outline" className="text-[8px] py-0 px-1.5 h-4 border-border/30 text-muted-foreground">
-                        {getSentimentLabel(contact.sentiment)}
-                      </Badge>
-                      {contact.slaAlert && (
-                        <span className="text-[8px] text-red-400 font-medium animate-pulse">
-                          ⏱ {contact.slaAlert}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {contact.unread && <div className="w-2 h-2 rounded-full bg-primary animate-pulse mt-1.5 shrink-0" />}
-                </div>
-              </motion.div>
-            ))}
           </div>
         </div>
 
@@ -390,23 +404,24 @@ const Community = () => {
           {/* Chat Header */}
           <div className="h-14 border-b border-border/20 px-4 flex items-center justify-between bg-card/50 shrink-0">
             <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className={cn("w-2 h-2 rounded-full absolute -left-4 top-1/2 -translate-y-1/2", getSentimentDot(selectedContact.sentiment))} />
-                <Avatar className="w-8 h-8">
-                  <AvatarFallback className="bg-gradient-to-br from-primary/20 to-accent/20 text-[10px] font-semibold">
-                    {selectedContact.name.split(" ").map((n) => n[0]).join("")}
-                  </AvatarFallback>
-                </Avatar>
-              </div>
-              <div>
-                <h3 className="font-semibold text-sm">{selectedContact.name}</h3>
-                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                  {getPlatformIcon(selectedContact.platform, 10)}
-                  <span className="capitalize">{selectedContact.platform}</span>
-                  <span className="text-border">·</span>
-                  <span>{getSentimentLabel(selectedContact.sentiment)}</span>
-                </div>
-              </div>
+              {selectedConversation ? (
+                <>
+                  <Avatar className="w-8 h-8">
+                    <AvatarFallback className="bg-gradient-to-br from-primary/20 to-accent/20 text-[10px] font-semibold">
+                      {selectedConversation.contact_name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h3 className="font-semibold text-sm">{selectedConversation.contact_name}</h3>
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                      {getPlatformIcon(selectedConversation.contact_platform, 10)}
+                      <span className="capitalize">{selectedConversation.contact_platform}</span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <span className="text-sm text-muted-foreground">Selecciona una conversación</span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -429,86 +444,57 @@ const Community = () => {
             </div>
           </div>
 
-          {/* Unified Timeline */}
+          {/* Messages Timeline */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            <AnimatePresence>
-              {messages.map((msg) => (
-                <motion.div
-                  key={msg.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={cn("flex", msg.sender === "user" ? "justify-start" : "justify-end")}
-                >
-                  <div className={cn(
-                    "max-w-[78%] rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed",
-                    msg.sender === "user" && "bg-muted/25 border border-border/25",
-                    msg.sender === "ai" && "bg-gradient-to-br from-primary/15 to-cyan-500/10 border border-primary/20",
-                    msg.sender === "agent" && "bg-amber-500/15 border border-amber-500/25"
-                  )}>
-                    {msg.sender !== "user" && (
-                      <div className="flex items-center gap-1.5 mb-1">
-                        {msg.sender === "ai" ? (
+            {loadingMessages ? (
+              <div className="text-center py-20">
+                <Loader2 size={24} className="mx-auto mb-2 animate-spin text-primary" />
+                <p className="text-xs text-muted-foreground">Cargando mensajes...</p>
+              </div>
+            ) : messages.length === 0 ? (
+              <div className="text-center py-20 text-muted-foreground/40">
+                <Bot size={32} className="mx-auto mb-3 opacity-30" />
+                <p className="text-sm">Sin mensajes aún</p>
+              </div>
+            ) : (
+              <AnimatePresence>
+                {messages.map((msg) => (
+                  <motion.div
+                    key={msg.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={cn("flex", msg.sender === "customer" ? "justify-start" : "justify-end")}
+                  >
+                    <div className={cn(
+                      "max-w-[78%] rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed",
+                      msg.sender === "customer" && "bg-muted/25 border border-border/25",
+                      msg.sender === "agent" && "bg-gradient-to-br from-primary/15 to-cyan-500/10 border border-primary/20",
+                    )}>
+                      {msg.sender === "agent" && (
+                        <div className="flex items-center gap-1.5 mb-1">
                           <span className="text-[9px] font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                            <Bot size={9} /> IA Autónoma
+                            <Bot size={9} /> Agente
                           </span>
-                        ) : (
-                          <span className="text-[9px] font-mono text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                            <UserCheck size={9} /> Agente
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    <p>{msg.content}</p>
-                    <span className="text-[9px] text-muted-foreground/60 mt-1 block text-right">{msg.timestamp}</span>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+                        </div>
+                      )}
+                      <p>{msg.content}</p>
+                      <span className="text-[9px] text-muted-foreground/60 mt-1 block text-right">{formatTime(msg.sent_at)}</span>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            )}
 
-            {isTyping && (
+            {isSending && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-end">
                 <div className="bg-primary/10 border border-primary/20 rounded-2xl px-4 py-2.5 flex items-center gap-2">
                   <Loader2 size={13} className="animate-spin text-primary" />
-                  <span className="text-xs text-primary">NexusAI escribiendo...</span>
+                  <span className="text-xs text-primary">Enviando...</span>
                 </div>
               </motion.div>
             )}
             <div ref={messagesEndRef} />
           </div>
-
-          {/* ✨ AI Suggested Draft */}
-          {showSuggestion && !isManualMode && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mx-4 mb-2 rounded-xl border border-primary/30 bg-gradient-to-r from-primary/5 to-cyan-500/5 p-3"
-              style={{ boxShadow: "0 0 20px hsl(var(--primary) / 0.1), inset 0 1px 0 hsl(var(--primary) / 0.1)" }}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles size={13} className="text-primary" />
-                <span className="text-[11px] font-semibold text-primary">Sugerencia de NexusAI</span>
-                <span className="text-[9px] text-muted-foreground bg-muted/20 px-1.5 py-0.5 rounded-full">Basado en Manual_Drone.pdf</span>
-              </div>
-              <p className="text-[12px] text-foreground/80 leading-relaxed mb-3">
-                "¡Hola Carlos! Sí, el Drone X10 es resistente al agua con certificación IP68. Puede volar bajo lluvia ligera sin problemas. ¿Te gustaría ver un video de prueba en condiciones reales?"
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  className="h-7 text-[11px] bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30"
-                  onClick={() => handleSendMessage("¡Hola Carlos! Sí, el Drone X10 es resistente al agua con certificación IP68. Puede volar bajo lluvia ligera sin problemas. ¿Te gustaría ver un video de prueba en condiciones reales?")}
-                >
-                  <Send size={11} className="mr-1" /> Enviar esto
-                </Button>
-                <Button size="sm" variant="ghost" className="h-7 text-[11px] text-muted-foreground">
-                  <PenLine size={11} className="mr-1" /> Editar
-                </Button>
-                <Button size="sm" variant="ghost" className="h-7 text-[11px] text-muted-foreground">
-                  <RefreshCw size={11} className="mr-1" /> Otra opción
-                </Button>
-              </div>
-            </motion.div>
-          )}
 
           {/* Input Bar */}
           <div className="p-3 border-t border-border/20 bg-card/50 shrink-0">
@@ -522,10 +508,11 @@ const Community = () => {
                 onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
                 placeholder={isManualMode ? "Responder como agente humano..." : "Escribe un mensaje..."}
                 className="h-9 text-sm bg-muted/15 border-border/30"
+                disabled={!selectedConversationId || isSending}
               />
               <Button
                 onClick={() => handleSendMessage()}
-                disabled={!inputMessage.trim()}
+                disabled={!inputMessage.trim() || !selectedConversationId || isSending}
                 size="icon"
                 className="h-9 w-9 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30"
               >
@@ -562,13 +549,13 @@ const Community = () => {
               <div className="text-center">
                 <Avatar className="w-16 h-16 mx-auto mb-3">
                   <AvatarFallback className="bg-gradient-to-br from-primary/25 to-accent/25 text-lg font-bold">
-                    {selectedContact.name.split(" ").map((n) => n[0]).join("")}
+                    {selectedConversation?.contact_name.split(" ").map((n) => n[0]).join("").slice(0, 2) || "?"}
                   </AvatarFallback>
                 </Avatar>
-                <h3 className="font-semibold">{selectedContact.name}</h3>
+                <h3 className="font-semibold">{selectedConversation?.contact_name || "—"}</h3>
                 <div className="flex items-center justify-center gap-1.5 mt-1 text-xs text-muted-foreground">
-                  {getPlatformIcon(selectedContact.platform, 12)}
-                  <span className="capitalize">{selectedContact.platform}</span>
+                  {getPlatformIcon(selectedConversation?.contact_platform || "", 12)}
+                  <span className="capitalize">{selectedConversation?.contact_platform || "—"}</span>
                 </div>
               </div>
 
