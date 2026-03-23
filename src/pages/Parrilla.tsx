@@ -423,7 +423,7 @@ const Parrilla = () => {
     if (!customPrompt.trim()) { toast({ title: "✏️ Escribe algo primero", description: "Ingresa una idea básica para mejorarla." }); return; }
     setIsEnhancing(true);
     setTimeout(() => {
-      setCustomPrompt(`Actúa como un Copywriter Senior especializado en marketing de tecnología. Crea una secuencia de contenido para el Drone X10 destacando su certificación IP68 y resistencia extrema. Usa un tono épico y aspiracional, orientado a cineastas profesionales y creadores de contenido aventureros. Incluye:\n\n• Ganchos (hooks) de alta retención en los primeros 3 segundos\n• Storytelling visual con transiciones cinematográficas\n• CTA claro hacia la landing page de pre-orden\n• Hashtags estratégicos para máximo alcance orgánico`);
+      setCustomPrompt(`Actúa como un Copywriter Senior especializado en marketing digital. Crea una secuencia de contenido para el producto destacando sus características diferenciadoras y propuesta de valor única. Usa un tono épico y aspiracional, orientado al público objetivo de la marca. Incluye:\n\n• Ganchos (hooks) de alta retención en los primeros 3 segundos\n• Storytelling visual con transiciones cinematográficas\n• CTA claro hacia la landing page principal\n• Hashtags estratégicos para máximo alcance orgánico\n\nNota: El agente integrará automáticamente el asset visual del panel izquierdo.`);
       setIsEnhancing(false);
       toast({ title: "✨ Prompt mejorado", description: "Tu idea ha sido transformada en un mega-prompt profesional." });
     }, 1200);
