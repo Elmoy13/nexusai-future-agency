@@ -393,11 +393,21 @@ const Parrilla = () => {
       });
     }
 
+    // Build optimized prompt with reference type context
+    let finalPrompt = promptText;
+    let subjectDescription: string | undefined;
+    if (contextImage) {
+      const refConfig = REFERENCE_CONFIG[referenceType];
+      finalPrompt = `${promptText}\n\n${refConfig.promptBase}`;
+      subjectDescription = refConfig.subjectDescription;
+    }
+
     try {
       const { data, error } = await supabase.functions.invoke("generate-nano-banano", {
         body: { 
-          prompt: promptText,
+          prompt: finalPrompt,
           context_image: contextImage,
+          subject_description: subjectDescription,
           platform: activePlatforms,
           objective,
           opciones: optionsPerPost,
