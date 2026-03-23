@@ -312,6 +312,7 @@ const Parrilla = () => {
   const [customPrompt, setCustomPrompt] = useState("");
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [optionsPerPost, setOptionsPerPost] = useState(2);
+  const [autoRemoveBg, setAutoRemoveBg] = useState(true);
 
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -326,10 +327,15 @@ const Parrilla = () => {
     e.target.value = "";
 
     try {
-      const resultBlob = await removeBackground(file);
-      const resultUrl = URL.createObjectURL(resultBlob);
-      setBrandAssets((prev) => [...prev, resultUrl]);
-      toast({ title: "✨ ¡Producto aislado con éxito!", description: "Procesado localmente — Costo $0." });
+      if (autoRemoveBg) {
+        const resultBlob = await removeBackground(file);
+        const resultUrl = URL.createObjectURL(resultBlob);
+        setBrandAssets((prev) => [...prev, resultUrl]);
+        toast({ title: "✨ ¡Producto aislado con éxito!", description: "Fondo removido exitosamente." });
+      } else {
+        setBrandAssets((prev) => [...prev, previewUrl]);
+        toast({ title: "✅ Asset cargado", description: "Imagen agregada sin procesar." });
+      }
     } catch (err: any) {
       console.error("background-removal error:", err);
       setBrandAssets((prev) => [...prev, previewUrl]);
@@ -517,6 +523,11 @@ const Parrilla = () => {
               </button>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
 
+              <div className="flex items-center justify-between mb-5 px-1">
+                <label htmlFor="auto-remove-bg" className="text-xs font-medium text-muted-foreground cursor-pointer">Remover Fondo Automatizado</label>
+                <Switch id="auto-remove-bg" checked={autoRemoveBg} onCheckedChange={setAutoRemoveBg} className="data-[state=checked]:bg-primary" />
+              </div>
+
               <div className="flex-1 overflow-y-auto">
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Assets procesados</p>
                 <div className="grid grid-cols-2 gap-3">
@@ -659,7 +670,7 @@ const Parrilla = () => {
           </AnimatePresence>
 
           {/* Content Grid */}
-          <div className="flex-1 overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-y-auto flex flex-col">
             {hasGenerated ? (
               <>
                 <Tabs value={activePlatform} onValueChange={(v) => setActivePlatform(v as Platform)} className="flex-1 flex flex-col overflow-hidden">
@@ -752,7 +763,7 @@ const Parrilla = () => {
               </div>
               <div className="flex items-center justify-center gap-3">
                 <Loader2 size={20} className="animate-spin text-primary" />
-                <p className="text-foreground font-semibold">✨ Procesando imagen localmente (Costo $0)...</p>
+                <p className="text-foreground font-semibold">✨ Aislando producto con IA local...</p>
               </div>
             </motion.div>
           </motion.div>
