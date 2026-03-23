@@ -393,14 +393,19 @@ const Parrilla = () => {
       });
     }
 
-    // Build payload — prompt is now just the user's raw text
-    const productType = contextImage ? REFERENCE_CONFIG[referenceType].productType : undefined;
+    // Build final prompt: user's creative idea + ad format context
+    let finalPrompt = promptText;
+    if (contextImage) {
+      const formatConfig = AD_FORMAT_CONFIG[adFormat];
+      const userScene = customPrompt.trim() || "a dynamic, energetic social scene";
+      finalPrompt = `${userScene}. ${formatConfig.promptSuffix}`;
+    }
 
     try {
       const { data, error } = await supabase.functions.invoke("generate-nano-banano", {
         body: {
-          prompt: promptText,
-          ...(contextImage && { context_image: contextImage, product_type: productType }),
+          prompt: finalPrompt,
+          ...(contextImage && { context_image: contextImage, ad_format: adFormat }),
           platform: activePlatforms,
           objective,
           opciones: optionsPerPost,
