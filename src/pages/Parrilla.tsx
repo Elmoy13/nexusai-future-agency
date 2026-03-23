@@ -322,11 +322,11 @@ const Parrilla = () => {
       subjectDescription: "the specific brand logo",
     },
     product: {
-      promptBase: "The main subject is the physical product [1]. The product [1] must maintain its exact shape, label, and physical characteristics.",
+      promptSuffix: "The main subject is the physical product [1]. The product [1] must maintain its exact shape, label, and physical characteristics.",
       subjectDescription: "a specific physical product or bottle",
     },
     mascot: {
-      promptBase: "The main character is [1]. The character [1] must be kept consistent in its visual identity.",
+      promptSuffix: "The main character is [1]. The character [1] must be kept consistent in its visual identity.",
       subjectDescription: "a specific mascot or character",
     },
   };
