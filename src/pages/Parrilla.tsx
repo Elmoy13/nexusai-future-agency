@@ -314,6 +314,22 @@ const Parrilla = () => {
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [optionsPerPost, setOptionsPerPost] = useState(2);
   const [autoRemoveBg, setAutoRemoveBg] = useState(true);
+  const [referenceType, setReferenceType] = useState<"logo" | "product" | "mascot">("logo");
+
+  const REFERENCE_CONFIG = {
+    logo: {
+      promptBase: "The main visual element is the specific brand logo [1]. The logo [1] must be perfectly printed or integrated into the scene without distorting its shape.",
+      subjectDescription: "the specific brand logo",
+    },
+    product: {
+      promptBase: "The main subject is the physical product [1]. The product [1] must maintain its exact shape, label, and physical characteristics.",
+      subjectDescription: "a specific physical product or bottle",
+    },
+    mascot: {
+      promptBase: "The main character is [1]. The character [1] must be kept consistent in its visual identity.",
+      subjectDescription: "a specific mascot or character",
+    },
+  };
 
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
