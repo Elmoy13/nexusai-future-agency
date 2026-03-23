@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { removeBackground } from "@imgly/background-removal";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -315,31 +316,28 @@ const Parrilla = () => {
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "Archivo demasiado grande", description: "Máximo 10MB.", variant: "destructive" });
+      return;
+    }
     const previewUrl = URL.createObjectURL(file);
     setProcessingImage(previewUrl);
     setIsProcessing(true);
     e.target.value = "";
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const { data, error } = await supabase.functions.invoke("remove-background", {
-        body: formData,
-      });
-
-      if (error) throw error;
-
-      const resultUrl = data?.url || data?.image || previewUrl;
+      const resultBlob = await removeBackground(file);
+      const resultUrl = URL.createObjectURL(resultBlob);
       setBrandAssets((prev) => [...prev, resultUrl]);
-      toast({ title: "✨ ¡Producto aislado con éxito!", description: "PNG transparente listo para usar." });
+      toast({ title: "✨ ¡Producto aislado con éxito!", description: "Procesado localmente — Costo $0." });
     } catch (err: any) {
-      console.error("remove-background error:", err);
-      // Fallback: keep original image so UI doesn't break
+      console.error("background-removal error:", err);
       setBrandAssets((prev) => [...prev, previewUrl]);
       toast({
         title: "Error al procesar imagen",
-        description: err?.message || "No se pudo conectar con el motor de IA. Revisa los logs de Supabase.",
+        description: err?.message?.includes("WebGL") 
+          ? "Tu navegador no soporta WebGL. Intenta con Chrome o Edge."
+          : "No se pudo remover el fondo. La imagen original fue conservada.",
         variant: "destructive",
       });
     } finally {
@@ -519,9 +517,17 @@ const Parrilla = () => {
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Assets procesados</p>
                 <div className="grid grid-cols-2 gap-3">
                   {brandAssets.map((src, i) => (
-                    <CheckerboardBg key={i} className="aspect-square rounded-xl overflow-hidden border border-border shadow-sm">
-                      <img src={src} alt="" className="w-full h-full object-contain p-2" />
-                    </CheckerboardBg>
+                    <div key={i} className="relative group">
+                      <CheckerboardBg className="aspect-square rounded-xl overflow-hidden border border-border shadow-sm">
+                        <img src={src} alt="" className="w-full h-full object-contain p-2" />
+                      </CheckerboardBg>
+                      <a href={src} download={`asset-${i}.png`}
+                        className="absolute bottom-1.5 right-1.5 p-1.5 rounded-lg bg-card/80 backdrop-blur-sm border border-border opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Descargar"
+                      >
+                        <Download size={12} className="text-foreground" />
+                      </a>
+                    </div>
                   ))}
                   {brandAssets.length === 0 && <p className="col-span-2 text-xs text-muted-foreground text-center py-6">Sin assets aún</p>}
                 </div>
@@ -742,7 +748,7 @@ const Parrilla = () => {
               </div>
               <div className="flex items-center justify-center gap-3">
                 <Loader2 size={20} className="animate-spin text-primary" />
-                <p className="text-foreground font-semibold">✨ IA Nexus aislando producto...</p>
+                <p className="text-foreground font-semibold">✨ Procesando imagen localmente (Costo $0)...</p>
               </div>
             </motion.div>
           </motion.div>
