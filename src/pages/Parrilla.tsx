@@ -366,7 +366,7 @@ const Parrilla = () => {
     setAgentPrompt(payload.prompt);
     // Auto-trigger generation
     handleGenerateWithPrompt(payload.prompt);
-  }, []);
+  }, [handleGenerateWithPrompt]);
 
   const handleGenerateWithPrompt = useCallback(async (promptOverride?: string) => {
     setIsGenerating(true);
