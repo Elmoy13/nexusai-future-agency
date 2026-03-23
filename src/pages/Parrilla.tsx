@@ -383,7 +383,7 @@ const Parrilla = () => {
     try {
       const { data, error } = await supabase.functions.invoke("generate-nano-banano", {
         body: {
-          prompt: finalPrompt,
+          prompt: promptText,
           ...(contextImage && { context_image: contextImage, ad_format: adFormat }),
           platform: activePlatforms,
           objective,
