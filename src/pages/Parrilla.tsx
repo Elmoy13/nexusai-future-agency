@@ -314,12 +314,21 @@ const Parrilla = () => {
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [optionsPerPost, setOptionsPerPost] = useState(2);
   const [autoRemoveBg, setAutoRemoveBg] = useState(true);
-  const [referenceType, setReferenceType] = useState<"logo" | "product" | "mascot">("logo");
+  const [adFormat, setAdFormat] = useState<"mobile_screen" | "watermark" | "merch">("mobile_screen");
 
-   const REFERENCE_CONFIG = {
-    logo: { productType: "logo" },
-    product: { productType: "producto" },
-    mascot: { productType: "mascota" },
+  const AD_FORMAT_CONFIG = {
+    mobile_screen: {
+      label: "📱 App en Pantalla",
+      promptSuffix: "The scene is a vibrant lifestyle setting (e.g. a party, a bar, a rooftop gathering). A person is naturally holding a smartphone with its screen facing the camera. The smartphone screen must be completely blank/white, ready for compositing. The overall mood is energetic, social, and aspirational.",
+    },
+    watermark: {
+      label: "💧 Sello / Marca de Agua Publicitaria",
+      promptSuffix: "The scene is a complete, dynamic, and visually rich lifestyle photograph with vibrant colors, natural lighting, and high energy. The composition should feel like a professional advertising campaign shot, filling the entire frame with the lifestyle moment. No blank spaces or overlays needed — the backend will handle logo placement.",
+    },
+    merch: {
+      label: "👕 Mercancía",
+      promptSuffix: "The scene features a high-quality promotional merchandise item such as a t-shirt, hoodie, or cap displayed in a professional product photography setting. The item should have a clearly visible blank printable area, ready for graphic application. The setting is clean, modern, and aspirational.",
+    },
   };
 
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
