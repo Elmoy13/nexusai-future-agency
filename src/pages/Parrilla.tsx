@@ -314,12 +314,21 @@ const Parrilla = () => {
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [optionsPerPost, setOptionsPerPost] = useState(2);
   const [autoRemoveBg, setAutoRemoveBg] = useState(true);
-  const [referenceType, setReferenceType] = useState<"logo" | "product" | "mascot">("logo");
+  const [adFormat, setAdFormat] = useState<"mobile_screen" | "watermark" | "merch">("mobile_screen");
 
-   const REFERENCE_CONFIG = {
-    logo: { productType: "logo" },
-    product: { productType: "producto" },
-    mascot: { productType: "mascota" },
+  const AD_FORMAT_CONFIG = {
+    mobile_screen: {
+      label: "📱 App en Pantalla",
+      promptSuffix: "The scene is a vibrant lifestyle setting (e.g. a party, a bar, a rooftop gathering). A person is naturally holding a smartphone with its screen facing the camera. The smartphone screen must be completely blank/white, ready for compositing. The overall mood is energetic, social, and aspirational.",
+    },
+    watermark: {
+      label: "💧 Sello / Marca de Agua Publicitaria",
+      promptSuffix: "The scene is a complete, dynamic, and visually rich lifestyle photograph with vibrant colors, natural lighting, and high energy. The composition should feel like a professional advertising campaign shot, filling the entire frame with the lifestyle moment. No blank spaces or overlays needed — the backend will handle logo placement.",
+    },
+    merch: {
+      label: "👕 Mercancía",
+      promptSuffix: "The scene features a high-quality promotional merchandise item such as a t-shirt, hoodie, or cap displayed in a professional product photography setting. The item should have a clearly visible blank printable area, ready for graphic application. The setting is clean, modern, and aspirational.",
+    },
   };
 
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -384,14 +393,19 @@ const Parrilla = () => {
       });
     }
 
-    // Build payload — prompt is now just the user's raw text
-    const productType = contextImage ? REFERENCE_CONFIG[referenceType].productType : undefined;
+    // Build final prompt: user's creative idea + ad format context
+    let finalPrompt = promptText;
+    if (contextImage) {
+      const formatConfig = AD_FORMAT_CONFIG[adFormat];
+      const userScene = customPrompt.trim() || "a dynamic, energetic social scene";
+      finalPrompt = `${userScene}. ${formatConfig.promptSuffix}`;
+    }
 
     try {
       const { data, error } = await supabase.functions.invoke("generate-nano-banano", {
         body: {
-          prompt: promptText,
-          ...(contextImage && { context_image: contextImage, product_type: productType }),
+          prompt: finalPrompt,
+          ...(contextImage && { context_image: contextImage, ad_format: adFormat }),
           platform: activePlatforms,
           objective,
           opciones: optionsPerPost,
@@ -446,7 +460,7 @@ const Parrilla = () => {
     } finally {
       setIsGenerating(false);
     }
-  }, [platforms, optionsPerPost, customPrompt, frequency, objective, brandAssetBlobs, referenceType]);
+  }, [platforms, optionsPerPost, customPrompt, frequency, objective, brandAssetBlobs, adFormat]);
 
   const handleEnhancePrompt = useCallback(() => {
     if (!customPrompt.trim()) { toast({ title: "✏️ Escribe algo primero", description: "Ingresa una idea básica para mejorarla." }); return; }
@@ -553,15 +567,15 @@ const Parrilla = () => {
 
               {brandAssets.length > 0 && (
                 <div className="mb-5 space-y-2">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tipo de Referencia</p>
-                  <Select value={referenceType} onValueChange={(v) => setReferenceType(v as "logo" | "product" | "mascot")}>
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Formato de Anuncio</p>
+                  <Select value={adFormat} onValueChange={(v) => setAdFormat(v as "mobile_screen" | "watermark" | "merch")}>
                     <SelectTrigger className="bg-secondary/50 border-border h-10 text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="logo">🏷️ Logo plano / Marca</SelectItem>
-                      <SelectItem value="product">📦 Producto físico (Botella, empaque, etc.)</SelectItem>
-                      <SelectItem value="mascot">🐾 Mascota / Personaje</SelectItem>
+                      <SelectItem value="mobile_screen">📱 App en Pantalla</SelectItem>
+                      <SelectItem value="watermark">💧 Sello / Marca de Agua Publicitaria</SelectItem>
+                      <SelectItem value="merch">👕 Mercancía</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
