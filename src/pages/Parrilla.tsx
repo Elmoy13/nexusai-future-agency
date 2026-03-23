@@ -353,16 +353,20 @@ const Parrilla = () => {
       .filter(([_, v]) => v)
       .map(([k]) => k);
     
-    const promptText = customPrompt.trim() || `Genera contenido para ${activePlatforms.join(", ")} sobre el Drone X10 de Aero Dynamics. Frecuencia: ${frequency}. Objetivo: ${objective}.`;
+    const promptText = customPrompt.trim() || `Genera contenido para ${activePlatforms.join(", ")}. Frecuencia: ${frequency}. Objetivo: ${objective}.`;
+
+    // Use the first brand asset as context image if available
+    const contextImage = brandAssets.length > 0 ? brandAssets[0] : undefined;
 
     try {
       const { data, error } = await supabase.functions.invoke("generate-nano-banano", {
         body: { 
-          prompt: promptText, 
-          platforms: activePlatforms,
-          frequency,
+          prompt: promptText,
+          context_image: contextImage,
+          platform: activePlatforms,
           objective,
-          optionsPerPost 
+          opciones: optionsPerPost,
+          frequency,
         },
       });
 
@@ -413,13 +417,13 @@ const Parrilla = () => {
     } finally {
       setIsGenerating(false);
     }
-  }, [platforms, optionsPerPost, customPrompt, frequency, objective]);
+  }, [platforms, optionsPerPost, customPrompt, frequency, objective, brandAssets]);
 
   const handleEnhancePrompt = useCallback(() => {
     if (!customPrompt.trim()) { toast({ title: "✏️ Escribe algo primero", description: "Ingresa una idea básica para mejorarla." }); return; }
     setIsEnhancing(true);
     setTimeout(() => {
-      setCustomPrompt(`Actúa como un Copywriter Senior especializado en marketing de tecnología. Crea una secuencia de contenido para el Drone X10 destacando su certificación IP68 y resistencia extrema. Usa un tono épico y aspiracional, orientado a cineastas profesionales y creadores de contenido aventureros. Incluye:\n\n• Ganchos (hooks) de alta retención en los primeros 3 segundos\n• Storytelling visual con transiciones cinematográficas\n• CTA claro hacia la landing page de pre-orden\n• Hashtags estratégicos para máximo alcance orgánico`);
+      setCustomPrompt(`Actúa como un Copywriter Senior especializado en marketing digital. Crea una secuencia de contenido para el producto destacando sus características diferenciadoras y propuesta de valor única. Usa un tono épico y aspiracional, orientado al público objetivo de la marca. Incluye:\n\n• Ganchos (hooks) de alta retención en los primeros 3 segundos\n• Storytelling visual con transiciones cinematográficas\n• CTA claro hacia la landing page principal\n• Hashtags estratégicos para máximo alcance orgánico\n\nNota: El agente integrará automáticamente el asset visual del panel izquierdo.`);
       setIsEnhancing(false);
       toast({ title: "✨ Prompt mejorado", description: "Tu idea ha sido transformada en un mega-prompt profesional." });
     }, 1200);
@@ -559,7 +563,7 @@ const Parrilla = () => {
                   <div className="mb-5">
                     <div className="relative">
                       <Textarea value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)}
-                        placeholder="Ej: Quiero 3 posts sobre cómo el dron resiste la lluvia, tono épico, enfocado en cineastas aventureros..."
+                        placeholder="Activa tu Agente Visual: Escribe instrucciones detalladas (ej: 'Post visual del producto en una fiesta neón, tono épico, 1:1, cinematográfico...'). El agente integrará automáticamente la imagen activa del panel izquierdo."
                         className="min-h-[100px] pr-36 bg-secondary/50 border-border text-sm resize-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-foreground placeholder:text-muted-foreground"
                       />
                       <button onClick={handleEnhancePrompt} disabled={isEnhancing}
@@ -644,7 +648,7 @@ const Parrilla = () => {
                           disabled={isGenerating || (!platforms.instagram && !platforms.tiktok && !platforms.linkedin && !platforms.twitter)}
                           className="flex-1 h-11 text-sm font-semibold bg-gradient-to-r from-violet-600 via-purple-600 to-primary hover:from-violet-700 hover:via-purple-700 hover:to-primary/80 shadow-lg shadow-primary/25 disabled:opacity-50 text-white"
                         >
-                          {isGenerating ? <><Loader2 size={16} className="animate-spin mr-2" /> ✨ Nano Banano procesando en Vertex AI...</> : <><Zap size={16} className="mr-2" /> Generar Parrilla 🚀</>}
+                          {isGenerating ? <><Loader2 size={16} className="animate-spin mr-2" /> ✨ Nano Banano procesando instrucciones y asset visual...</> : <><Zap size={16} className="mr-2" /> Generar Parrilla 🚀</>}
                         </Button>
                       </div>
                     </div>
