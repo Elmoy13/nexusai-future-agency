@@ -332,9 +332,11 @@ const Parrilla = () => {
         const resultBlob = await removeBackground(file);
         const resultUrl = URL.createObjectURL(resultBlob);
         setBrandAssets((prev) => [...prev, resultUrl]);
+        setBrandAssetBlobs((prev) => [...prev, resultBlob]);
         toast({ title: "✨ ¡Producto aislado con éxito!", description: "Fondo removido exitosamente." });
       } else {
         setBrandAssets((prev) => [...prev, previewUrl]);
+        setBrandAssetBlobs((prev) => [...prev, file]);
         toast({ title: "✅ Asset cargado", description: "Imagen agregada sin procesar." });
       }
     } catch (err: any) {
