@@ -318,7 +318,7 @@ const Parrilla = () => {
 
   const REFERENCE_CONFIG = {
     logo: {
-      promptBase: "A high-end, photorealistic product mockup featuring the precise visual pattern from [1] printed on a textured matte paper card. The surrounding scene is a sophisticated flat-lay composition with a minimalist cup of black coffee and a small succulent branch on a pastel surface. The exact visual appearance, color (high-contrast black and white), and precise shape of the entire design [1] (including the bottle icon and the exact text 'BACACHITO FELIZ') must be replicated without any distortions or alterations, as if it were a direct file-to-print application. No text from the input should be translated into a new visual element; the model must only perform a strict visual transfer of [1].",
+      promptSuffix: "The complete and exact graphic pattern, including all visual elements, text, shapes, and colors from [1], must be flawlessly applied as a high-definition direct-to-surface print. The design from [1] must be treated as an immutable graphic asset, preserving its exact proportions, text legibility, and internal details with no artistic re-interpretation or distortion. The model must perform a strict visual transfer of [1] as if it were a direct file-to-print process. Avoid any text generation from outside sources.",
       subjectDescription: "the specific brand logo",
     },
     product: {
