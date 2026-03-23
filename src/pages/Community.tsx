@@ -138,6 +138,9 @@ const Community = () => {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Derived
+  const selectedConversation = conversations.find((c) => c.id === selectedConversationId) || null;
+
   // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
