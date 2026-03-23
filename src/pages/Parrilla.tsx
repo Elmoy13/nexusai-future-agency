@@ -563,7 +563,7 @@ const Parrilla = () => {
                   <div className="mb-5">
                     <div className="relative">
                       <Textarea value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)}
-                        placeholder="Ej: Quiero 3 posts sobre cómo el dron resiste la lluvia, tono épico, enfocado en cineastas aventureros..."
+                        placeholder="Activa tu Agente Visual: Escribe instrucciones detalladas (ej: 'Post visual del producto en una fiesta neón, tono épico, 1:1, cinematográfico...'). El agente integrará automáticamente la imagen activa del panel izquierdo."
                         className="min-h-[100px] pr-36 bg-secondary/50 border-border text-sm resize-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-foreground placeholder:text-muted-foreground"
                       />
                       <button onClick={handleEnhancePrompt} disabled={isEnhancing}
