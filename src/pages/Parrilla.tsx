@@ -417,7 +417,7 @@ const Parrilla = () => {
     } finally {
       setIsGenerating(false);
     }
-  }, [platforms, optionsPerPost, customPrompt, frequency, objective]);
+  }, [platforms, optionsPerPost, customPrompt, frequency, objective, brandAssets]);
 
   const handleEnhancePrompt = useCallback(() => {
     if (!customPrompt.trim()) { toast({ title: "✏️ Escribe algo primero", description: "Ingresa una idea básica para mejorarla." }); return; }
