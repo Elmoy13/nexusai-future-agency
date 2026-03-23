@@ -353,16 +353,20 @@ const Parrilla = () => {
       .filter(([_, v]) => v)
       .map(([k]) => k);
     
-    const promptText = customPrompt.trim() || `Genera contenido para ${activePlatforms.join(", ")} sobre el Drone X10 de Aero Dynamics. Frecuencia: ${frequency}. Objetivo: ${objective}.`;
+    const promptText = customPrompt.trim() || `Genera contenido para ${activePlatforms.join(", ")}. Frecuencia: ${frequency}. Objetivo: ${objective}.`;
+
+    // Use the first brand asset as context image if available
+    const contextImage = brandAssets.length > 0 ? brandAssets[0] : undefined;
 
     try {
       const { data, error } = await supabase.functions.invoke("generate-nano-banano", {
         body: { 
-          prompt: promptText, 
-          platforms: activePlatforms,
-          frequency,
+          prompt: promptText,
+          context_image: contextImage,
+          platform: activePlatforms,
           objective,
-          optionsPerPost 
+          opciones: optionsPerPost,
+          frequency,
         },
       });
 
