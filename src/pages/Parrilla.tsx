@@ -381,10 +381,21 @@ const Parrilla = () => {
     }
 
     try {
+      // Build the final prompt: if there's a context image, wrap user idea in technical prompt engineering template
+      let finalPrompt = promptText;
+      if (contextImage) {
+        const userScene = promptText.trim() || "a dynamic, energetic advertising scene";
+        finalPrompt = `A high-end, photorealistic advertisement mockup of ${userScene}. The complete visual appearance, lines, smiling icon, and precise typography from [1] (the brand logo) must be flawlessly preserved without any artistic re-interpretation or modification. The exact design [1] must be integrated not as a flat overlay, but embedded with depth, texture, and realistic lighting into the central game component (e.g., carved into a wooden token, printed on cards, or embossed on the board itself). The model must generate real shadows and highlights over the embedded logo [1] as if it were a physical object of the game, not a post-process overlay. Preserve text legibility.`;
+      }
+
       const { data, error } = await supabase.functions.invoke("generate-nano-banano", {
         body: {
-          prompt: promptText,
-          ...(contextImage && { context_image: contextImage, ad_format: adFormat }),
+          prompt: finalPrompt,
+          ...(contextImage && {
+            context_image: contextImage,
+            ad_format: adFormat,
+            subject_description: "the precise and immutable brand logo design",
+          }),
           platform: activePlatforms,
           objective,
           opciones: optionsPerPost,
