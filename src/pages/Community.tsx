@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -43,26 +43,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 /* ── Types ── */
-interface ChatContact {
+interface Conversation {
   id: string;
-  name: string;
-  platform: "whatsapp" | "instagram" | "messenger";
-  lastMessage: string;
-  timestamp: string;
-  unread: boolean;
-  aiActive: boolean;
-  sentiment: "complaint" | "lead" | "question";
-  slaAlert?: string;
-  type: "dm" | "comment" | "mention" | "review";
+  contact_id: string;
+  last_message_at: string;
+  contact_name: string;
+  contact_platform: string;
 }
 
-interface Message {
+interface DbMessage {
   id: string;
-  sender: "user" | "ai" | "agent";
+  conversation_id: string;
+  sender: "customer" | "agent";
   content: string;
-  timestamp: string;
+  sent_at: string;
 }
 
 interface KnowledgeFile {
@@ -71,47 +69,7 @@ interface KnowledgeFile {
   size: string;
 }
 
-/* ── Mock Data ── */
-const mockContacts: ChatContact[] = [
-  {
-    id: "1", name: "Carlos Ruiz", platform: "whatsapp",
-    lastMessage: "¿El dron puede volar con lluvia?", timestamp: "hace 2 min",
-    unread: true, aiActive: true, sentiment: "lead", type: "dm",
-  },
-  {
-    id: "2", name: "María González", platform: "instagram",
-    lastMessage: "Me interesa el modelo X10 Pro", timestamp: "hace 15 min",
-    unread: true, aiActive: true, sentiment: "lead", type: "dm",
-  },
-  {
-    id: "3", name: "Tech Reviews MX", platform: "messenger",
-    lastMessage: "¿Tienen programa de afiliados?", timestamp: "hace 1 hora",
-    unread: false, aiActive: false, sentiment: "question", slaAlert: "Esperando 10m", type: "dm",
-  },
-  {
-    id: "4", name: "Andrés López", platform: "whatsapp",
-    lastMessage: "Esto es un desastre, mi dron llegó roto", timestamp: "hace 25 min",
-    unread: true, aiActive: false, sentiment: "complaint", slaAlert: "Esperando 10m", type: "dm",
-  },
-  {
-    id: "5", name: "Laura Soto", platform: "instagram",
-    lastMessage: "¡Increíble toma! ¿Qué dron usaron?", timestamp: "hace 40 min",
-    unread: false, aiActive: true, sentiment: "lead", type: "comment",
-  },
-  {
-    id: "6", name: "DronesMX", platform: "instagram",
-    lastMessage: "Nos encantaría hacer un review del X10", timestamp: "hace 2 horas",
-    unread: false, aiActive: true, sentiment: "question", type: "mention",
-  },
-];
-
-const mockMessages: Message[] = [
-  { id: "1", sender: "user", content: "Hola, tengo una pregunta sobre el Drone X10", timestamp: "10:30" },
-  { id: "2", sender: "ai", content: "¡Hola Carlos! 👋 Soy el asistente virtual de Aero Dynamics. Estaré encantado de ayudarte con cualquier duda sobre el Drone X10. ¿Qué te gustaría saber?", timestamp: "10:30" },
-  { id: "3", sender: "user", content: "¿El dron puede volar con lluvia? Necesito usarlo para filmaciones en exteriores", timestamp: "10:32" },
-  { id: "4", sender: "ai", content: "¡Excelente pregunta! El Drone X10 cuenta con certificación IP68, lo que significa que es resistente al agua y polvo. Puede operar bajo lluvia ligera a moderada sin problemas. Para condiciones más extremas, recomendamos revisar el manual de operaciones incluido. ¿Te gustaría conocer más especificaciones técnicas?", timestamp: "10:32" },
-];
-
+/* ── Mock data for CRM sidebar (unchanged) ── */
 const mockKnowledgeFiles: KnowledgeFile[] = [
   { id: "1", name: "manual_drone_x10.pdf", size: "2.4 MB" },
   { id: "2", name: "politicas_de_devolucion.pdf", size: "156 KB" },
@@ -119,28 +77,34 @@ const mockKnowledgeFiles: KnowledgeFile[] = [
 ];
 
 /* ── Helpers ── */
-const getSentimentDot = (s: ChatContact["sentiment"]) => {
-  switch (s) {
-    case "complaint": return "bg-red-500 shadow-[0_0_8px_hsl(0_84%_60%/0.6)]";
-    case "lead": return "bg-green-500 shadow-[0_0_8px_hsl(142_71%_45%/0.6)]";
-    case "question": return "bg-muted-foreground/50";
-  }
-};
-
-const getSentimentLabel = (s: ChatContact["sentiment"]) => {
-  switch (s) {
-    case "complaint": return "😡 Queja";
-    case "lead": return "🤑 Lead";
-    case "question": return "❓ Duda";
-  }
-};
-
 const getPlatformIcon = (platform: string, size = 12) => {
   switch (platform) {
     case "whatsapp": return <Phone size={size} className="text-green-500" />;
     case "instagram": return <Instagram size={size} className="text-pink-500" />;
     case "messenger": return <MessageSquare size={size} className="text-blue-500" />;
-    default: return null;
+    default: return <Globe size={size} className="text-muted-foreground" />;
+  }
+};
+
+const formatTime = (iso: string) => {
+  try {
+    return new Date(iso).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return "";
+  }
+};
+
+const formatRelative = (iso: string) => {
+  try {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "ahora";
+    if (mins < 60) return `hace ${mins} min`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `hace ${hrs}h`;
+    return `hace ${Math.floor(hrs / 24)}d`;
+  } catch {
+    return "";
   }
 };
 
@@ -148,15 +112,20 @@ const getPlatformIcon = (platform: string, size = 12) => {
 const Community = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
-  const [inboxTab, setInboxTab] = useState<"dm" | "comment" | "mention" | "review">("dm");
-  const [selectedContact, setSelectedContact] = useState<ChatContact>(mockContacts[0]);
-  const [messages, setMessages] = useState<Message[]>(mockMessages);
+  // Supabase state
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [loadingConversations, setLoadingConversations] = useState(true);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<DbMessage[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+
+  // UI state
   const [inputMessage, setInputMessage] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [isManualMode, setIsManualMode] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
-  const [showSuggestion, setShowSuggestion] = useState(true);
-  const [clientTags, setClientTags] = useState<string[]>(["Lead Caliente"]);
 
   const [knowledgeFiles, setKnowledgeFiles] = useState<KnowledgeFile[]>(mockKnowledgeFiles);
   const [aiTemperature, setAiTemperature] = useState([30]);
@@ -165,41 +134,125 @@ const Community = () => {
   const [connectingChannel, setConnectingChannel] = useState<string | null>(null);
   const [whatsappPhone, setWhatsappPhone] = useState("");
   const [showWhatsappInput, setShowWhatsappInput] = useState(false);
+  const [clientTags, setClientTags] = useState<string[]>(["Lead Caliente"]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const filteredContacts = mockContacts.filter((c) => c.type === inboxTab);
+  // ─── 1. Load conversations with contact join ───
+  const fetchConversations = useCallback(async () => {
+    setLoadingConversations(true);
+    const { data, error } = await supabase
+      .from("conversations")
+      .select("id, contact_id, last_message_at, contacts(name, platform)")
+      .order("last_message_at", { ascending: false });
 
-  const handleSendMessage = (content?: string) => {
-    const text = content || inputMessage.trim();
-    if (!text) return;
+    if (error) {
+      console.error("Error fetching conversations:", error);
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else if (data) {
+      const mapped: Conversation[] = data.map((row: any) => ({
+        id: row.id,
+        contact_id: row.contact_id,
+        last_message_at: row.last_message_at,
+        contact_name: row.contacts?.name || "Sin nombre",
+        contact_platform: row.contacts?.platform || "web",
+      }));
+      setConversations(mapped);
+      // Auto-select first if none selected
+      if (!selectedConversationId && mapped.length > 0) {
+        setSelectedConversationId(mapped[0].id);
+      }
+    }
+    setLoadingConversations(false);
+  }, [toast, selectedConversationId]);
 
-    const newMsg: Message = {
-      id: Date.now().toString(),
-      sender: isManualMode ? "agent" : (content ? "ai" : "user"),
-      content: text,
-      timestamp: new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }),
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
+
+  // ─── 2. Load messages for active conversation ───
+  useEffect(() => {
+    if (!selectedConversationId) return;
+
+    const loadMessages = async () => {
+      setLoadingMessages(true);
+      const { data, error } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("conversation_id", selectedConversationId)
+        .order("sent_at", { ascending: true });
+
+      if (error) {
+        console.error("Error fetching messages:", error);
+        toast({ title: "Error cargando mensajes", description: error.message, variant: "destructive" });
+      } else {
+        setMessages(data || []);
+      }
+      setLoadingMessages(false);
     };
 
-    setMessages((prev) => [...prev, newMsg]);
-    setInputMessage("");
-    if (content) { setShowSuggestion(false); return; }
+    loadMessages();
+  }, [selectedConversationId, toast]);
 
-    if (!isManualMode) {
-      setIsTyping(true);
-      setTimeout(() => {
-        setMessages((prev) => [...prev, {
-          id: (Date.now() + 1).toString(),
-          sender: "ai",
-          content: "Gracias por tu mensaje. Basándome en nuestra documentación, puedo confirmar que el Drone X10 es ideal para tus necesidades. ¿Hay algo más en lo que pueda ayudarte?",
-          timestamp: new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }),
-        }]);
-        setIsTyping(false);
-      }, 1500);
+  // ─── 3. Realtime subscription on messages ───
+  useEffect(() => {
+    const channel = supabase
+      .channel("realtime-messages")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        (payload) => {
+          const newMsg = payload.new as DbMessage;
+          if (newMsg.conversation_id === selectedConversationId) {
+            setMessages((prev) => {
+              // Avoid duplicates
+              if (prev.some((m) => m.id === newMsg.id)) return prev;
+              return [...prev, newMsg];
+            });
+          }
+          // Refresh conversations list to update last_message_at
+          fetchConversations();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedConversationId, fetchConversations]);
+
+  // ─── 4. Send message via Edge Function ───
+  const handleSendMessage = async () => {
+    const text = inputMessage.trim();
+    if (!text || !selectedConversationId) return;
+
+    setIsSending(true);
+    setInputMessage("");
+
+    try {
+      const { data, error } = await supabase.functions.invoke("send-message", {
+        body: {
+          conversation_id: selectedConversationId,
+          message_text: text,
+        },
+      });
+
+      if (error) {
+        console.error("Edge function error:", error);
+        toast({ title: "Error al enviar", description: error.message, variant: "destructive" });
+        setInputMessage(text); // Restore input on error
+      }
+    } catch (err: any) {
+      console.error("Send error:", err);
+      toast({ title: "Error de conexión", description: err.message, variant: "destructive" });
+      setInputMessage(text);
+    } finally {
+      setIsSending(false);
     }
   };
 
