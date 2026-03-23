@@ -549,13 +549,13 @@ const Community = () => {
               <div className="text-center">
                 <Avatar className="w-16 h-16 mx-auto mb-3">
                   <AvatarFallback className="bg-gradient-to-br from-primary/25 to-accent/25 text-lg font-bold">
-                    {selectedContact.name.split(" ").map((n) => n[0]).join("")}
+                    {selectedConversation?.contact_name.split(" ").map((n) => n[0]).join("").slice(0, 2) || "?"}
                   </AvatarFallback>
                 </Avatar>
-                <h3 className="font-semibold">{selectedContact.name}</h3>
+                <h3 className="font-semibold">{selectedConversation?.contact_name || "—"}</h3>
                 <div className="flex items-center justify-center gap-1.5 mt-1 text-xs text-muted-foreground">
-                  {getPlatformIcon(selectedContact.platform, 12)}
-                  <span className="capitalize">{selectedContact.platform}</span>
+                  {getPlatformIcon(selectedConversation?.contact_platform || "", 12)}
+                  <span className="capitalize">{selectedConversation?.contact_platform || "—"}</span>
                 </div>
               </div>
 
