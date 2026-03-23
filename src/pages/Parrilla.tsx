@@ -510,7 +510,7 @@ const Parrilla = () => {
         </AnimatePresence>
 
         {/* Main Content */}
-        <main className="flex-1 flex flex-col overflow-hidden">
+        <main className="flex-1 flex flex-col overflow-y-auto">
           {/* Nano Banano Agent */}
           <AnimatePresence>
             {!isClientView && (
