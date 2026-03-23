@@ -350,7 +350,7 @@ const Parrilla = () => {
       setIsProcessing(false);
       setProcessingImage(null);
     }
-  }, []);
+  }, [autoRemoveBg]);
 
   const handleGenerate = useCallback(async () => {
     setIsGenerating(true);
