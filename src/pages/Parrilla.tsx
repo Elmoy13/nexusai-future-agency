@@ -552,9 +552,9 @@ const Parrilla = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="mobile_screen">📱 App en Pantalla</SelectItem>
-                      <SelectItem value="watermark">💧 Sello / Marca de Agua Publicitaria</SelectItem>
-                      <SelectItem value="merch">👕 Mercancía</SelectItem>
+                      <SelectItem value="merch">👕 Mercancía / Ropa</SelectItem>
+                      <SelectItem value="watermark">💧 Anuncio con Marca de Agua</SelectItem>
+                      <SelectItem value="mobile_screen">📱 Pantalla de Celular (Lifestyle)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
