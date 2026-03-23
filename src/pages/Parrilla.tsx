@@ -443,13 +443,15 @@ const Parrilla = () => {
       console.error("Edge function error:", err);
       setPosts(MOCK_POSTS.filter((p) => platforms[p.platform as keyof typeof platforms]));
       setHasGenerated(true);
+      const technicalMsg = err?.message || err?.error?.message || JSON.stringify(err) || "Error desconocido";
       toast({ 
-        title: "⚠️ Usando datos de demostración", 
-        description: err?.message || "Error conectando con el motor de IA. Revisa los logs de Supabase.",
+        title: "⚠️ Error de Vertex AI", 
+        description: `${technicalMsg}\n\nSe cargaron datos de demostración.`,
         variant: "destructive"
       });
     } finally {
       setIsGenerating(false);
+      setGeneratingStatus("");
     }
   }, [platforms, optionsPerPost, customPrompt, agentPrompt, frequency, objective, brandAssetBlobs, adFormat]);
 
