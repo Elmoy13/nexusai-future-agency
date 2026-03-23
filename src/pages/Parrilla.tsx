@@ -523,6 +523,11 @@ const Parrilla = () => {
               </button>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
 
+              <div className="flex items-center justify-between mb-5 px-1">
+                <label htmlFor="auto-remove-bg" className="text-xs font-medium text-muted-foreground cursor-pointer">Remover Fondo Automatizado</label>
+                <Switch id="auto-remove-bg" checked={autoRemoveBg} onCheckedChange={setAutoRemoveBg} className="data-[state=checked]:bg-primary" />
+              </div>
+
               <div className="flex-1 overflow-y-auto">
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Assets procesados</p>
                 <div className="grid grid-cols-2 gap-3">
