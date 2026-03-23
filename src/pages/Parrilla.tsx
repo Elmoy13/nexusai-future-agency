@@ -567,6 +567,22 @@ const Parrilla = () => {
                 <Switch id="auto-remove-bg" checked={autoRemoveBg} onCheckedChange={setAutoRemoveBg} className="data-[state=checked]:bg-primary" />
               </div>
 
+              {brandAssets.length > 0 && (
+                <div className="mb-5 space-y-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tipo de Referencia</p>
+                  <Select value={referenceType} onValueChange={(v) => setReferenceType(v as "logo" | "product" | "mascot")}>
+                    <SelectTrigger className="bg-secondary/50 border-border h-10 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="logo">🏷️ Logo plano / Marca</SelectItem>
+                      <SelectItem value="product">📦 Producto físico (Botella, empaque, etc.)</SelectItem>
+                      <SelectItem value="mascot">🐾 Mascota / Personaje</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div className="flex-1 overflow-y-auto">
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Assets procesados</p>
                 <div className="grid grid-cols-2 gap-3">
