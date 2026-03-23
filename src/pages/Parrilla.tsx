@@ -387,20 +387,20 @@ const Parrilla = () => {
     }
 
     try {
+      const payload = {
+        prompt: finalPrompt,
+        context_image: contextImage || undefined,
+        ad_format: adFormat,
+        platform: activePlatforms,
+        objective,
+        opciones: optionsPerPost,
+        frequency,
+      };
+      console.log("📦 Payload enviado a generate-nano-banano:", JSON.stringify({ ...payload, context_image: payload.context_image ? `${payload.context_image.substring(0, 60)}...` : null }, null, 2));
+
       setGeneratingStatus("🧠 Enviando prompt a Vertex AI...");
       const { data, error } = await supabase.functions.invoke("generate-nano-banano", {
-        body: {
-          prompt: finalPrompt,
-          ...(contextImage && {
-            context_image: contextImage,
-            ad_format: adFormat,
-            subject_description: "the precise and immutable brand logo design",
-          }),
-          platform: activePlatforms,
-          objective,
-          opciones: optionsPerPost,
-          frequency,
-        },
+        body: payload,
       });
 
       if (error) {
