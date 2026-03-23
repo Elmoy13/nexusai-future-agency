@@ -361,14 +361,20 @@ const Parrilla = () => {
     }
   }, [autoRemoveBg]);
 
-  const handleGenerate = useCallback(async () => {
+  const handleAgentReady = useCallback((payload: { prompt: string; brandContext: string; audience: string; style: string }) => {
+    setAgentPrompt(payload.prompt);
+    // Auto-trigger generation
+    handleGenerateWithPrompt(payload.prompt);
+  }, []);
+
+  const handleGenerateWithPrompt = useCallback(async (promptOverride?: string) => {
     setIsGenerating(true);
     
     const activePlatforms = Object.entries(platforms)
       .filter(([_, v]) => v)
       .map(([k]) => k);
     
-    const promptText = customPrompt.trim() || `Genera contenido para ${activePlatforms.join(", ")}. Frecuencia: ${frequency}. Objetivo: ${objective}.`;
+    const finalPrompt = promptOverride || agentPrompt || customPrompt.trim() || `Genera contenido para ${activePlatforms.join(", ")}. Frecuencia: ${frequency}. Objetivo: ${objective}.`;
 
     // Convert first brand asset blob to Base64 for the backend
     let contextImage: string | undefined;
@@ -381,14 +387,6 @@ const Parrilla = () => {
         reader.readAsDataURL(blob);
       });
     }
-
-    try {
-      // Build the final prompt: if there's a context image, wrap user idea in technical prompt engineering template
-      let finalPrompt = promptText;
-      if (contextImage) {
-        const userScene = promptText.trim() || "a dynamic, energetic advertising scene";
-        finalPrompt = `A high-end, photorealistic advertisement mockup of ${userScene}. The complete visual appearance, lines, smiling icon, and precise typography from [1] (the brand logo) must be flawlessly preserved without any artistic re-interpretation or modification. The exact design [1] must be integrated not as a flat overlay, but embedded with depth, texture, and realistic lighting into the central game component (e.g., carved into a wooden token, printed on cards, or embossed on the board itself). The model must generate real shadows and highlights over the embedded logo [1] as if it were a physical object of the game, not a post-process overlay. Preserve text legibility.`;
-      }
 
       const { data, error } = await supabase.functions.invoke("generate-nano-banano", {
         body: {
