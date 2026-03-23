@@ -312,6 +312,7 @@ const Parrilla = () => {
   const [customPrompt, setCustomPrompt] = useState("");
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [optionsPerPost, setOptionsPerPost] = useState(2);
+  const [autoRemoveBg, setAutoRemoveBg] = useState(true);
 
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
