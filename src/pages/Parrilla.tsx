@@ -688,11 +688,11 @@ const Parrilla = () => {
                             <SelectItem value="3">3</SelectItem>
                           </SelectContent>
                         </Select>
-                        <Button onClick={handleGenerate}
+                        <Button onClick={() => handleGenerateWithPrompt()}
                           disabled={isGenerating || (!platforms.instagram && !platforms.tiktok && !platforms.linkedin && !platforms.twitter)}
                           className="flex-1 h-11 text-sm font-semibold bg-gradient-to-r from-violet-600 via-purple-600 to-primary hover:from-violet-700 hover:via-purple-700 hover:to-primary/80 shadow-lg shadow-primary/25 disabled:opacity-50 text-white"
                         >
-                          {isGenerating ? <><Loader2 size={16} className="animate-spin mr-2" /> ✨ Nano Banano procesando instrucciones y asset visual...</> : <><Zap size={16} className="mr-2" /> Generar Parrilla 🚀</>}
+                          {isGenerating ? <><Loader2 size={16} className="animate-spin mr-2" /> ✨ Procesando...</> : <><Zap size={16} className="mr-2" /> Generar Parrilla 🚀</>}
                         </Button>
                       </div>
                     </div>
