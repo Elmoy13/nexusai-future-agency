@@ -316,31 +316,28 @@ const Parrilla = () => {
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "Archivo demasiado grande", description: "Máximo 10MB.", variant: "destructive" });
+      return;
+    }
     const previewUrl = URL.createObjectURL(file);
     setProcessingImage(previewUrl);
     setIsProcessing(true);
     e.target.value = "";
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const { data, error } = await supabase.functions.invoke("remove-background", {
-        body: formData,
-      });
-
-      if (error) throw error;
-
-      const resultUrl = data?.url || data?.image || previewUrl;
+      const resultBlob = await removeBackground(file);
+      const resultUrl = URL.createObjectURL(resultBlob);
       setBrandAssets((prev) => [...prev, resultUrl]);
-      toast({ title: "✨ ¡Producto aislado con éxito!", description: "PNG transparente listo para usar." });
+      toast({ title: "✨ ¡Producto aislado con éxito!", description: "Procesado localmente — Costo $0." });
     } catch (err: any) {
-      console.error("remove-background error:", err);
-      // Fallback: keep original image so UI doesn't break
+      console.error("background-removal error:", err);
       setBrandAssets((prev) => [...prev, previewUrl]);
       toast({
         title: "Error al procesar imagen",
-        description: err?.message || "No se pudo conectar con el motor de IA. Revisa los logs de Supabase.",
+        description: err?.message?.includes("WebGL") 
+          ? "Tu navegador no soporta WebGL. Intenta con Chrome o Edge."
+          : "No se pudo remover el fondo. La imagen original fue conservada.",
         variant: "destructive",
       });
     } finally {
