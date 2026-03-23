@@ -752,7 +752,7 @@ const Parrilla = () => {
               </div>
               <div className="flex items-center justify-center gap-3">
                 <Loader2 size={20} className="animate-spin text-primary" />
-                <p className="text-foreground font-semibold">✨ Procesando imagen localmente (Costo $0)...</p>
+                <p className="text-foreground font-semibold">✨ Aislando producto con IA local...</p>
               </div>
             </motion.div>
           </motion.div>
