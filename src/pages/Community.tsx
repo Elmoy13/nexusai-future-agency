@@ -471,7 +471,8 @@ const Community = () => {
               <Button
                 variant={isManualMode ? "default" : "outline"}
                 size="sm"
-                onClick={() => setIsManualMode(!isManualMode)}
+                onClick={handleToggleMode}
+                disabled={togglingMode}
                 className={cn(
                   "text-[11px] gap-1.5 h-8",
                   isManualMode
