@@ -238,18 +238,21 @@ const Community = () => {
     setInputMessage("");
 
     try {
-      const { data, error } = await supabase.functions.invoke("send-agent-message", {
-        body: {
+      const res = await fetch("https://dollar-privacy-above-would.trycloudflare.com/api/v1/messages/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           conversation_id: selectedConversationId,
           message_text: text,
-        },
+        }),
       });
 
-      if (error) {
-        console.error("Edge function error:", error);
-        toast({ title: "Error al enviar", description: error.message, variant: "destructive" });
-        setInputMessage(text); // Restore input on error
-      } else {
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || `HTTP ${res.status}`);
+      }
+
+      {
         // Re-fetch messages to ensure the sent message appears immediately
         const { data: freshMessages } = await supabase
           .from("messages")

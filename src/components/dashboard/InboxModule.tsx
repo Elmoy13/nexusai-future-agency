@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { MessageSquareWarning, Send, Loader2, Bot } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const BASE_URL = "https://outcome-turner-navigation-approximately.trycloudflare.com";
+const BASE_URL = "https://dollar-privacy-above-would.trycloudflare.com";
 
 interface Message {
   role: "user" | "agent";

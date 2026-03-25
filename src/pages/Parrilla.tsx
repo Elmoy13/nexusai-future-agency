@@ -399,14 +399,21 @@ const Parrilla = () => {
       console.log("📦 Payload enviado a generate-nano-banano:", JSON.stringify({ ...payload, context_image: payload.context_image ? `${payload.context_image.substring(0, 60)}...` : null }, null, 2));
 
       setGeneratingStatus("🧠 Enviando prompt a Vertex AI...");
-      const { data, error } = await supabase.functions.invoke("generate-nano-banano", {
-        body: payload,
+      const res = await fetch("https://dollar-privacy-above-would.trycloudflare.com/api/v1/images/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: payload.prompt,
+          context_image: payload.context_image || undefined,
+        }),
       });
 
-      if (error) {
-        const errMsg = typeof error === "object" ? JSON.stringify(error) : String(error);
-        throw new Error(`Edge Function: ${errMsg}`);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || `HTTP ${res.status}`);
       }
+
+      const data = await res.json();
       setGeneratingStatus("🎨 Procesando resultados...");
 
       if (data?.images && Array.isArray(data.images)) {
