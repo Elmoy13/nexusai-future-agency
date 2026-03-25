@@ -53,6 +53,7 @@ interface Conversation {
   last_message_at: string;
   contact_name: string;
   contact_platform: string;
+  mode: "ai" | "manual";
 }
 
 interface DbMessage {
@@ -125,7 +126,7 @@ const Community = () => {
   const [inputMessage, setInputMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isManualMode, setIsManualMode] = useState(false);
+  const [togglingMode, setTogglingMode] = useState(false);
 
   const [knowledgeFiles, setKnowledgeFiles] = useState<KnowledgeFile[]>(mockKnowledgeFiles);
   const [aiTemperature, setAiTemperature] = useState([30]);
@@ -140,6 +141,37 @@ const Community = () => {
 
   // Derived
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId) || null;
+  const isManualMode = selectedConversation?.mode === "manual";
+
+  const handleToggleMode = async () => {
+    if (!selectedConversationId || togglingMode) return;
+    const newMode = isManualMode ? "ai" : "manual";
+    setTogglingMode(true);
+    try {
+      const res = await fetch(
+        `https://dollar-privacy-above-would.trycloudflare.com/api/v1/conversations/${selectedConversationId}/mode`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: newMode }),
+        }
+      );
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || `HTTP ${res.status}`);
+      }
+      // Update local state immediately
+      setConversations((prev) =>
+        prev.map((c) => (c.id === selectedConversationId ? { ...c, mode: newMode } : c))
+      );
+      toast({ title: newMode === "manual" ? "Modo manual activado" : "IA activada", description: newMode === "manual" ? "Ahora respondes tú" : "El bot responderá automáticamente" });
+    } catch (err: any) {
+      console.error("Toggle mode error:", err);
+      toast({ title: "Error cambiando modo", description: err.message, variant: "destructive" });
+    } finally {
+      setTogglingMode(false);
+    }
+  };
 
   // Auto-scroll
   useEffect(() => {
@@ -151,7 +183,7 @@ const Community = () => {
     setLoadingConversations(true);
     const { data, error } = await supabase
       .from("conversations")
-      .select("id, contact_id, last_message_at, contacts(name, platform)")
+      .select("id, contact_id, last_message_at, mode, contacts(name, platform)")
       .order("last_message_at", { ascending: false });
 
     if (error) {
@@ -164,9 +196,9 @@ const Community = () => {
         last_message_at: row.last_message_at,
         contact_name: row.contacts?.name || "Sin nombre",
         contact_platform: row.contacts?.platform || "web",
+        mode: row.mode || "ai",
       }));
       setConversations(mapped);
-      // Auto-select first if none selected
       if (!selectedConversationId && mapped.length > 0) {
         setSelectedConversationId(mapped[0].id);
       }
@@ -439,7 +471,8 @@ const Community = () => {
               <Button
                 variant={isManualMode ? "default" : "outline"}
                 size="sm"
-                onClick={() => setIsManualMode(!isManualMode)}
+                onClick={handleToggleMode}
+                disabled={togglingMode}
                 className={cn(
                   "text-[11px] gap-1.5 h-8",
                   isManualMode
