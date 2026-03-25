@@ -141,6 +141,37 @@ const Community = () => {
 
   // Derived
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId) || null;
+  const isManualMode = selectedConversation?.mode === "manual";
+
+  const handleToggleMode = async () => {
+    if (!selectedConversationId || togglingMode) return;
+    const newMode = isManualMode ? "ai" : "manual";
+    setTogglingMode(true);
+    try {
+      const res = await fetch(
+        `https://dollar-privacy-above-would.trycloudflare.com/api/v1/conversations/${selectedConversationId}/mode`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: newMode }),
+        }
+      );
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || `HTTP ${res.status}`);
+      }
+      // Update local state immediately
+      setConversations((prev) =>
+        prev.map((c) => (c.id === selectedConversationId ? { ...c, mode: newMode } : c))
+      );
+      toast({ title: newMode === "manual" ? "Modo manual activado" : "IA activada", description: newMode === "manual" ? "Ahora respondes tú" : "El bot responderá automáticamente" });
+    } catch (err: any) {
+      console.error("Toggle mode error:", err);
+      toast({ title: "Error cambiando modo", description: err.message, variant: "destructive" });
+    } finally {
+      setTogglingMode(false);
+    }
+  };
 
   // Auto-scroll
   useEffect(() => {
