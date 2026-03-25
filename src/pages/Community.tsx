@@ -152,7 +152,7 @@ const Community = () => {
     setLoadingConversations(true);
     const { data, error } = await supabase
       .from("conversations")
-      .select("id, contact_id, last_message_at, contacts(name, platform)")
+      .select("id, contact_id, last_message_at, mode, contacts(name, platform)")
       .order("last_message_at", { ascending: false });
 
     if (error) {
@@ -165,9 +165,9 @@ const Community = () => {
         last_message_at: row.last_message_at,
         contact_name: row.contacts?.name || "Sin nombre",
         contact_platform: row.contacts?.platform || "web",
+        mode: row.mode || "ai",
       }));
       setConversations(mapped);
-      // Auto-select first if none selected
       if (!selectedConversationId && mapped.length > 0) {
         setSelectedConversationId(mapped[0].id);
       }
