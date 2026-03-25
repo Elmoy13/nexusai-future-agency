@@ -53,6 +53,7 @@ interface Conversation {
   last_message_at: string;
   contact_name: string;
   contact_platform: string;
+  mode: "ai" | "manual";
 }
 
 interface DbMessage {
