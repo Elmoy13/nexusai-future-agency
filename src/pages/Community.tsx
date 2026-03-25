@@ -270,7 +270,7 @@ const Community = () => {
     setInputMessage("");
 
     try {
-      const res = await fetch("https://dollar-privacy-above-would.trycloudflare.com/api/v1/messages/send", {
+      const res = await fetch("https://loaded-roles-behavior-mystery.trycloudflare.com/api/v1/messages/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

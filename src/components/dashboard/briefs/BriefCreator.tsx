@@ -20,7 +20,7 @@ import ReactMarkdown from "react-markdown";
 import type { SlideElement } from "./campaignData";
 import { ScaledSlidePreview } from "@/components/agent/ScaledSlidePreview";
 
-const BASE_URL = "https://dollar-privacy-above-would.trycloudflare.com";
+const BASE_URL = "https://loaded-roles-behavior-mystery.trycloudflare.com";
 
 /* ── Helpers ─────────────────────────────────────────────── */
 

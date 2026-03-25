@@ -399,7 +399,7 @@ const Parrilla = () => {
       console.log("📦 Payload enviado a generate-nano-banano:", JSON.stringify({ ...payload, context_image: payload.context_image ? `${payload.context_image.substring(0, 60)}...` : null }, null, 2));
 
       setGeneratingStatus("🧠 Enviando prompt a Vertex AI...");
-      const res = await fetch("https://dollar-privacy-above-would.trycloudflare.com/api/v1/images/generate", {
+      const res = await fetch("https://loaded-roles-behavior-mystery.trycloudflare.com/api/v1/images/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

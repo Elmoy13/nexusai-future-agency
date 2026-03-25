@@ -2,7 +2,7 @@ import { useState } from "react";
 import { BrainCircuit, Loader2, Sparkles, Target, Users } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const BASE_URL = "https://dollar-privacy-above-would.trycloudflare.com";
+const BASE_URL = "https://loaded-roles-behavior-mystery.trycloudflare.com";
 
 interface StrategyResult {
   tone?: string;
