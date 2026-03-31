@@ -481,8 +481,6 @@ const Parrilla = () => {
   const [platforms, setPlatforms] = useState({ instagram: true, tiktok: true, linkedin: false, twitter: false });
   const [frequency, setFrequency] = useState("3-week");
   const [objective, setObjective] = useState("engagement");
-  const [customPrompt, setCustomPrompt] = useState("");
-  const [isEnhancing, setIsEnhancing] = useState(false);
   const [optionsPerPost, setOptionsPerPost] = useState(2);
   
   const [adFormat, setAdFormat] = useState<"mobile_screen" | "watermark" | "merch">("merch");
