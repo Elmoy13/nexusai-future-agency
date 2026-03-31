@@ -481,14 +481,12 @@ const Parrilla = () => {
   const [platforms, setPlatforms] = useState({ instagram: true, tiktok: true, linkedin: false, twitter: false });
   const [frequency, setFrequency] = useState("3-week");
   const [objective, setObjective] = useState("engagement");
-  const [customPrompt, setCustomPrompt] = useState("");
-  const [isEnhancing, setIsEnhancing] = useState(false);
   const [optionsPerPost, setOptionsPerPost] = useState(2);
   
   const [adFormat, setAdFormat] = useState<"mobile_screen" | "watermark" | "merch">("merch");
-  const [agentPrompt, setAgentPrompt] = useState<string | null>(null);
   const [generatingStatus, setGeneratingStatus] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>("auto");
+  const [campaignBrief, setCampaignBrief] = useState<{ description: string; tone: string; extras: string; isComplete: boolean }>({ description: "", tone: "", extras: "", isComplete: false });
   const [brand, setBrand] = useState<BrandProfile>(() => loadBrand(id));
   const [editingPost, setEditingPost] = useState<PostCard | null>(null);
   const [isAnalyzingBrand, setIsAnalyzingBrand] = useState(false);
@@ -624,102 +622,68 @@ const Parrilla = () => {
     return mockRenderPost(post);
   }, [brand, mockRenderPost]);
 
-  const handleGenerateWithPrompt = useCallback(async (promptOverride?: string) => {
+  // Mock copy generators
+  const mockHeadlines = ["Descubre lo nuevo", "Tu próxima obsesión", "Hecho para ti", "Eleva tu estilo", "Sin límites", "Empieza hoy", "Lo que esperabas", "Nuevo lanzamiento", "Solo por tiempo limitado", "Transforma tu día", "Más que un producto", "Vive diferente"];
+  const mockBodies = ["Una experiencia que no te puedes perder", "Diseñado con pasión, creado para ti", "Calidad que se nota desde el primer momento", "Porque mereces lo mejor, siempre"];
+  const mockCtas = ["Compra ahora →", "Descúbrelo →", "Ver más →", "Reserva el tuyo →", "Shop now →", "Explora →"];
+
+  const getFrequencyCount = (f: string) => ({ "3-week": 3, "5-week": 5, "daily": 7 }[f] || 3);
+
+  const handleGenerateParrilla = useCallback(async () => {
     setIsGenerating(true);
-    setGeneratingStatus("🔗 Conectando con Vertex AI...");
+    setGeneratingStatus("⚡ Preparando parrilla...");
 
     const activePlatforms = Object.entries(platforms).filter(([_, v]) => v).map(([k]) => k);
-    const finalPrompt = promptOverride || agentPrompt || customPrompt.trim() || `Genera contenido para ${activePlatforms.join(", ")}. Frecuencia: ${frequency}. Objetivo: ${objective}.`;
+    const postsPerPlatform = getFrequencyCount(frequency) * optionsPerPost;
+    const totalPosts = activePlatforms.length * postsPerPlatform;
 
     let contextImage: string | undefined;
     if (brandAssetBlobs.length > 0) {
       contextImage = await blobToBase64(brandAssetBlobs[0]);
     }
 
-    try {
-      setGeneratingStatus("🧠 Enviando prompt a Vertex AI...");
-      const res = await fetch("https://loaded-roles-behavior-mystery.trycloudflare.com/api/v1/images/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: finalPrompt, context_image: contextImage || undefined }),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || `HTTP ${res.status}`);
-      }
-
-      const data = await res.json();
-      setGeneratingStatus("🎨 Renderizando posts...");
-
-      let rawPosts: PostCard[] = [];
-      if (data?.posts && Array.isArray(data.posts)) {
-        rawPosts = data.posts.map((post: any, idx: number) => ({
-          id: `gen-${Date.now()}-${idx}`,
-          platform: post.platform || activePlatforms[idx % activePlatforms.length] as Platform,
-          status: "draft" as PostStatus,
-          headline: post.headline || post.title || "",
-          body: post.body || post.caption || "",
-          cta: post.cta || "",
-          caption: post.caption || "",
-          imagePrompt: post.image_prompt || finalPrompt,
-          styleDescription: post.style || "profesional y moderno",
-          templateId: selectedTemplate,
-          hashtags: post.hashtags || [],
-          calendarDay: post.calendarDay || (idx * 3) + 1,
-          isRendering: true,
-        }));
-      } else {
-        rawPosts = MOCK_POSTS.filter((p) => platforms[p.platform as keyof typeof platforms]).map((p, idx) => ({
-          ...p,
-          id: `gen-${Date.now()}-${idx}`,
-          templateId: selectedTemplate,
-          isRendering: true,
-        }));
-      }
-
-      // Show cards immediately with rendering state
-      setPosts(rawPosts);
-      setHasGenerated(true);
-
-      // Render posts sequentially
-      const logoB64 = contextImage;
-      for (let i = 0; i < rawPosts.length; i++) {
-        setGeneratingStatus(`🎨 Renderizando post ${i + 1} de ${rawPosts.length}...`);
-        const renderedImage = await renderPost(rawPosts[i], logoB64);
-        setPosts(prev => prev.map((p, idx) =>
-          p.id === rawPosts[i].id ? { ...p, image: renderedImage, isRendering: false } : p
-        ));
-      }
-
-      toast({ title: "🚀 Parrilla generada", description: "Contenido generado y renderizado exitosamente." });
-    } catch (err: any) {
-      console.error("Generation error:", err);
-      const fallbackPosts = MOCK_POSTS.filter((p) => platforms[p.platform as keyof typeof platforms]).map((p, idx) => ({
-        ...p,
-        id: `gen-${Date.now()}-${idx}`,
+    // Create skeleton posts immediately
+    const skeletonPosts: PostCard[] = [];
+    for (let i = 0; i < totalPosts; i++) {
+      const platIdx = i % activePlatforms.length;
+      const platform = activePlatforms[platIdx] as Platform;
+      skeletonPosts.push({
+        id: `gen-${Date.now()}-${i}`,
+        platform,
+        status: "draft",
+        headline: mockHeadlines[i % mockHeadlines.length],
+        body: mockBodies[i % mockBodies.length],
+        cta: mockCtas[i % mockCtas.length],
+        imagePrompt: `${campaignBrief.description}, ${campaignBrief.tone} style`,
+        styleDescription: campaignBrief.tone || "profesional y moderno",
         templateId: selectedTemplate,
+        calendarDay: (i * 2) + 1,
         isRendering: true,
-      }));
-      setPosts(fallbackPosts);
-      setHasGenerated(true);
-
-      const logoB64 = contextImage;
-      for (let i = 0; i < fallbackPosts.length; i++) {
-        const img = await renderPost(fallbackPosts[i], logoB64);
-        setPosts(prev => prev.map(p => p.id === fallbackPosts[i].id ? { ...p, image: img, isRendering: false } : p));
-      }
-      toast({ title: "⚠️ Error de API", description: `${err?.message || "Error desconocido"} — Datos demo cargados.`, variant: "destructive" });
-    } finally {
-      setIsGenerating(false);
-      setGeneratingStatus("");
+      });
     }
-  }, [platforms, optionsPerPost, customPrompt, agentPrompt, frequency, objective, brandAssetBlobs, adFormat, selectedTemplate, brand, renderPost, blobToBase64]);
 
-  const handleAgentReady = useCallback((payload: { prompt: string; brandContext: string; audience: string; style: string }) => {
-    setAgentPrompt(payload.prompt);
-    handleGenerateWithPrompt(payload.prompt);
-  }, [handleGenerateWithPrompt]);
+    setPosts(skeletonPosts);
+    setHasGenerated(true);
+
+    // Render sequentially
+    for (let i = 0; i < skeletonPosts.length; i++) {
+      setGeneratingStatus(`🎨 Generando post ${i + 1} de ${totalPosts}...`);
+      const renderedImage = await renderPost(skeletonPosts[i], contextImage);
+      setPosts(prev => prev.map(p =>
+        p.id === skeletonPosts[i].id ? { ...p, image: renderedImage, isRendering: false } : p
+      ));
+    }
+
+    toast({ title: "🚀 Parrilla generada", description: `${totalPosts} posts generados exitosamente.` });
+    setIsGenerating(false);
+    setGeneratingStatus("");
+  }, [platforms, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, selectedTemplate, campaignBrief, renderPost]);
+
+  const handleBriefComplete = useCallback((brief: { description: string; tone: string; extras: string; isComplete: boolean }) => {
+    setCampaignBrief(brief);
+  }, []);
+
+  const canGenerate = brandDetected && campaignBrief.isComplete && Object.values(platforms).some(v => v);
 
   const togglePlatform = (key: keyof typeof platforms) => setPlatforms((prev) => ({ ...prev, [key]: !prev[key] }));
   const handleApprovePost = useCallback((id: string) => { setPosts(prev => prev.map(p => p.id === id ? { ...p, status: "scheduled" as PostStatus } : p)); toast({ title: "✅ Post aprobado" }); }, []);
@@ -966,7 +930,7 @@ const Parrilla = () => {
                   </div>
 
                   <div className="mb-5">
-                    <CreativeAgentChat onPromptReady={handleAgentReady} isGenerating={isGenerating} hasContextImage={brandAssetBlobs.length > 0} generatingStatus={generatingStatus} />
+                    <CreativeAgentChat onBriefComplete={handleBriefComplete} isGenerating={isGenerating} brandDetected={brandDetected} brandPalette={brand.palette} brandFont={brand.font_family} platforms={platforms} frequency={frequency} objective={objective} generatingStatus={generatingStatus} />
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
@@ -1044,12 +1008,19 @@ const Parrilla = () => {
                             <SelectItem value="3">3</SelectItem>
                           </SelectContent>
                         </Select>
-                        <Button onClick={() => handleGenerateWithPrompt()}
-                          disabled={isGenerating || (!platforms.instagram && !platforms.tiktok && !platforms.linkedin && !platforms.twitter)}
-                          className="flex-1 h-11 text-sm font-semibold bg-gradient-to-r from-violet-600 via-purple-600 to-primary hover:from-violet-700 hover:via-purple-700 hover:to-primary/80 shadow-lg shadow-primary/25 disabled:opacity-50 text-white"
-                        >
-                          {isGenerating ? <><Loader2 size={16} className="animate-spin mr-2" /> Procesando...</> : <><Zap size={16} className="mr-2" /> Generar 🚀</>}
-                        </Button>
+                        <div className="relative group/gen">
+                          <Button onClick={handleGenerateParrilla}
+                            disabled={isGenerating || !canGenerate}
+                            className="flex-1 h-11 text-sm font-semibold bg-gradient-to-r from-violet-600 via-purple-600 to-primary hover:from-violet-700 hover:via-purple-700 hover:to-primary/80 shadow-lg shadow-primary/25 disabled:opacity-50 text-white"
+                          >
+                            {isGenerating ? <><Loader2 size={16} className="animate-spin mr-2" /> {generatingStatus || "Generando..."}</> : <><Zap size={16} className="mr-2" /> Generar 🚀</>}
+                          </Button>
+                          {!canGenerate && !isGenerating && (
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 rounded-lg bg-card border border-border text-[10px] text-muted-foreground whitespace-nowrap opacity-0 group-hover/gen:opacity-100 transition-opacity pointer-events-none shadow-lg">
+                              {!brandDetected ? "Sube tu logo primero" : !campaignBrief.isComplete ? "Completa el brief con Nano Banano" : "Selecciona al menos 1 plataforma"}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
