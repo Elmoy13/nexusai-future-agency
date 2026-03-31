@@ -81,9 +81,9 @@ const DEFAULT_BRAND: BrandProfile = {
   background_suggestion: "dark",
 };
 
-function loadBrand(): BrandProfile {
+function loadBrand(parrillaId?: string): BrandProfile {
   try {
-    const saved = localStorage.getItem(BRAND_STORAGE_KEY);
+    const saved = localStorage.getItem(getBrandStorageKey(parrillaId));
     if (saved) {
       const parsed = JSON.parse(saved);
       return { ...DEFAULT_BRAND, ...parsed };
@@ -92,8 +92,8 @@ function loadBrand(): BrandProfile {
   return DEFAULT_BRAND;
 }
 
-function saveBrand(b: BrandProfile) {
-  localStorage.setItem(BRAND_STORAGE_KEY, JSON.stringify(b));
+function saveBrand(b: BrandProfile, parrillaId?: string) {
+  localStorage.setItem(getBrandStorageKey(parrillaId), JSON.stringify(b));
 }
 
 const mockBrandAnalysis = {
