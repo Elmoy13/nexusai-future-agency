@@ -932,7 +932,7 @@ const Parrilla = () => {
                   </div>
 
                   <div className="mb-5">
-                    <CreativeAgentChat onPromptReady={handleAgentReady} isGenerating={isGenerating} hasContextImage={brandAssetBlobs.length > 0} generatingStatus={generatingStatus} />
+                    <CreativeAgentChat onBriefComplete={handleBriefComplete} isGenerating={isGenerating} brandDetected={brandDetected} brandPalette={brand.palette} brandFont={brand.font_family} platforms={platforms} frequency={frequency} objective={objective} generatingStatus={generatingStatus} />
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
