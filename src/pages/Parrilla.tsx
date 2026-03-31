@@ -561,7 +561,11 @@ const Parrilla = () => {
     setBrandAssetBlobs((prev) => [...prev, file]);
     toast({ title: "✅ Logo cargado", description: "Analizando identidad de marca..." });
     const reader = new FileReader();
-    reader.onloadend = () => { analyzeBrand(reader.result as string); };
+    reader.onloadend = () => {
+      const b64 = reader.result as string;
+      try { localStorage.setItem(getLogoStorageKey(id), b64); } catch {}
+      analyzeBrand(b64);
+    };
     reader.readAsDataURL(file);
   }, [analyzeBrand]);
 
