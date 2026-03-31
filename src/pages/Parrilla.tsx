@@ -550,6 +550,9 @@ const Parrilla = () => {
   const [campaignBrief, setCampaignBrief] = useState<{ description: string; tone: string; extras: string; isComplete: boolean }>({ description: "", tone: "", extras: "", isComplete: false });
   const [brand, setBrand] = useState<BrandProfile>(() => loadBrand(id));
   const [editingPost, setEditingPost] = useState<PostCard | null>(null);
+  const [previewIndex, setPreviewIndex] = useState(-1);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const parrillaGridRef = useRef<HTMLDivElement>(null);
   const [isAnalyzingBrand, setIsAnalyzingBrand] = useState(false);
   const [brandDetected, setBrandDetected] = useState(() => {
     try {
