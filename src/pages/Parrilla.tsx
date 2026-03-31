@@ -200,7 +200,7 @@ const RenderedPostCard = ({ post, onEdit, onRegenerate, onDownload, onApproveSta
       {post.isRendering ? (
         <ShimmerSkeleton aspectClass={aspectClass} />
       ) : (
-        <div className={`${aspectClass} bg-secondary relative overflow-hidden`}>
+        <div className={`${aspectClass} bg-secondary relative overflow-hidden cursor-pointer`} onClick={() => onClickImage?.(post)}>
           <img src={post.image || "/placeholder.svg"} alt="" className="w-full h-full object-cover" />
           <div className="absolute top-3 left-3">
             <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${platformGradients[post.platform]} flex items-center justify-center shadow-md`}>
