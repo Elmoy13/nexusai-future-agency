@@ -943,6 +943,20 @@ const Parrilla = () => {
                 </div>
               </div>
 
+              {/* Brand Name */}
+              <div className="mb-4 space-y-1.5">
+                <label className="text-[11px] font-bold text-foreground uppercase tracking-wider">Nombre de tu marca</label>
+                <Input
+                  value={brandName}
+                  onChange={(e) => {
+                    setBrandName(e.target.value);
+                    try { localStorage.setItem(getBrandNameStorageKey(id), e.target.value); } catch {}
+                  }}
+                  placeholder="Ej: Bacachito Feliz"
+                  className="bg-secondary/50 border-border h-9 text-sm"
+                />
+              </div>
+
               {/* Upload */}
               <button onClick={() => fileInputRef.current?.click()}
                 className="w-full aspect-[4/3] rounded-2xl border-2 border-dashed border-border hover:border-primary bg-secondary/50 hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-3 group mb-4"
