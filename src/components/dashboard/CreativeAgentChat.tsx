@@ -6,20 +6,86 @@ import { Button } from "@/components/ui/button";
 interface ChatMessage {
   role: "agent" | "user";
   text: string;
+  type?: "normal" | "summary" | "tone-buttons";
 }
 
-type ChatStep = "brand" | "audience" | "style" | "ready";
+type ChatStep = "waiting-logo" | "question-1" | "question-2" | "question-3" | "ready";
 
-const AGENT_NAME = "Nano Banano Strategist";
+interface CampaignBrief {
+  description: string;
+  tone: string;
+  extras: string;
+  isComplete: boolean;
+}
 
-const QUESTIONS: Record<Exclude<ChatStep, "ready">, string> = {
-  brand:
-    "¡Hola! 👋 Soy tu **Nano Banano Strategist**. Vamos a crear contenido visual increíble juntos.\n\nPrimero, cuéntame: **¿Qué es tu marca y qué la hace especial?**",
-  audience:
-    "¡Perfecto! 🎯 Ahora necesito saber: **¿Quién es tu público objetivo?**",
-  style:
-    "¡Genial! 🎨 Última pregunta: **¿Qué estilo visual quieres para tu campaña?**\n\nAlgunas ideas:\n• 🌃 Neón Cyberpunk\n• ✨ Minimalista Elegante\n• 📸 Fotografía Callejera\n• 🎉 Fiesta & Energía\n• 🏔️ Lifestyle Premium\n\n¿O describe tu propio estilo!",
-};
+interface CreativeAgentChatProps {
+  onBriefComplete: (brief: CampaignBrief) => void;
+  isGenerating: boolean;
+  brandDetected: boolean;
+  brandPalette?: string[];
+  brandFont?: string;
+  platforms: Record<string, boolean>;
+  frequency: string;
+  objective: string;
+  generatingStatus?: string;
+}
+
+/* ── Color describer ── */
+function hexToHSL(hex: string): { h: number; s: number; l: number } {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0;
+  const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+    else if (max === g) h = ((b - r) / d + 2) * 60;
+    else h = ((r - g) / d + 4) * 60;
+  }
+  return { h, s, l };
+}
+
+function describeColor(hex: string): string {
+  try {
+    const { h, s, l } = hexToHSL(hex);
+    let name = "";
+    if (s < 0.1) {
+      if (l < 0.3) return "negro";
+      if (l < 0.7) return "gris";
+      return "blanco";
+    }
+    if (h < 15 || h >= 345) name = "rojo";
+    else if (h < 45) name = "naranja";
+    else if (h < 70) name = "amarillo";
+    else if (h < 160) name = "verde";
+    else if (h < 200) name = "cian";
+    else if (h < 260) name = "azul";
+    else if (h < 300) name = "púrpura";
+    else name = "rosa";
+
+    if (l < 0.35) return `${name} profundo`;
+    if (l > 0.7) return `${name} claro`;
+    if (s > 0.7) return `${name} intenso`;
+    return name;
+  } catch { return "color"; }
+}
+
+function describePalette(palette: string[]): string {
+  const described = palette.slice(0, 3).map(describeColor);
+  if (described.length <= 1) return described[0] || "colores de marca";
+  const last = described.pop();
+  return `${described.join(", ")} y ${last}`;
+}
+
+const TONE_OPTIONS = [
+  { emoji: "🎩", label: "Elegante y premium" },
+  { emoji: "😄", label: "Divertido y casual" },
+  { emoji: "📊", label: "Informativo y directo" },
+  { emoji: "🔥", label: "Audaz y disruptivo" },
+];
 
 const LOADING_MESSAGES = [
   "🔗 Conectando con Vertex AI...",
@@ -27,123 +93,122 @@ const LOADING_MESSAGES = [
   "🎨 Generando arte publicitario...",
 ];
 
-interface CreativeAgentChatProps {
-  onPromptReady: (payload: {
-    prompt: string;
-    brandContext: string;
-    audience: string;
-    style: string;
-  }) => void;
-  isGenerating: boolean;
-  hasContextImage: boolean;
-  generatingStatus?: string;
-}
-
 const CreativeAgentChat = ({
-  onPromptReady,
+  onBriefComplete,
   isGenerating,
-  hasContextImage,
+  brandDetected,
+  brandPalette = [],
+  brandFont = "Montserrat",
+  platforms,
+  frequency,
+  objective,
   generatingStatus,
 }: CreativeAgentChatProps) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: "agent", text: QUESTIONS.brand },
+    { role: "agent", text: "¡Hola! 👋 Soy tu **Nano Banano Content Agent**. Vamos a crear contenido visual increíble juntos.\n\n📸 **Primero sube tu logo** en el panel de Brand Assets para que pueda analizar tu marca. 👈" },
   ]);
   const [input, setInput] = useState("");
-  const [step, setStep] = useState<ChatStep>("brand");
-  const [answers, setAnswers] = useState<{
-    brand: string;
-    audience: string;
-    style: string;
-  }>({ brand: "", audience: "", style: "" });
+  const [step, setStep] = useState<ChatStep>("waiting-logo");
+  const [brief, setBrief] = useState<CampaignBrief>({ description: "", tone: "", extras: "", isComplete: false });
   const scrollRef = useRef<HTMLDivElement>(null);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
+  const brandDetectedRef = useRef(false);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: "smooth",
-    });
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isGenerating]);
 
-  // Cycle loading messages while generating
   useEffect(() => {
     if (!isGenerating) { setLoadingMsgIdx(0); return; }
-    const interval = setInterval(() => {
-      setLoadingMsgIdx((prev) => (prev + 1) % LOADING_MESSAGES.length);
-    }, 2500);
+    const interval = setInterval(() => setLoadingMsgIdx(prev => (prev + 1) % LOADING_MESSAGES.length), 2500);
     return () => clearInterval(interval);
   }, [isGenerating]);
 
-  const advanceStep = useCallback(
-    (currentStep: ChatStep, userText: string) => {
-      const newAnswers = { ...answers, [currentStep]: userText };
-      setAnswers(newAnswers);
+  // React to brand detection
+  useEffect(() => {
+    if (brandDetected && !brandDetectedRef.current) {
+      brandDetectedRef.current = true;
+      const colorDesc = describePalette(brandPalette);
+      const welcomeMsg = `🎨 ¡Excelente! Ya analicé tu logo. Detecté una paleta con tonos **${colorDesc}** y te sugerí **${brandFont}**.\n\nAhora cuéntame sobre tu campaña: **¿Qué producto o servicio quieres promocionar? ¿Cuál es el mensaje principal?**`;
+      setMessages(prev => [...prev, { role: "agent", text: welcomeMsg }]);
+      setStep("question-1");
+    }
+  }, [brandDetected, brandPalette, brandFont]);
 
-      let nextStep: ChatStep;
-      if (currentStep === "brand") nextStep = "audience";
-      else if (currentStep === "audience") nextStep = "style";
-      else nextStep = "ready";
+  const addAgentMessage = useCallback((text: string, type: ChatMessage["type"] = "normal") => {
+    setTimeout(() => {
+      setMessages(prev => [...prev, { role: "agent", text, type }]);
+    }, 500);
+  }, []);
 
-      setTimeout(() => {
-        if (nextStep === "ready") {
-          const readyMsg = hasContextImage
-            ? "🚀 ¡Listo! Ya tengo toda la información. He detectado tu **logo en Brand Assets** y lo integraré como imagen de referencia.\n\nHaz clic abajo para generar tu arte publicitario."
-            : "🚀 ¡Listo! Ya tengo toda la información que necesito.\n\n⚠️ **No detecté un logo** en Brand Assets. Si quieres integrar tu marca, súbelo en el panel izquierdo antes de generar.\n\nHaz clic abajo para generar tu arte publicitario.";
-          setMessages((prev) => [...prev, { role: "agent", text: readyMsg }]);
-        } else {
-          setMessages((prev) => [
-            ...prev,
-            { role: "agent", text: QUESTIONS[nextStep] },
-          ]);
-        }
-        setStep(nextStep);
-      }, 600);
-    },
-    [answers, hasContextImage]
-  );
+  const handleSend = useCallback((overrideText?: string) => {
+    const text = (overrideText || input).trim();
+    if (!text) return;
 
-  const handleSend = useCallback(() => {
-    const text = input.trim();
-    if (!text || step === "ready") return;
-
-    setMessages((prev) => [...prev, { role: "user", text }]);
-    setInput("");
-    advanceStep(step, text);
-  }, [input, step, advanceStep]);
-
-  const handleGenerate = useCallback(() => {
-    const sceneDescription = `a ${answers.style} advertising scene featuring ${answers.brand}, targeting ${answers.audience}`;
-
-    let prompt: string;
-    if (hasContextImage) {
-      prompt = `A high-end, photorealistic advertisement mockup of ${sceneDescription}. The complete visual appearance, lines, icon, and precise typography from [1] (the brand logo) must be flawlessly preserved without any artistic re-interpretation or modification. The exact design [1] must be integrated not as a flat overlay, but embedded with depth, texture, and realistic lighting into the scene. The model must generate real shadows and highlights over the embedded logo [1] as if it were a physical object, not a post-process overlay. Preserve text legibility.`;
-    } else {
-      prompt = `Create a high-end, photorealistic advertisement for ${sceneDescription}. Cinematic lighting, professional composition, depth of field.`;
+    // Block if no logo
+    if (step === "waiting-logo") {
+      setMessages(prev => [...prev, { role: "user", text }]);
+      setInput("");
+      addAgentMessage("🤖 ¡Primero sube tu logo en el panel de **Brand Assets**! Así puedo analizar tu marca y crear contenido que se vea increíble con tus colores. 👈");
+      return;
     }
 
-    onPromptReady({
-      prompt,
-      brandContext: answers.brand,
-      audience: answers.audience,
-      style: answers.style,
-    });
-  }, [answers, hasContextImage, onPromptReady]);
+    if (step === "ready") return;
+
+    setMessages(prev => [...prev, { role: "user", text }]);
+    if (!overrideText) setInput("");
+
+    if (step === "question-1") {
+      setBrief(prev => ({ ...prev, description: text }));
+      setStep("question-2");
+      addAgentMessage("¡Genial! 🎯 **¿Qué tono quieres para tus posts?**");
+      // Add tone buttons after a short delay
+      setTimeout(() => {
+        setMessages(prev => [...prev, { role: "agent", text: "", type: "tone-buttons" }]);
+      }, 800);
+    } else if (step === "question-2") {
+      setBrief(prev => ({ ...prev, tone: text }));
+      setStep("question-3");
+      addAgentMessage("✨ Último paso: **¿hay algo específico que quieras incluir?** Por ejemplo: un descuento, una fecha, un hashtag, un call-to-action especial...\n\n(Puedes escribir \"no, así está bien\" si no hay nada adicional)");
+    } else if (step === "question-3") {
+      const finalBrief: CampaignBrief = { description: brief.description, tone: brief.tone, extras: text, isComplete: true };
+      setBrief(finalBrief);
+      setStep("ready");
+
+      const activePlatforms = Object.entries(platforms).filter(([_, v]) => v).map(([k]) => k);
+      const platformNames = activePlatforms.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(", ") || "Ninguna";
+      const freqLabel = { "3-week": "3/semana", "5-week": "5/semana", "daily": "Diario" }[frequency] || frequency;
+      const objLabel = { engagement: "Engagement", conversion: "Conversión", awareness: "Awareness" }[objective] || objective;
+      const colorDesc = describePalette(brandPalette);
+
+      const summary = `🚀 **¡Listo! Ya tengo todo:**\n\n📋 **Campaña:** ${brief.description}\n🎨 **Marca:** ${colorDesc} + ${brandFont}\n🎯 **Tono:** ${finalBrief.tone}\n📱 **Plataformas:** ${platformNames}\n📅 **Frecuencia:** ${freqLabel} | **Objetivo:** ${objLabel}${finalBrief.extras.toLowerCase() !== "no" && finalBrief.extras.toLowerCase() !== "no, así está bien" ? `\n💡 **Extras:** ${finalBrief.extras}` : ""}\n\nDale click a **'Generar'** cuando estés listo 🚀`;
+
+      setTimeout(() => {
+        setMessages(prev => [...prev, { role: "agent", text: summary, type: "summary" }]);
+        onBriefComplete(finalBrief);
+      }, 600);
+    }
+  }, [input, step, brief, addAgentMessage, onBriefComplete, platforms, frequency, objective, brandPalette, brandFont]);
+
+  const handleToneSelect = useCallback((tone: string) => {
+    handleSend(tone);
+  }, [handleSend]);
 
   return (
-    <div className="flex flex-col rounded-2xl border border-border bg-card overflow-hidden h-[320px]">
+    <div className="flex flex-col rounded-2xl border border-border bg-card overflow-hidden h-[340px]">
       {/* Header */}
       <div className="flex items-center gap-3 px-5 py-3 border-b border-border bg-secondary/30">
         <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 via-purple-500 to-primary flex items-center justify-center shadow-md">
           <Bot size={16} className="text-white" />
         </div>
         <div className="flex-1">
-          <p className="text-sm font-bold text-foreground">{AGENT_NAME}</p>
+          <p className="text-sm font-bold text-foreground">Nano Banano Content Agent</p>
           <p className="text-[10px] text-emerald-500 flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             Online · Agente Creativo IA
           </p>
         </div>
-        {hasContextImage && (
+        {brandDetected && (
           <div className="px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20">
             <span className="text-[10px] font-semibold text-primary flex items-center gap-1">
               <ImageIcon size={10} /> Logo detectado
@@ -151,14 +216,10 @@ const CreativeAgentChat = ({
           </div>
         )}
         {step === "ready" && (
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
+          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
             className="px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30"
           >
-            <span className="text-[10px] font-semibold text-emerald-400">
-              ✓ Brief completo
-            </span>
+            <span className="text-[10px] font-semibold text-emerald-400">✓ Brief completo</span>
           </motion.div>
         )}
       </div>
@@ -166,56 +227,65 @@ const CreativeAgentChat = ({
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
         <AnimatePresence>
-          {messages.map((msg, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              className={`flex gap-2.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              {msg.role === "agent" && (
-                <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-violet-500 to-primary flex items-center justify-center shrink-0 mt-0.5">
-                  <Bot size={12} className="text-white" />
-                </div>
-              )}
-              <div
-                className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
-                  msg.role === "user"
+          {messages.map((msg, i) => {
+            // Tone buttons special render
+            if (msg.type === "tone-buttons") {
+              return (
+                <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                  className="flex gap-2 flex-wrap pl-8"
+                >
+                  {TONE_OPTIONS.map(opt => (
+                    <button key={opt.label} onClick={() => step === "question-2" && handleToneSelect(`${opt.emoji} ${opt.label}`)}
+                      disabled={step !== "question-2"}
+                      className="px-3 py-1.5 rounded-full text-xs font-medium border border-primary/30 bg-primary/5 text-foreground hover:bg-primary/15 hover:border-primary/50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {opt.emoji} {opt.label}
+                    </button>
+                  ))}
+                </motion.div>
+              );
+            }
+
+            return (
+              <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
+                className={`flex gap-2.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                {msg.role === "agent" && (
+                  <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-violet-500 to-primary flex items-center justify-center shrink-0 mt-0.5">
+                    <Bot size={12} className="text-white" />
+                  </div>
+                )}
+                <div className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                  msg.type === "summary"
+                    ? "bg-primary/5 border-2 border-primary/20 text-foreground rounded-xl"
+                    : msg.role === "user"
                     ? "bg-primary/10 border border-primary/20 text-foreground rounded-tr-md"
                     : "bg-secondary/60 border border-border/40 text-foreground rounded-tl-md"
-                }`}
-              >
-                {msg.text.split("\n").map((line, j) => (
-                  <p key={j} className={j > 0 ? "mt-1" : ""}>
-                    {line.split(/(\*\*.*?\*\*)/).map((segment, k) =>
-                      segment.startsWith("**") && segment.endsWith("**") ? (
-                        <strong key={k} className="font-bold text-foreground">
-                          {segment.slice(2, -2)}
-                        </strong>
-                      ) : (
-                        <span key={k}>{segment}</span>
-                      )
-                    )}
-                  </p>
-                ))}
-              </div>
-              {msg.role === "user" && (
-                <div className="w-6 h-6 rounded-lg bg-muted flex items-center justify-center shrink-0 mt-0.5">
-                  <User size={12} className="text-muted-foreground" />
+                }`}>
+                  {msg.text.split("\n").map((line, j) => (
+                    <p key={j} className={j > 0 ? "mt-1" : ""}>
+                      {line.split(/(\*\*.*?\*\*)/).map((segment, k) =>
+                        segment.startsWith("**") && segment.endsWith("**") ? (
+                          <strong key={k} className="font-bold text-foreground">{segment.slice(2, -2)}</strong>
+                        ) : (
+                          <span key={k}>{segment}</span>
+                        )
+                      )}
+                    </p>
+                  ))}
                 </div>
-              )}
-            </motion.div>
-          ))}
+                {msg.role === "user" && (
+                  <div className="w-6 h-6 rounded-lg bg-muted flex items-center justify-center shrink-0 mt-0.5">
+                    <User size={12} className="text-muted-foreground" />
+                  </div>
+                )}
+              </motion.div>
+            );
+          })}
         </AnimatePresence>
 
-        {/* Generating status inside chat */}
         {isGenerating && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex gap-2.5 justify-start"
-          >
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex gap-2.5 justify-start">
             <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-violet-500 to-primary flex items-center justify-center shrink-0 mt-0.5">
               <Loader2 size={12} className="text-white animate-spin" />
             </div>
@@ -226,44 +296,25 @@ const CreativeAgentChat = ({
         )}
       </div>
 
-      {/* Input / Generate Button */}
+      {/* Input */}
       <div className="border-t border-border p-3">
-        {step === "ready" ? (
-          <Button
-            onClick={handleGenerate}
-            disabled={isGenerating}
-            className="w-full h-11 text-sm font-bold bg-gradient-to-r from-violet-600 via-purple-600 to-primary hover:from-violet-700 hover:via-purple-700 hover:to-primary/80 shadow-lg shadow-primary/25 text-white"
+        <div className="flex gap-2">
+          <input
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSend()}
+            placeholder={step === "ready" ? "Brief completado ✓" : step === "waiting-logo" ? "Sube tu logo primero..." : "Escribe tu respuesta..."}
+            disabled={step === "ready"}
+            className="flex-1 bg-secondary/50 border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/50 disabled:opacity-50"
+          />
+          <button
+            onClick={() => handleSend()}
+            disabled={!input.trim() || step === "ready"}
+            className="bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 rounded-xl px-3.5 py-2.5 transition-all disabled:opacity-40"
           >
-            {isGenerating ? (
-              <>
-                <Loader2 size={16} className="animate-spin mr-2" />
-                {LOADING_MESSAGES[loadingMsgIdx]}
-              </>
-            ) : (
-              <>
-                <Sparkles size={16} className="mr-2" />
-                ✨ Generar Arte Publicitario
-              </>
-            )}
-          </Button>
-        ) : (
-          <div className="flex gap-2">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-              placeholder="Escribe tu respuesta..."
-              className="flex-1 bg-secondary/50 border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/50"
-            />
-            <button
-              onClick={handleSend}
-              disabled={!input.trim()}
-              className="bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 rounded-xl px-3.5 py-2.5 transition-all disabled:opacity-40"
-            >
-              <Send size={16} />
-            </button>
-          </div>
-        )}
+            <Send size={16} />
+          </button>
+        </div>
       </div>
     </div>
   );
