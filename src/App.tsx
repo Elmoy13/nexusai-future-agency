@@ -12,6 +12,7 @@ import Editor from "./pages/Editor";
 import Agent from "./pages/Agent";
 import Parrilla from "./pages/Parrilla";
 import Community from "./pages/Community";
+import PostCreator from "./pages/PostCreator";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
