@@ -79,6 +79,7 @@ interface BrandProfile {
 }
 
 const getBrandStorageKey = (parrillaId?: string) => `brand_profile_${parrillaId || "default"}`;
+const getLogoStorageKey = (parrillaId?: string) => `brand_logo_${parrillaId || "default"}`;
 
 const DEFAULT_BRAND: BrandProfile = {
   primary_color: "#FF6B35",
@@ -440,7 +441,12 @@ const Parrilla = () => {
   const [hasGenerated, setHasGenerated] = useState(false);
   const [isClientView, setIsClientView] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("kanban");
-  const [brandAssets, setBrandAssets] = useState<string[]>([]);
+  const [brandAssets, setBrandAssets] = useState<string[]>(() => {
+    try {
+      const savedLogo = localStorage.getItem(getLogoStorageKey(id));
+      return savedLogo ? [savedLogo] : [];
+    } catch { return []; }
+  });
   const [brandAssetBlobs, setBrandAssetBlobs] = useState<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -456,7 +462,11 @@ const Parrilla = () => {
   const [editingPost, setEditingPost] = useState<PostCard | null>(null);
   const [isAnalyzingBrand, setIsAnalyzingBrand] = useState(false);
   const [brandDetected, setBrandDetected] = useState(() => {
-    try { return !!localStorage.getItem(getBrandStorageKey(id)); } catch { return false; }
+    try {
+      const hasLogo = !!localStorage.getItem(getLogoStorageKey(id));
+      const hasBrand = !!localStorage.getItem(getBrandStorageKey(id));
+      return hasLogo && hasBrand;
+    } catch { return false; }
   });
 
   // Available formats based on selected platforms
@@ -551,7 +561,11 @@ const Parrilla = () => {
     setBrandAssetBlobs((prev) => [...prev, file]);
     toast({ title: "✅ Logo cargado", description: "Analizando identidad de marca..." });
     const reader = new FileReader();
-    reader.onloadend = () => { analyzeBrand(reader.result as string); };
+    reader.onloadend = () => {
+      const b64 = reader.result as string;
+      try { localStorage.setItem(getLogoStorageKey(id), b64); } catch {}
+      analyzeBrand(b64);
+    };
     reader.readAsDataURL(file);
   }, [analyzeBrand]);
 
