@@ -844,7 +844,7 @@ const Parrilla = () => {
   const platformLabelsMap: Record<string, string> = { instagram: "Instagram", tiktok: "TikTok", linkedin: "LinkedIn", twitter: "X / Twitter" };
 
   return (
-    <div className="min-h-screen bg-background transition-colors duration-500">
+    <div className="h-screen flex flex-col bg-background transition-colors duration-500 overflow-hidden">
       {/* Top Bar */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-xl shadow-sm">
         <div className="flex flex-col px-6 py-3">
