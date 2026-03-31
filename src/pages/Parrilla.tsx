@@ -486,7 +486,7 @@ const Parrilla = () => {
   const [customPrompt, setCustomPrompt] = useState("");
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [optionsPerPost, setOptionsPerPost] = useState(2);
-  const [autoRemoveBg, setAutoRemoveBg] = useState(true);
+  
   const [adFormat, setAdFormat] = useState<"mobile_screen" | "watermark" | "merch">("merch");
   const [agentPrompt, setAgentPrompt] = useState<string | null>(null);
   const [generatingStatus, setGeneratingStatus] = useState("");
