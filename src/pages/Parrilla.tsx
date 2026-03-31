@@ -79,6 +79,7 @@ interface BrandProfile {
 }
 
 const getBrandStorageKey = (parrillaId?: string) => `brand_profile_${parrillaId || "default"}`;
+const getLogoStorageKey = (parrillaId?: string) => `brand_logo_${parrillaId || "default"}`;
 
 const DEFAULT_BRAND: BrandProfile = {
   primary_color: "#FF6B35",
