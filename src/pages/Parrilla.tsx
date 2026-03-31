@@ -491,12 +491,28 @@ const Parrilla = () => {
   const [agentPrompt, setAgentPrompt] = useState<string | null>(null);
   const [generatingStatus, setGeneratingStatus] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>("auto");
-  const [brand, setBrand] = useState<BrandProfile>(loadBrand);
+  const [brand, setBrand] = useState<BrandProfile>(() => loadBrand(id));
   const [editingPost, setEditingPost] = useState<PostCard | null>(null);
   const [isAnalyzingBrand, setIsAnalyzingBrand] = useState(false);
-  const [brandDetected, setBrandDetected] = useState(false);
+  const [brandDetected, setBrandDetected] = useState(() => {
+    try { return !!localStorage.getItem(getBrandStorageKey(id)); } catch { return false; }
+  });
 
-  useEffect(() => { saveBrand(brand); }, [brand]);
+  // Load Google Font dynamically
+  useEffect(() => {
+    const fontName = brand.font_family.replace(/ /g, "+");
+    const linkId = "dynamic-brand-font";
+    let link = document.getElementById(linkId) as HTMLLinkElement | null;
+    if (!link) {
+      link = document.createElement("link");
+      link.id = linkId;
+      link.rel = "stylesheet";
+      document.head.appendChild(link);
+    }
+    link.href = `https://fonts.googleapis.com/css2?family=${fontName}:wght@400;700;900&display=swap`;
+  }, [brand.font_family]);
+
+  useEffect(() => { saveBrand(brand, id); }, [brand, id]);
 
   // Brand analysis (mock or real)
   const analyzeBrand = useCallback(async (logoB64: string) => {
