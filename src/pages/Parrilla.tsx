@@ -550,6 +550,9 @@ const Parrilla = () => {
   const [generatingStatus, setGeneratingStatus] = useState("");
   const [campaignBrief, setCampaignBrief] = useState<{ description: string; tone: string; extras: string; isComplete: boolean }>({ description: "", tone: "", extras: "", isComplete: false });
   const [brand, setBrand] = useState<BrandProfile>(() => loadBrand(id));
+  const [brandName, setBrandName] = useState<string>(() => {
+    try { return localStorage.getItem(getBrandNameStorageKey(id)) || ""; } catch { return ""; }
+  });
   const [editingPost, setEditingPost] = useState<PostCard | null>(null);
   const [previewIndex, setPreviewIndex] = useState(-1);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
