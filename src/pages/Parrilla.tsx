@@ -563,38 +563,17 @@ const Parrilla = () => {
       toast({ title: "Archivo demasiado grande", description: "Máximo 10MB.", variant: "destructive" });
       return;
     }
-    const previewUrl = URL.createObjectURL(file);
-    setProcessingImage(previewUrl);
-    setIsProcessing(true);
     e.target.value = "";
-
-    let processedBlob: Blob = file;
-    let processedUrl = previewUrl;
-
-    try {
-      if (autoRemoveBg) {
-        const resultBlob = await removeBackground(file);
-        processedUrl = URL.createObjectURL(resultBlob);
-        processedBlob = resultBlob;
-        toast({ title: "✨ ¡Producto aislado con éxito!", description: "Fondo removido exitosamente." });
-      } else {
-        toast({ title: "✅ Asset cargado", description: "Imagen agregada sin procesar." });
-      }
-    } catch (err: any) {
-      console.error("background-removal error:", err);
-      toast({ title: "Error al procesar imagen", description: "La imagen original fue conservada.", variant: "destructive" });
-    } finally {
-      setBrandAssets((prev) => [...prev, processedUrl]);
-      setBrandAssetBlobs((prev) => [...prev, processedBlob]);
-      setIsProcessing(false);
-      setProcessingImage(null);
-    }
+    const previewUrl = URL.createObjectURL(file);
+    setBrandAssets((prev) => [...prev, previewUrl]);
+    setBrandAssetBlobs((prev) => [...prev, file]);
+    toast({ title: "✅ Logo cargado", description: "Analizando identidad de marca..." });
 
     // Auto-analyze brand from logo
     const reader = new FileReader();
     reader.onloadend = () => { analyzeBrand(reader.result as string); };
-    reader.readAsDataURL(processedBlob);
-  }, [autoRemoveBg, analyzeBrand]);
+    reader.readAsDataURL(file);
+  }, [analyzeBrand]);
 
   const blobToBase64 = useCallback((blob: Blob): Promise<string> => {
     return new Promise((resolve, reject) => {
