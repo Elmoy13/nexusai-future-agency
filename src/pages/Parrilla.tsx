@@ -96,15 +96,7 @@ function saveBrand(b: BrandProfile, parrillaId?: string) {
   localStorage.setItem(getBrandStorageKey(parrillaId), JSON.stringify(b));
 }
 
-const mockBrandAnalysis = {
-  primary_color: "#E63946",
-  secondary_color: "#1D3557",
-  accent_color: "#F1FAEE",
-  palette: ["#E63946", "#1D3557", "#F1FAEE", "#A8DADC", "#457B9D"],
-  background_suggestion: "dark",
-  contrast_color: "#FFFFFF",
-  suggested_fonts: ["Montserrat", "Poppins", "Inter"],
-};
+const API_URL = import.meta.env.VITE_API_URL || "https://loaded-roles-behavior-mystery.trycloudflare.com";
 
 function getFormatFromPlatform(platform: string) {
   const map: Record<string, string> = {
@@ -510,46 +502,47 @@ const Parrilla = () => {
 
   useEffect(() => { saveBrand(brand, id); }, [brand, id]);
 
-  // Brand analysis (mock or real)
+  // Brand analysis — real API call
   const analyzeBrand = useCallback(async (logoB64: string) => {
     setIsAnalyzingBrand(true);
     setBrandDetected(false);
     try {
-      const res = await fetch("https://loaded-roles-behavior-mystery.trycloudflare.com/api/v1/brand/analyze", {
+      const res = await fetch(`${API_URL}/api/v1/brand/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ logo_b64: logoB64 }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        const newBrand: BrandProfile = {
-          primary_color: data.primary_color || mockBrandAnalysis.primary_color,
-          secondary_color: data.secondary_color || mockBrandAnalysis.secondary_color,
-          accent_color: data.accent_color || mockBrandAnalysis.accent_color,
-          palette: data.palette || mockBrandAnalysis.palette,
-          contrast_color: data.contrast_color || mockBrandAnalysis.contrast_color,
-          font_family: data.suggested_fonts?.[0] || "Montserrat",
-          suggested_fonts: data.suggested_fonts || mockBrandAnalysis.suggested_fonts,
-          background_suggestion: data.background_suggestion || "dark",
-        };
-        setBrand(newBrand);
-        setBrandDetected(true);
-        setIsAnalyzingBrand(false);
-        toast({ title: "✨ Marca analizada", description: "Colores y tipografía detectados desde tu logo." });
-        return;
+      if (!res.ok) {
+        throw new Error(`Error ${res.status}: ${await res.text()}`);
       }
-    } catch {}
-    // Fallback: mock with 2.5s delay
-    await new Promise(r => setTimeout(r, 2500));
-    const newBrand: BrandProfile = {
-      ...DEFAULT_BRAND,
-      ...mockBrandAnalysis,
-      font_family: mockBrandAnalysis.suggested_fonts[0],
-    };
-    setBrand(newBrand);
-    setBrandDetected(true);
-    setIsAnalyzingBrand(false);
-    toast({ title: "✨ Marca analizada", description: "Colores y tipografía detectados desde tu logo." });
+      const data = await res.json();
+      if (!data.palette || !data.primary_color) {
+        throw new Error("Respuesta incompleta de la API");
+      }
+      const newBrand: BrandProfile = {
+        primary_color: data.primary_color,
+        secondary_color: data.secondary_color || data.palette[1] || "#333333",
+        accent_color: data.accent_color || data.palette[2] || "#666666",
+        palette: data.palette,
+        contrast_color: data.contrast_color || "#FFFFFF",
+        font_family: data.suggested_fonts?.[0] || "Montserrat",
+        suggested_fonts: data.suggested_fonts || ["Montserrat", "Poppins", "Inter"],
+        background_suggestion: data.background_suggestion || "dark",
+      };
+      setBrand(newBrand);
+      setBrandDetected(true);
+      setIsAnalyzingBrand(false);
+      toast({ title: "✨ Marca analizada", description: "Colores y tipografía detectados desde tu logo." });
+    } catch (error) {
+      console.error("Error analyzing brand:", error);
+      setIsAnalyzingBrand(false);
+      setBrandDetected(false);
+      toast({
+        title: "⚠️ No se pudo analizar el logo",
+        description: "Configura los colores manualmente o intenta de nuevo.",
+        variant: "destructive",
+      });
+    }
   }, []);
 
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -592,7 +585,7 @@ const Parrilla = () => {
   // Real render (with fallback to mock)
   const renderPost = useCallback(async (post: PostCard, logoB64: string | undefined): Promise<string> => {
     try {
-      const res = await fetch("https://loaded-roles-behavior-mystery.trycloudflare.com/api/v1/posts/render", {
+      const res = await fetch(`${API_URL}/api/v1/posts/render`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
