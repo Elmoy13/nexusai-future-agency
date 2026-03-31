@@ -149,7 +149,7 @@ const Community = () => {
     setTogglingMode(true);
     try {
       const res = await fetch(
-        `https://loaded-roles-behavior-mystery.trycloudflare.com/api/v1/conversations/${selectedConversationId}/mode`,
+        `https://homework-carroll-pillow-independently.trycloudflare.com/api/v1/conversations/${selectedConversationId}/mode`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
