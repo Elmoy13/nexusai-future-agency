@@ -714,10 +714,6 @@ const Parrilla = () => {
     return mockRenderPost(post);
   }, [brand, mockRenderPost]);
 
-  const mockHeadlines = ["Descubre lo nuevo", "Tu próxima obsesión", "Hecho para ti", "Eleva tu estilo", "Sin límites", "Empieza hoy", "Lo que esperabas", "Nuevo lanzamiento", "Solo por tiempo limitado", "Transforma tu día", "Más que un producto", "Vive diferente"];
-  const mockBodies = ["Una experiencia que no te puedes perder", "Diseñado con pasión, creado para ti", "Calidad que se nota desde el primer momento", "Porque mereces lo mejor, siempre"];
-  const mockCtas = ["Compra ahora →", "Descúbrelo →", "Ver más →", "Reserva el tuyo →", "Shop now →", "Explora →"];
-
   const handleGenerateParrilla = useCallback(async () => {
     setIsGenerating(true);
     setGeneratingStatus("⚡ Preparando parrilla...");
@@ -726,52 +722,99 @@ const Parrilla = () => {
     const postsPerFormat = getFrequencyCount(frequency) * optionsPerPost;
     const total = activeFormats.length * postsPerFormat;
 
-    let contextImage: string | undefined;
-    if (brandAssetBlobs.length > 0) {
-      contextImage = await blobToBase64(brandAssetBlobs[0]);
-    }
-
-    const skeletonPosts: PostCard[] = [];
-    let idx = 0;
+    // Build posts_config
+    const postsConfig: { platform: string; format: string }[] = [];
     for (const formatId of activeFormats) {
       const fmt = ALL_FORMATS.find(f => f.id === formatId)!;
       for (let j = 0; j < postsPerFormat; j++) {
-        skeletonPosts.push({
-          id: `gen-${Date.now()}-${idx}`,
-          platform: fmt.platform as Platform,
-          format: fmt.id,
-          status: "draft",
-          headline: mockHeadlines[idx % mockHeadlines.length],
-          body: mockBodies[idx % mockBodies.length],
-          cta: mockCtas[idx % mockCtas.length],
-          imagePrompt: `${campaignBrief.description}, ${campaignBrief.tone} style`,
-          styleDescription: campaignBrief.tone || "profesional y moderno",
-          calendarDay: (idx * 2) + 1,
-          isRendering: true,
-        });
-        idx++;
+        postsConfig.push({ platform: fmt.platform, format: fmt.id });
       }
     }
 
+    // Get logo b64
+    let logoB64: string | undefined;
+    try { logoB64 = localStorage.getItem(getLogoStorageKey(id)) || undefined; } catch {}
+    if (!logoB64 && brandAssetBlobs.length > 0) {
+      logoB64 = await blobToBase64(brandAssetBlobs[0]);
+    }
+
+    // Show skeletons
+    const skeletonPosts: PostCard[] = postsConfig.map((pc, idx) => ({
+      id: `gen-${Date.now()}-${idx}`,
+      platform: pc.platform as Platform,
+      format: pc.format,
+      status: "draft" as PostStatus,
+      calendarDay: (idx * 2) + 1,
+      isRendering: true,
+    }));
     setPosts(skeletonPosts);
     setHasGenerated(true);
-    // Auto-scroll to the grid after a tick
     setTimeout(() => {
       parrillaGridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 300);
 
-    for (let i = 0; i < skeletonPosts.length; i++) {
-      setGeneratingStatus(`🎨 Generando post ${i + 1} de ${total}...`);
-      const renderedImage = await renderPost(skeletonPosts[i], contextImage);
-      setPosts(prev => prev.map(p =>
-        p.id === skeletonPosts[i].id ? { ...p, image: renderedImage, isRendering: false } : p
-      ));
-    }
+    const requestBody = {
+      brand: {
+        name: brandName || "Mi Marca",
+        logo_b64: logoB64 || undefined,
+        primary_color: brand.primary_color,
+        secondary_color: brand.secondary_color,
+        accent_color: brand.accent_color,
+        font_family: brand.font_family,
+      },
+      campaign: {
+        description: campaignBrief.description,
+        tone: campaignBrief.tone,
+        extras: campaignBrief.extras,
+      },
+      posts_config: postsConfig,
+    };
 
-    toast({ title: "🚀 Parrilla generada", description: `${total} posts generados exitosamente.` });
-    setIsGenerating(false);
-    setGeneratingStatus("");
-  }, [selectedFormats, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, campaignBrief, renderPost]);
+    try {
+      setGeneratingStatus("🧠 Generando copy e imágenes con IA...");
+      const response = await fetch(`${API_URL}/api/v1/posts/render-batch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text().catch(() => "");
+        throw new Error(`Error ${response.status}: ${errText}`);
+      }
+
+      const data = await response.json();
+
+      const generatedPosts: PostCard[] = (data.results || []).map((result: any, index: number) => ({
+        id: `post-${Date.now()}-${index}`,
+        image: result.rendered_post,
+        headline: result.headline || "",
+        body: result.body || "",
+        cta: result.cta || "",
+        imagePrompt: result.image_prompt || "",
+        platform: postsConfig[index]?.platform as Platform || "instagram",
+        format: postsConfig[index]?.format || "instagram_feed",
+        status: "draft" as PostStatus,
+        calendarDay: (index * 2) + 1,
+        isRendering: false,
+      }));
+
+      setPosts(generatedPosts);
+      toast({ title: "🚀 Parrilla generada", description: `${generatedPosts.length} posts generados exitosamente.` });
+    } catch (error: any) {
+      console.error("Error generating posts:", error);
+      setPosts([]);
+      setHasGenerated(false);
+      toast({
+        title: "⚠️ No se pudo generar la parrilla",
+        description: "No se pudo conectar con el servidor de generación. Verifica que el backend esté corriendo.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+      setGeneratingStatus("");
+    }
+  }, [selectedFormats, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, campaignBrief, brand, brandName, id]);
 
   const handleBriefComplete = useCallback((brief: { description: string; tone: string; extras: string; isComplete: boolean }) => {
     setCampaignBrief(brief);
