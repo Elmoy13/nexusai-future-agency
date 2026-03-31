@@ -845,7 +845,7 @@ const Parrilla = () => {
   const platformLabelsMap: Record<string, string> = { instagram: "Instagram", tiktok: "TikTok", linkedin: "LinkedIn", twitter: "X / Twitter" };
 
   return (
-    <div className="h-screen flex flex-col bg-background transition-colors duration-500 overflow-hidden">
+    <div className="min-h-screen bg-background transition-colors duration-500">
       {/* Top Bar */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-xl shadow-sm">
         <div className="flex flex-col px-6 py-3">
@@ -879,12 +879,12 @@ const Parrilla = () => {
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex items-start">
         {/* Left Panel - Brand Assets */}
         <AnimatePresence>
           {!isClientView && (
             <motion.aside initial={{ width: 0, opacity: 0 }} animate={{ width: 300, opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.3 }}
-              className="bg-card border-r border-border p-5 flex flex-col overflow-y-auto shrink-0"
+              className="sticky top-[73px] self-start max-h-[calc(100vh-73px)] bg-card border-r border-border p-5 flex flex-col overflow-y-auto shrink-0"
             >
               <div className="flex items-center gap-2 mb-5">
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-cyan-500 flex items-center justify-center">
@@ -1006,7 +1006,7 @@ const Parrilla = () => {
         </AnimatePresence>
 
         {/* Main Content */}
-        <main className="flex-1 flex flex-col overflow-y-auto">
+        <main className="flex-1 min-w-0">
           {/* Agent Section */}
           <AnimatePresence>
             {!isClientView && (
@@ -1158,56 +1158,52 @@ const Parrilla = () => {
           </AnimatePresence>
 
           {/* Content Grid */}
-          <div ref={parrillaGridRef} className="flex-1 overflow-y-auto flex flex-col" id="parrilla-grid">
+          <section ref={parrillaGridRef} className="px-6 py-5" id="parrilla-grid">
             {hasGenerated ? (
-              <>
-                <Tabs value={activePlatform} onValueChange={(v) => setActivePlatform(v)} className="flex-1 flex flex-col min-h-0">
-                  <div className="px-6 pt-5 pb-0 flex items-center justify-between">
-                    <TabsList className="h-11 p-1 bg-secondary">
-                      {Object.entries(platforms).filter(([_, v]) => v).map(([key]) => (
-                        <TabsTrigger key={key} value={key} className="gap-2 px-5 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
-                          <PlatformIcon platform={key} size={14} /> {platformLabelsMap[key]}
-                          <Badge variant="secondary" className="text-[10px] bg-secondary">{posts.filter(p => p.platform === key).length}</Badge>
-                        </TabsTrigger>
-                      ))}
-                    </TabsList>
+              <Tabs value={activePlatform} onValueChange={(v) => setActivePlatform(v)} className="space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <TabsList className="h-11 p-1 bg-secondary">
+                    {Object.entries(platforms).filter(([_, v]) => v).map(([key]) => (
+                      <TabsTrigger key={key} value={key} className="gap-2 px-5 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
+                        <PlatformIcon platform={key} size={14} /> {platformLabelsMap[key]}
+                        <Badge variant="secondary" className="text-[10px] bg-secondary">{posts.filter(p => p.platform === key).length}</Badge>
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
 
-                    <div className="flex items-center p-1 rounded-xl bg-secondary">
-                      <button onClick={() => setViewMode("kanban")}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === "kanban" ? "bg-card text-foreground shadow-md" : "text-muted-foreground hover:text-foreground"}`}
-                      ><LayoutGrid size={16} /> Grid</button>
-                      <button onClick={() => setViewMode("calendar")}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === "calendar" ? "bg-card text-foreground shadow-md" : "text-muted-foreground hover:text-foreground"}`}
-                      ><CalendarDays size={16} /> Mensual</button>
-                    </div>
+                  <div className="flex items-center p-1 rounded-xl bg-secondary">
+                    <button onClick={() => setViewMode("kanban")}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === "kanban" ? "bg-card text-foreground shadow-md" : "text-muted-foreground hover:text-foreground"}`}
+                    ><LayoutGrid size={16} /> Grid</button>
+                    <button onClick={() => setViewMode("calendar")}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === "calendar" ? "bg-card text-foreground shadow-md" : "text-muted-foreground hover:text-foreground"}`}
+                    ><CalendarDays size={16} /> Mensual</button>
                   </div>
+                </div>
 
-                  {viewMode === "kanban" ? (
-                    <div className="flex-1 overflow-y-auto p-6">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                        <AnimatePresence>
-                          {platformPosts.map((post) => (
-                            <RenderedPostCard key={post.id} post={post}
-                              onEdit={handleEditPost} onRegenerate={handleRegenerateSingle}
-                              onDownload={handleDownloadPost} onApproveStatus={handleApprovePost}
-                              isClientView={isClientView} onClickImage={handleClickImage}
-                            />
-                          ))}
-                        </AnimatePresence>
-                        {platformPosts.length === 0 && (
-                          <div className="col-span-full py-20 text-center text-muted-foreground text-sm border-2 border-dashed border-border rounded-xl">
-                            Sin posts para esta plataforma
-                          </div>
-                        )}
+                {viewMode === "kanban" ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <AnimatePresence>
+                      {platformPosts.map((post) => (
+                        <RenderedPostCard key={post.id} post={post}
+                          onEdit={handleEditPost} onRegenerate={handleRegenerateSingle}
+                          onDownload={handleDownloadPost} onApproveStatus={handleApprovePost}
+                          isClientView={isClientView} onClickImage={handleClickImage}
+                        />
+                      ))}
+                    </AnimatePresence>
+                    {platformPosts.length === 0 && (
+                      <div className="col-span-full py-20 text-center text-muted-foreground text-sm border-2 border-dashed border-border rounded-xl">
+                        Sin posts para esta plataforma
                       </div>
-                    </div>
-                  ) : (
-                    <div className="flex-1 overflow-auto"><CalendarView posts={posts} /></div>
-                  )}
-                </Tabs>
-              </>
+                    )}
+                  </div>
+                ) : (
+                  <div><CalendarView posts={posts} /></div>
+                )}
+              </Tabs>
             ) : (
-              <div className="flex-1 flex items-center justify-center">
+              <div className="min-h-[40vh] flex items-center justify-center">
                 <div className="text-center max-w-md">
                   <div className="w-20 h-20 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-6">
                     <Sparkles size={36} className="text-primary" />
@@ -1219,7 +1215,7 @@ const Parrilla = () => {
                 </div>
               </div>
             )}
-          </div>
+          </section>
         </main>
       </div>
 
