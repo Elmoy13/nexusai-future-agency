@@ -1139,31 +1139,6 @@ const Parrilla = () => {
       {/* Edit Modal */}
       <EditPostModal post={editingPost} open={!!editingPost} onClose={() => setEditingPost(null)} onSave={handleSavePost} brand={brand} />
 
-      {/* Processing Modal */}
-      <AnimatePresence>
-        {isProcessing && processingImage && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-6"
-          >
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-card rounded-3xl p-8 max-w-md w-full shadow-2xl border border-border"
-            >
-              <div className="relative aspect-square rounded-2xl overflow-hidden mb-6 bg-secondary">
-                <img src={processingImage} alt="" className="w-full h-full object-cover" />
-                <motion.div initial={{ top: 0 }} animate={{ top: ["0%", "100%", "0%"] }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                  className="absolute left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary to-transparent shadow-lg shadow-primary/50"
-                  style={{ boxShadow: "0 0 20px hsl(var(--primary)), 0 0 40px hsl(var(--primary) / 0.5)" }}
-                />
-              </div>
-              <div className="flex items-center justify-center gap-3">
-                <Loader2 size={20} className="animate-spin text-primary" />
-                <p className="text-foreground font-semibold">✨ Aislando producto con IA local...</p>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };
