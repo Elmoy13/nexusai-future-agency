@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { removeBackground } from "@imgly/background-removal";
+
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -477,8 +477,6 @@ const Parrilla = () => {
   const [viewMode, setViewMode] = useState<ViewMode>("kanban");
   const [brandAssets, setBrandAssets] = useState<string[]>([]);
   const [brandAssetBlobs, setBrandAssetBlobs] = useState<Blob[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [processingImage, setProcessingImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [platforms, setPlatforms] = useState({ instagram: true, tiktok: true, linkedin: false, twitter: false });
   const [frequency, setFrequency] = useState("3-week");
@@ -486,7 +484,7 @@ const Parrilla = () => {
   const [customPrompt, setCustomPrompt] = useState("");
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [optionsPerPost, setOptionsPerPost] = useState(2);
-  const [autoRemoveBg, setAutoRemoveBg] = useState(true);
+  
   const [adFormat, setAdFormat] = useState<"mobile_screen" | "watermark" | "merch">("merch");
   const [agentPrompt, setAgentPrompt] = useState<string | null>(null);
   const [generatingStatus, setGeneratingStatus] = useState("");
@@ -563,38 +561,17 @@ const Parrilla = () => {
       toast({ title: "Archivo demasiado grande", description: "Máximo 10MB.", variant: "destructive" });
       return;
     }
-    const previewUrl = URL.createObjectURL(file);
-    setProcessingImage(previewUrl);
-    setIsProcessing(true);
     e.target.value = "";
-
-    let processedBlob: Blob = file;
-    let processedUrl = previewUrl;
-
-    try {
-      if (autoRemoveBg) {
-        const resultBlob = await removeBackground(file);
-        processedUrl = URL.createObjectURL(resultBlob);
-        processedBlob = resultBlob;
-        toast({ title: "✨ ¡Producto aislado con éxito!", description: "Fondo removido exitosamente." });
-      } else {
-        toast({ title: "✅ Asset cargado", description: "Imagen agregada sin procesar." });
-      }
-    } catch (err: any) {
-      console.error("background-removal error:", err);
-      toast({ title: "Error al procesar imagen", description: "La imagen original fue conservada.", variant: "destructive" });
-    } finally {
-      setBrandAssets((prev) => [...prev, processedUrl]);
-      setBrandAssetBlobs((prev) => [...prev, processedBlob]);
-      setIsProcessing(false);
-      setProcessingImage(null);
-    }
+    const previewUrl = URL.createObjectURL(file);
+    setBrandAssets((prev) => [...prev, previewUrl]);
+    setBrandAssetBlobs((prev) => [...prev, file]);
+    toast({ title: "✅ Logo cargado", description: "Analizando identidad de marca..." });
 
     // Auto-analyze brand from logo
     const reader = new FileReader();
     reader.onloadend = () => { analyzeBrand(reader.result as string); };
-    reader.readAsDataURL(processedBlob);
-  }, [autoRemoveBg, analyzeBrand]);
+    reader.readAsDataURL(file);
+  }, [analyzeBrand]);
 
   const blobToBase64 = useCallback((blob: Blob): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -843,10 +820,6 @@ const Parrilla = () => {
               </button>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
 
-              <div className="flex items-center justify-between mb-4 px-1">
-                <label htmlFor="auto-remove-bg" className="text-xs font-medium text-muted-foreground cursor-pointer">Remover Fondo</label>
-                <Switch id="auto-remove-bg" checked={autoRemoveBg} onCheckedChange={setAutoRemoveBg} className="data-[state=checked]:bg-primary" />
-              </div>
 
               {/* ── Brand Intelligence: 3-State Flow ── */}
 
@@ -1164,31 +1137,6 @@ const Parrilla = () => {
       {/* Edit Modal */}
       <EditPostModal post={editingPost} open={!!editingPost} onClose={() => setEditingPost(null)} onSave={handleSavePost} brand={brand} />
 
-      {/* Processing Modal */}
-      <AnimatePresence>
-        {isProcessing && processingImage && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-6"
-          >
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-card rounded-3xl p-8 max-w-md w-full shadow-2xl border border-border"
-            >
-              <div className="relative aspect-square rounded-2xl overflow-hidden mb-6 bg-secondary">
-                <img src={processingImage} alt="" className="w-full h-full object-cover" />
-                <motion.div initial={{ top: 0 }} animate={{ top: ["0%", "100%", "0%"] }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                  className="absolute left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary to-transparent shadow-lg shadow-primary/50"
-                  style={{ boxShadow: "0 0 20px hsl(var(--primary)), 0 0 40px hsl(var(--primary) / 0.5)" }}
-                />
-              </div>
-              <div className="flex items-center justify-center gap-3">
-                <Loader2 size={20} className="animate-spin text-primary" />
-                <p className="text-foreground font-semibold">✨ Aislando producto con IA local...</p>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };
