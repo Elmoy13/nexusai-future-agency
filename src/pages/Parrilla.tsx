@@ -1224,6 +1224,16 @@ const Parrilla = () => {
 
       {/* Edit Modal */}
       <EditPostModal post={editingPost} open={!!editingPost} onClose={() => setEditingPost(null)} onSave={handleSavePost} brand={brand} />
+
+      {/* Image Preview Modal */}
+      <ImagePreviewModal
+        posts={platformPosts}
+        initialIndex={previewIndex}
+        open={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        onApprove={handleApprovePost}
+        onDownload={handleDownloadPost}
+      />
     </div>
   );
 };
