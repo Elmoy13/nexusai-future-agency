@@ -1,4 +1,4 @@
-import { LayoutDashboard, ClipboardList, CalendarRange, MessageSquare, LogOut, User, ChevronLeft, ChevronRight, Settings } from "lucide-react";
+import { LayoutDashboard, ClipboardList, CalendarRange, MessageSquare, LogOut, User, ChevronLeft, ChevronRight, Settings, PenSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
