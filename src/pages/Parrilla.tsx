@@ -486,9 +486,9 @@ const Parrilla = () => {
   const [optionsPerPost, setOptionsPerPost] = useState(2);
   
   const [adFormat, setAdFormat] = useState<"mobile_screen" | "watermark" | "merch">("merch");
-  const [agentPrompt, setAgentPrompt] = useState<string | null>(null);
   const [generatingStatus, setGeneratingStatus] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>("auto");
+  const [campaignBrief, setCampaignBrief] = useState<{ description: string; tone: string; extras: string; isComplete: boolean }>({ description: "", tone: "", extras: "", isComplete: false });
   const [brand, setBrand] = useState<BrandProfile>(() => loadBrand(id));
   const [editingPost, setEditingPost] = useState<PostCard | null>(null);
   const [isAnalyzingBrand, setIsAnalyzingBrand] = useState(false);
