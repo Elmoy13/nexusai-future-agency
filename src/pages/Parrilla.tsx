@@ -27,11 +27,30 @@ import {
 type Platform = "instagram" | "tiktok" | "linkedin";
 type PostStatus = "draft" | "scheduled" | "published";
 type ViewMode = "kanban" | "calendar";
-type TemplateId = "auto" | "bold-center" | "split-left" | "minimal-bottom" | "card-overlay";
+
+interface FormatOption {
+  id: string;
+  platform: string;
+  label: string;
+  width: number;
+  height: number;
+  icon: string; // □ ▯ ▬
+}
+
+const ALL_FORMATS: FormatOption[] = [
+  { id: "instagram_feed", platform: "instagram", label: "Feed", width: 1080, height: 1080, icon: "□" },
+  { id: "instagram_story", platform: "instagram", label: "Story", width: 1080, height: 1920, icon: "▯" },
+  { id: "instagram_reel", platform: "instagram", label: "Reel", width: 1080, height: 1920, icon: "▯" },
+  { id: "tiktok_video", platform: "tiktok", label: "Video", width: 1080, height: 1920, icon: "▯" },
+  { id: "linkedin_post", platform: "linkedin", label: "Post", width: 1200, height: 627, icon: "▬" },
+  { id: "linkedin_story", platform: "linkedin", label: "Story", width: 1080, height: 1920, icon: "▯" },
+  { id: "twitter_post", platform: "twitter", label: "Post", width: 1200, height: 630, icon: "▬" },
+];
 
 interface PostCard {
   id: string;
   platform: Platform;
+  format: string;
   status: PostStatus;
   image?: string;
   caption?: string;
@@ -44,7 +63,6 @@ interface PostCard {
   body?: string;
   cta?: string;
   imagePrompt?: string;
-  templateId?: TemplateId;
   styleDescription?: string;
   isRendering?: boolean;
 }
@@ -59,14 +77,6 @@ interface BrandProfile {
   suggested_fonts: string[];
   background_suggestion: string;
 }
-
-const TEMPLATES: { id: TemplateId; name: string; icon: string; description: string }[] = [
-  { id: "auto", name: "Auto", icon: "🎯", description: "Elige automáticamente" },
-  { id: "bold-center", name: "Bold Center", icon: "⬛", description: "Headline centrado" },
-  { id: "split-left", name: "Split Left", icon: "◧", description: "Panel izquierdo" },
-  { id: "minimal-bottom", name: "Minimal Bottom", icon: "▬", description: "Barra inferior" },
-  { id: "card-overlay", name: "Card Overlay", icon: "▣", description: "Card flotante" },
-];
 
 const getBrandStorageKey = (parrillaId?: string) => `brand_profile_${parrillaId || "default"}`;
 
@@ -98,36 +108,11 @@ function saveBrand(b: BrandProfile, parrillaId?: string) {
 
 const API_URL = import.meta.env.VITE_API_URL || "https://loaded-roles-behavior-mystery.trycloudflare.com";
 
-function getFormatFromPlatform(platform: string) {
-  const map: Record<string, string> = {
-    instagram: "instagram_feed",
-    tiktok: "instagram_story",
-    linkedin: "linkedin_post",
-    twitter: "facebook_post",
-  };
-  return map[platform] || "instagram_feed";
-}
-
 function getDimensionsFromFormat(format: string): { w: number; h: number } {
-  const map: Record<string, { w: number; h: number }> = {
-    instagram_feed: { w: 1080, h: 1080 },
-    instagram_story: { w: 1080, h: 1920 },
-    facebook_post: { w: 1200, h: 630 },
-    linkedin_post: { w: 1200, h: 627 },
-  };
-  return map[format] || { w: 1080, h: 1080 };
+  const f = ALL_FORMATS.find(f => f.id === format);
+  if (f) return { w: f.width, h: f.height };
+  return { w: 1080, h: 1080 };
 }
-
-/* ── Mock Data ── */
-const MOCK_POSTS: PostCard[] = [
-  { id: "ig-1", platform: "instagram", status: "draft", caption: "Libertad sin límites. El Drone X10 redefine lo que significa volar. ✈️", hashtags: ["DroneX10", "Innovation"], calendarDay: 3, headline: "Libertad sin límites", body: "El Drone X10 redefine lo que significa volar.", cta: "Descúbrelo ahora", imagePrompt: "Drone flying over mountains at sunset", styleDescription: "épico, cinematográfico" },
-  { id: "ig-2", platform: "instagram", status: "draft", caption: "Captura momentos imposibles con precisión milimétrica. 📸", hashtags: ["Drones", "Photography"], calendarDay: 8, headline: "Momentos imposibles", body: "Precisión milimétrica.", cta: "Comprar", imagePrompt: "Aerial photography drone over city", styleDescription: "moderno, limpio" },
-  { id: "ig-3", platform: "instagram", status: "draft", caption: "El futuro de la fotografía aérea ya llegó. 🚀", hashtags: ["AeroX10"], calendarDay: 12, headline: "El futuro llegó", body: "Fotografía aérea de nueva generación.", imagePrompt: "Futuristic drone technology lab", styleDescription: "futurista, premium" },
-  { id: "tt-1", platform: "tiktok", status: "draft", title: "POV: Tu dron vuela solo 🤯", audio: "Trending Sound - Epic Reveal", caption: "El modo autónomo del X10 es de otro nivel...", calendarDay: 5, headline: "Tu dron vuela solo", imagePrompt: "Autonomous drone POV shot", styleDescription: "dinámico, viral" },
-  { id: "tt-2", platform: "tiktok", status: "draft", title: "Unboxing Drone X10 ✨", audio: "Original Sound - AeroDynamics", calendarDay: 10, headline: "Unboxing X10", imagePrompt: "Unboxing tech product dramatic lighting", styleDescription: "lifestyle, trendy" },
-  { id: "li-1", platform: "linkedin", status: "draft", caption: "La tecnología del Drone X10 está redefiniendo la logística empresarial.", hashtags: ["Innovation", "Logistics"], calendarDay: 7, headline: "Redefiniendo la logística", body: "Alcance de 15km y autonomía de 45 minutos.", cta: "Solicitar demo", imagePrompt: "Enterprise logistics drone warehouse", styleDescription: "profesional, corporativo" },
-  { id: "li-2", platform: "linkedin", status: "draft", caption: "Caso de éxito: Reducción de costos del 40%.", hashtags: ["CaseStudy", "ROI"], calendarDay: 14, headline: "Caso de éxito", body: "Reducción de costos operativos en un 40%.", imagePrompt: "Business infographic modern style", styleDescription: "data-driven, ejecutivo" },
-];
 
 /* ── TikTok Icon ── */
 const TikTokIcon = ({ size = 16, className = "" }: { size?: number; className?: string }) => (
@@ -149,9 +134,10 @@ const CheckerboardBg = ({ children, className = "" }: { children: React.ReactNod
 );
 
 /* ── Platform Icon Helper ── */
-const PlatformIcon = ({ platform, size = 16 }: { platform: Platform; size?: number }) => {
+const PlatformIcon = ({ platform, size = 16 }: { platform: string; size?: number }) => {
   if (platform === "instagram") return <Instagram size={size} />;
   if (platform === "tiktok") return <TikTokIcon size={size} />;
+  if (platform === "twitter") return <Twitter size={size} />;
   return <Linkedin size={size} />;
 };
 
@@ -159,7 +145,7 @@ const PlatformIcon = ({ platform, size = 16 }: { platform: Platform; size?: numb
 const StatusBadge = ({ status }: { status: PostStatus }) => {
   const config = {
     draft: { label: "Draft", bg: "bg-muted text-muted-foreground border-border" },
-    scheduled: { label: "Scheduled", bg: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+    scheduled: { label: "Aprobado", bg: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
     published: { label: "Published", bg: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
   };
   const c = config[status];
@@ -183,10 +169,11 @@ const ShimmerSkeleton = ({ aspectClass }: { aspectClass: string }) => (
 );
 
 /* ── Aspect class helper ── */
-function getAspectClass(platform: string) {
-  if (platform === "tiktok") return "aspect-[9/16]";
-  if (platform === "linkedin") return "aspect-[1.91/1]";
-  return "aspect-square";
+function getAspectClass(format: string) {
+  const dims = getDimensionsFromFormat(format);
+  if (dims.w === dims.h) return "aspect-square";
+  if (dims.h > dims.w) return "aspect-[9/16]";
+  return "aspect-[1.91/1]";
 }
 
 /* ── Post Card ── */
@@ -195,14 +182,15 @@ const RenderedPostCard = ({ post, onEdit, onRegenerate, onDownload, onApproveSta
   onDownload: (post: PostCard) => void; onApproveStatus: (id: string) => void;
   isClientView?: boolean;
 }) => {
-  const [showMenu, setShowMenu] = useState(false);
   const platformGradients: Record<string, string> = {
     instagram: "from-pink-500 via-red-500 to-yellow-500",
     tiktok: "from-slate-900 to-slate-700",
     linkedin: "from-blue-600 to-blue-700",
+    twitter: "from-slate-800 to-slate-900",
   };
-  const platformLabels: Record<string, string> = { instagram: "Instagram", tiktok: "TikTok", linkedin: "LinkedIn" };
-  const aspectClass = getAspectClass(post.platform);
+  const platformLabels: Record<string, string> = { instagram: "Instagram", tiktok: "TikTok", linkedin: "LinkedIn", twitter: "X" };
+  const aspectClass = getAspectClass(post.format || "instagram_feed");
+  const fmt = ALL_FORMATS.find(f => f.id === post.format);
 
   return (
     <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
@@ -213,22 +201,25 @@ const RenderedPostCard = ({ post, onEdit, onRegenerate, onDownload, onApproveSta
       ) : (
         <div className={`${aspectClass} bg-secondary relative overflow-hidden`}>
           <img src={post.image || "/placeholder.svg"} alt="" className="w-full h-full object-cover" />
-          {/* Platform badge */}
           <div className="absolute top-3 left-3">
             <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${platformGradients[post.platform]} flex items-center justify-center shadow-md`}>
               <PlatformIcon platform={post.platform} size={14} />
             </div>
           </div>
-          {/* Status badge */}
           <div className="absolute top-3 right-3"><StatusBadge status={post.status} /></div>
+          {fmt && (
+            <div className="absolute bottom-3 left-3">
+              <Badge variant="outline" className="text-[9px] bg-card/70 backdrop-blur-sm border-border/50 text-muted-foreground">
+                {fmt.label} {fmt.width}×{fmt.height}
+              </Badge>
+            </div>
+          )}
         </div>
       )}
-      {/* Info */}
       <div className="p-3 space-y-1.5">
         {post.headline && <p className="text-sm font-semibold text-foreground truncate">{post.headline}</p>}
         {(post.body || post.caption) && <p className="text-xs text-muted-foreground line-clamp-2">{post.body || post.caption}</p>}
         {post.scheduledAt && <div className="flex items-center gap-1.5 text-[11px] text-amber-400 font-medium"><Calendar size={12} /> {post.scheduledAt}</div>}
-        {/* Action bar */}
         {!isClientView && !post.isRendering && (
           <div className="flex items-center gap-1 pt-2 border-t border-border/50">
             <button onClick={() => onEdit(post)} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Editar">
@@ -252,13 +243,13 @@ const RenderedPostCard = ({ post, onEdit, onRegenerate, onDownload, onApproveSta
 
 /* ── Mini Card for Calendar ── */
 const MiniPostCard = ({ post }: { post: PostCard }) => {
-  const platformColors = { instagram: "from-pink-500 via-red-500 to-yellow-500", tiktok: "from-slate-900 to-slate-700", linkedin: "from-blue-600 to-blue-700" };
+  const platformColors = { instagram: "from-pink-500 via-red-500 to-yellow-500", tiktok: "from-slate-900 to-slate-700", linkedin: "from-blue-600 to-blue-700", twitter: "from-slate-800 to-slate-900" };
   return (
     <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
       className="flex items-center gap-2 p-1.5 rounded-lg bg-card border border-border shadow-sm hover:shadow-md transition-all cursor-pointer"
     >
       <div className="w-8 h-8 rounded-md overflow-hidden bg-secondary shrink-0"><img src={post.image} alt="" className="w-full h-full object-cover" /></div>
-      <div className={`w-5 h-5 rounded-md bg-gradient-to-br ${platformColors[post.platform]} flex items-center justify-center`}><PlatformIcon platform={post.platform} size={10} /></div>
+      <div className={`w-5 h-5 rounded-md bg-gradient-to-br ${platformColors[post.platform] || "from-slate-700 to-slate-800"} flex items-center justify-center`}><PlatformIcon platform={post.platform} size={10} /></div>
     </motion.div>
   );
 };
@@ -336,7 +327,7 @@ const EditPostModal = ({ post, open, onClose, onSave, brand }: {
       setCta(post.cta || "");
       setImagePrompt(post.imagePrompt || "");
       setStyleDescription(post.styleDescription || "profesional y moderno");
-      setFormat(getFormatFromPlatform(post.platform));
+      setFormat(post.format || "instagram_feed");
       setPreviewImage(post.image || null);
     }
   }, [post]);
@@ -344,7 +335,6 @@ const EditPostModal = ({ post, open, onClose, onSave, brand }: {
   const handleRegenerate = async () => {
     if (!post) return;
     setIsRegenerating(true);
-    // Mock render
     const dims = getDimensionsFromFormat(format);
     const color = brand.primary_color.replace("#", "");
     await new Promise(r => setTimeout(r, 4000));
@@ -357,7 +347,7 @@ const EditPostModal = ({ post, open, onClose, onSave, brand }: {
     if (!post) return;
     onSave({
       ...post,
-      headline, body, cta, imagePrompt, styleDescription,
+      headline, body, cta, imagePrompt, styleDescription, format,
       image: previewImage || post.image,
     });
     onClose();
@@ -365,23 +355,17 @@ const EditPostModal = ({ post, open, onClose, onSave, brand }: {
 
   if (!post) return null;
 
-  const formatLabel: Record<string, string> = {
-    instagram_feed: "1080 × 1080 — Instagram Feed",
-    instagram_story: "1080 × 1920 — Instagram Story",
-    facebook_post: "1200 × 630 — Facebook Post",
-    linkedin_post: "1200 × 627 — LinkedIn Post",
-  };
+  const formatLabel: Record<string, string> = {};
+  ALL_FORMATS.forEach(f => { formatLabel[f.id] = `${f.width} × ${f.height} — ${f.label}`; });
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-5xl bg-card border-border p-0 overflow-hidden">
         <div className="grid grid-cols-1 md:grid-cols-[2fr_3fr] min-h-[600px]">
-          {/* Left - Edit */}
           <div className="p-6 space-y-4 overflow-y-auto border-r border-border">
             <DialogHeader className="pb-0">
               <DialogTitle className="text-foreground text-base">Editar Post</DialogTitle>
             </DialogHeader>
-
             <div className="space-y-3">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Contenido</p>
               <div>
@@ -399,36 +383,26 @@ const EditPostModal = ({ post, open, onClose, onSave, brand }: {
                 <Input value={cta} onChange={(e) => setCta(e.target.value)} maxLength={30} className="bg-secondary/50 border-border" />
               </div>
             </div>
-
             <div className="space-y-3">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Imagen</p>
               <Textarea value={imagePrompt} onChange={(e) => setImagePrompt(e.target.value)} rows={3} className="bg-secondary/50 border-border resize-none" placeholder="Describe la imagen de fondo..." />
             </div>
-
             <div className="space-y-3">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Estilo</p>
               <Input value={styleDescription} onChange={(e) => setStyleDescription(e.target.value)} className="bg-secondary/50 border-border" placeholder="ej: elegante, premium" />
               <Select value={format} onValueChange={setFormat}>
                 <SelectTrigger className="bg-secondary/50 border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="instagram_feed">Instagram Feed</SelectItem>
-                  <SelectItem value="instagram_story">Instagram Story</SelectItem>
-                  <SelectItem value="facebook_post">Facebook Post</SelectItem>
-                  <SelectItem value="linkedin_post">LinkedIn Post</SelectItem>
+                  {ALL_FORMATS.map(f => <SelectItem key={f.id} value={f.id}>{f.icon} {f.label} ({f.width}×{f.height})</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-
             <Button onClick={handleRegenerate} disabled={isRegenerating} className="w-full h-11 bg-gradient-to-r from-violet-600 to-primary text-white font-semibold">
               {isRegenerating ? <><Loader2 size={16} className="animate-spin mr-2" /> Regenerando...</> : <><Sparkles size={16} className="mr-2" /> ✨ Regenerar Post</>}
             </Button>
           </div>
-
-          {/* Right - Preview */}
           <div className="bg-secondary/30 p-6 flex flex-col items-center justify-center">
-            <div className={`w-full max-w-md rounded-xl overflow-hidden border border-border bg-secondary ${
-              format === "instagram_story" ? "aspect-[9/16] max-h-[480px]" : format.includes("linkedin") || format.includes("facebook") ? "aspect-[1.91/1]" : "aspect-square"
-            }`}>
+            <div className={`w-full max-w-md rounded-xl overflow-hidden border border-border bg-secondary ${getAspectClass(format)} ${format.includes("story") || format.includes("reel") || format.includes("tiktok") ? "max-h-[480px]" : ""}`}>
               {isRegenerating ? (
                 <div className="w-full h-full relative overflow-hidden">
                   <motion.div animate={{ x: ["-100%", "100%"] }} transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
@@ -443,7 +417,6 @@ const EditPostModal = ({ post, open, onClose, onSave, brand }: {
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-3">{formatLabel[format] || format}</p>
-
             <div className="flex gap-3 mt-6 w-full max-w-md">
               <Button variant="outline" onClick={onClose} className="flex-1 border-border text-muted-foreground">Cancelar</Button>
               <Button onClick={handleSave} className="flex-1 bg-primary text-primary-foreground font-semibold">Guardar cambios</Button>
@@ -461,7 +434,7 @@ const Parrilla = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [activePlatform, setActivePlatform] = useState<Platform>("instagram");
+  const [activePlatform, setActivePlatform] = useState<string>("instagram");
   const [posts, setPosts] = useState<PostCard[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
@@ -470,14 +443,14 @@ const Parrilla = () => {
   const [brandAssets, setBrandAssets] = useState<string[]>([]);
   const [brandAssetBlobs, setBrandAssetBlobs] = useState<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [platforms, setPlatforms] = useState({ instagram: true, tiktok: true, linkedin: false, twitter: false });
+  const [selectedFormats, setSelectedFormats] = useState<Set<string>>(new Set(["instagram_feed", "tiktok_video"]));
   const [frequency, setFrequency] = useState("3-week");
   const [objective, setObjective] = useState("engagement");
   const [optionsPerPost, setOptionsPerPost] = useState(2);
-  
-  const [adFormat, setAdFormat] = useState<"mobile_screen" | "watermark" | "merch">("merch");
+
   const [generatingStatus, setGeneratingStatus] = useState("");
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>("auto");
   const [campaignBrief, setCampaignBrief] = useState<{ description: string; tone: string; extras: string; isComplete: boolean }>({ description: "", tone: "", extras: "", isComplete: false });
   const [brand, setBrand] = useState<BrandProfile>(() => loadBrand(id));
   const [editingPost, setEditingPost] = useState<PostCard | null>(null);
@@ -485,6 +458,34 @@ const Parrilla = () => {
   const [brandDetected, setBrandDetected] = useState(() => {
     try { return !!localStorage.getItem(getBrandStorageKey(id)); } catch { return false; }
   });
+
+  // Available formats based on selected platforms
+  const availableFormats = useMemo(() => {
+    return ALL_FORMATS.filter(f => platforms[f.platform as keyof typeof platforms]);
+  }, [platforms]);
+
+  // Sync selected formats when platforms change
+  useEffect(() => {
+    setSelectedFormats(prev => {
+      const newSet = new Set<string>();
+      const activePlatformKeys = Object.entries(platforms).filter(([_, v]) => v).map(([k]) => k);
+      // Keep existing selections that are still valid
+      prev.forEach(fId => {
+        const fmt = ALL_FORMATS.find(f => f.id === fId);
+        if (fmt && platforms[fmt.platform as keyof typeof platforms]) newSet.add(fId);
+      });
+      // Auto-select first format of newly enabled platforms
+      activePlatformKeys.forEach(pk => {
+        const platformFormats = ALL_FORMATS.filter(f => f.platform === pk);
+        const hasAny = platformFormats.some(f => newSet.has(f.id));
+        if (!hasAny && platformFormats.length > 0) newSet.add(platformFormats[0].id);
+      });
+      return newSet;
+    });
+  }, [platforms]);
+
+  const getFrequencyCount = (f: string) => ({ "3-week": 3, "5-week": 5, "daily": 7 }[f] || 3);
+  const totalPosts = selectedFormats.size * getFrequencyCount(frequency) * optionsPerPost;
 
   // Load Google Font dynamically
   useEffect(() => {
@@ -512,13 +513,9 @@ const Parrilla = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ logo_b64: logoB64 }),
       });
-      if (!res.ok) {
-        throw new Error(`Error ${res.status}: ${await res.text()}`);
-      }
+      if (!res.ok) throw new Error(`Error ${res.status}: ${await res.text()}`);
       const data = await res.json();
-      if (!data.palette || !data.primary_color) {
-        throw new Error("Respuesta incompleta de la API");
-      }
+      if (!data.palette || !data.primary_color) throw new Error("Respuesta incompleta de la API");
       const newBrand: BrandProfile = {
         primary_color: data.primary_color,
         secondary_color: data.secondary_color || data.palette[1] || "#333333",
@@ -537,11 +534,7 @@ const Parrilla = () => {
       console.error("Error analyzing brand:", error);
       setIsAnalyzingBrand(false);
       setBrandDetected(false);
-      toast({
-        title: "⚠️ No se pudo analizar el logo",
-        description: "Configura los colores manualmente o intenta de nuevo.",
-        variant: "destructive",
-      });
+      toast({ title: "⚠️ No se pudo analizar el logo", description: "Configura los colores manualmente o intenta de nuevo.", variant: "destructive" });
     }
   }, []);
 
@@ -557,8 +550,6 @@ const Parrilla = () => {
     setBrandAssets((prev) => [...prev, previewUrl]);
     setBrandAssetBlobs((prev) => [...prev, file]);
     toast({ title: "✅ Logo cargado", description: "Analizando identidad de marca..." });
-
-    // Auto-analyze brand from logo
     const reader = new FileReader();
     reader.onloadend = () => { analyzeBrand(reader.result as string); };
     reader.readAsDataURL(file);
@@ -573,23 +564,20 @@ const Parrilla = () => {
     });
   }, []);
 
-  // Mock render for a single post
   const mockRenderPost = useCallback(async (post: PostCard): Promise<string> => {
-    const format = getFormatFromPlatform(post.platform);
-    const dims = getDimensionsFromFormat(format);
+    const dims = getDimensionsFromFormat(post.format);
     await new Promise(r => setTimeout(r, 3000 + Math.random() * 2000));
     const color = brand.primary_color.replace("#", "");
     return `https://placehold.co/${dims.w}x${dims.h}/${color}/white?text=${encodeURIComponent(post.headline || "Post")}`;
   }, [brand]);
 
-  // Real render (with fallback to mock)
   const renderPost = useCallback(async (post: PostCard, logoB64: string | undefined): Promise<string> => {
     try {
       const res = await fetch(`${API_URL}/api/v1/posts/render`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          format: getFormatFromPlatform(post.platform),
+          format: post.format,
           brand: {
             logo_b64: logoB64 || undefined,
             primary_color: brand.primary_color,
@@ -615,77 +603,87 @@ const Parrilla = () => {
     return mockRenderPost(post);
   }, [brand, mockRenderPost]);
 
-  // Mock copy generators
   const mockHeadlines = ["Descubre lo nuevo", "Tu próxima obsesión", "Hecho para ti", "Eleva tu estilo", "Sin límites", "Empieza hoy", "Lo que esperabas", "Nuevo lanzamiento", "Solo por tiempo limitado", "Transforma tu día", "Más que un producto", "Vive diferente"];
   const mockBodies = ["Una experiencia que no te puedes perder", "Diseñado con pasión, creado para ti", "Calidad que se nota desde el primer momento", "Porque mereces lo mejor, siempre"];
   const mockCtas = ["Compra ahora →", "Descúbrelo →", "Ver más →", "Reserva el tuyo →", "Shop now →", "Explora →"];
-
-  const getFrequencyCount = (f: string) => ({ "3-week": 3, "5-week": 5, "daily": 7 }[f] || 3);
 
   const handleGenerateParrilla = useCallback(async () => {
     setIsGenerating(true);
     setGeneratingStatus("⚡ Preparando parrilla...");
 
-    const activePlatforms = Object.entries(platforms).filter(([_, v]) => v).map(([k]) => k);
-    const postsPerPlatform = getFrequencyCount(frequency) * optionsPerPost;
-    const totalPosts = activePlatforms.length * postsPerPlatform;
+    const activeFormats = Array.from(selectedFormats);
+    const postsPerFormat = getFrequencyCount(frequency) * optionsPerPost;
+    const total = activeFormats.length * postsPerFormat;
 
     let contextImage: string | undefined;
     if (brandAssetBlobs.length > 0) {
       contextImage = await blobToBase64(brandAssetBlobs[0]);
     }
 
-    // Create skeleton posts immediately
     const skeletonPosts: PostCard[] = [];
-    for (let i = 0; i < totalPosts; i++) {
-      const platIdx = i % activePlatforms.length;
-      const platform = activePlatforms[platIdx] as Platform;
-      skeletonPosts.push({
-        id: `gen-${Date.now()}-${i}`,
-        platform,
-        status: "draft",
-        headline: mockHeadlines[i % mockHeadlines.length],
-        body: mockBodies[i % mockBodies.length],
-        cta: mockCtas[i % mockCtas.length],
-        imagePrompt: `${campaignBrief.description}, ${campaignBrief.tone} style`,
-        styleDescription: campaignBrief.tone || "profesional y moderno",
-        templateId: selectedTemplate,
-        calendarDay: (i * 2) + 1,
-        isRendering: true,
-      });
+    let idx = 0;
+    for (const formatId of activeFormats) {
+      const fmt = ALL_FORMATS.find(f => f.id === formatId)!;
+      for (let j = 0; j < postsPerFormat; j++) {
+        skeletonPosts.push({
+          id: `gen-${Date.now()}-${idx}`,
+          platform: fmt.platform as Platform,
+          format: fmt.id,
+          status: "draft",
+          headline: mockHeadlines[idx % mockHeadlines.length],
+          body: mockBodies[idx % mockBodies.length],
+          cta: mockCtas[idx % mockCtas.length],
+          imagePrompt: `${campaignBrief.description}, ${campaignBrief.tone} style`,
+          styleDescription: campaignBrief.tone || "profesional y moderno",
+          calendarDay: (idx * 2) + 1,
+          isRendering: true,
+        });
+        idx++;
+      }
     }
 
     setPosts(skeletonPosts);
     setHasGenerated(true);
 
-    // Render sequentially
     for (let i = 0; i < skeletonPosts.length; i++) {
-      setGeneratingStatus(`🎨 Generando post ${i + 1} de ${totalPosts}...`);
+      setGeneratingStatus(`🎨 Generando post ${i + 1} de ${total}...`);
       const renderedImage = await renderPost(skeletonPosts[i], contextImage);
       setPosts(prev => prev.map(p =>
         p.id === skeletonPosts[i].id ? { ...p, image: renderedImage, isRendering: false } : p
       ));
     }
 
-    toast({ title: "🚀 Parrilla generada", description: `${totalPosts} posts generados exitosamente.` });
+    toast({ title: "🚀 Parrilla generada", description: `${total} posts generados exitosamente.` });
     setIsGenerating(false);
     setGeneratingStatus("");
-  }, [platforms, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, selectedTemplate, campaignBrief, renderPost]);
+  }, [selectedFormats, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, campaignBrief, renderPost]);
 
   const handleBriefComplete = useCallback((brief: { description: string; tone: string; extras: string; isComplete: boolean }) => {
     setCampaignBrief(brief);
   }, []);
 
-  const canGenerate = brandDetected && campaignBrief.isComplete && Object.values(platforms).some(v => v);
+  const canGenerate = brandDetected && campaignBrief.isComplete && selectedFormats.size > 0;
+  const getDisabledReason = () => {
+    if (!brandDetected) return "Sube tu logo primero";
+    if (!campaignBrief.isComplete) return "Completa el brief con Nano Banano";
+    if (selectedFormats.size === 0) return "Selecciona al menos una plataforma y formato";
+    return "";
+  };
 
   const togglePlatform = (key: keyof typeof platforms) => setPlatforms((prev) => ({ ...prev, [key]: !prev[key] }));
+  const toggleFormat = (formatId: string) => {
+    setSelectedFormats(prev => {
+      const next = new Set(prev);
+      if (next.has(formatId)) next.delete(formatId);
+      else next.add(formatId);
+      return next;
+    });
+  };
+
   const handleApprovePost = useCallback((id: string) => { setPosts(prev => prev.map(p => p.id === id ? { ...p, status: "scheduled" as PostStatus } : p)); toast({ title: "✅ Post aprobado" }); }, []);
-  const handleRequestChanges = useCallback((id: string) => { toast({ title: "📝 Cambios solicitados" }); }, []);
-  const handleExportCSV = () => { toast({ title: "📊 CSV Exportado" }); };
   const handleApproveAll = () => { setPosts(prev => prev.map(p => ({ ...p, status: "scheduled" as PostStatus }))); toast({ title: "✅ Todo aprobado" }); };
 
   const handleEditPost = useCallback((post: PostCard) => { setEditingPost(post); }, []);
-
   const handleSavePost = useCallback((updatedPost: PostCard) => {
     setPosts(prev => prev.map(p => p.id === updatedPost.id ? updatedPost : p));
     toast({ title: "💾 Post actualizado" });
@@ -708,7 +706,26 @@ const Parrilla = () => {
     a.click();
   }, []);
 
+  // Group formats by platform for display
+  const formatsByPlatform = useMemo(() => {
+    const groups: Record<string, FormatOption[]> = {};
+    availableFormats.forEach(f => {
+      if (!groups[f.platform]) groups[f.platform] = [];
+      groups[f.platform].push(f);
+    });
+    return groups;
+  }, [availableFormats]);
+
   const platformPosts = posts.filter((p) => p.platform === activePlatform);
+
+  const platformConfig = [
+    { key: "instagram" as const, label: "Instagram", icon: Instagram, gradient: "from-pink-500 via-red-500 to-yellow-500", emoji: "📸" },
+    { key: "tiktok" as const, label: "TikTok", icon: TikTokIcon, gradient: "from-slate-900 to-slate-700", emoji: "🎵" },
+    { key: "linkedin" as const, label: "LinkedIn", icon: Linkedin, gradient: "from-blue-600 to-blue-700", emoji: "💼" },
+    { key: "twitter" as const, label: "X / Twitter", icon: Twitter, gradient: "from-slate-800 to-slate-900", emoji: "🐦" },
+  ];
+
+  const platformLabelsMap: Record<string, string> = { instagram: "Instagram", tiktok: "TikTok", linkedin: "LinkedIn", twitter: "X / Twitter" };
 
   return (
     <div className="min-h-screen bg-background transition-colors duration-500">
@@ -739,8 +756,13 @@ const Parrilla = () => {
                 <Switch checked={isClientView} onCheckedChange={setIsClientView} className="data-[state=checked]:bg-violet-500" />
               </div>
               <div className="w-px h-8 bg-border" />
-              <Button variant="outline" onClick={handleExportCSV} className="gap-2 text-sm h-9 border-border text-muted-foreground hover:text-foreground"><Download size={14} /> CSV</Button>
-              <Button onClick={handleApproveAll} className="gap-2 text-sm h-9 bg-emerald-500 hover:bg-emerald-600 text-white"><CheckCircle2 size={14} /> Aprobar Todo</Button>
+              <Button
+                onClick={handleApproveAll}
+                disabled={posts.length === 0}
+                className="gap-2 text-sm h-9 bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-40"
+              >
+                <CheckCircle2 size={14} /> Aprobar Todo
+              </Button>
             </div>
           </div>
         </div>
@@ -777,17 +799,22 @@ const Parrilla = () => {
               </button>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
 
+              {/* Logo preview */}
+              {brandAssets.length > 0 && (
+                <div className="mb-4">
+                  <CheckerboardBg className="aspect-square rounded-xl overflow-hidden border border-border shadow-sm">
+                    <img src={brandAssets[brandAssets.length - 1]} alt="Logo" className="w-full h-full object-contain p-2" />
+                  </CheckerboardBg>
+                </div>
+              )}
 
               {/* ── Brand Intelligence: 3-State Flow ── */}
-
-              {/* State 1: No logo — hint */}
               {brandAssets.length === 0 && !isAnalyzingBrand && !brandDetected && (
                 <p className="text-xs text-muted-foreground text-center py-4 px-2 italic">
                   Sube tu logo para detectar automáticamente los colores de tu marca
                 </p>
               )}
 
-              {/* State 2: Analyzing */}
               {isAnalyzingBrand && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mb-4 space-y-3">
                   <div className="flex items-center gap-2">
@@ -805,10 +832,8 @@ const Parrilla = () => {
                 </motion.div>
               )}
 
-              {/* State 3: Detection complete */}
               {brandDetected && !isAnalyzingBrand && (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-4 space-y-4">
-                  {/* Palette */}
                   <div className="space-y-2.5">
                     <p className="text-[11px] font-bold text-foreground uppercase tracking-wider">✨ Paleta Detectada</p>
                     <div className="flex items-center gap-2 justify-center">
@@ -845,7 +870,6 @@ const Parrilla = () => {
                     <p className="text-[9px] text-muted-foreground text-center">Puedes editar cualquier color</p>
                   </div>
 
-                  {/* Typography */}
                   <div className="space-y-2">
                     <p className="text-[11px] font-bold text-foreground uppercase tracking-wider">🔤 Tipografía Sugerida</p>
                     <Select value={brand.font_family} onValueChange={(v) => setBrand(prev => ({ ...prev, font_family: v }))}>
@@ -866,39 +890,6 @@ const Parrilla = () => {
                   </div>
                 </motion.div>
               )}
-
-              {/* Ad Format */}
-              {brandAssets.length > 0 && (
-                <div className="mb-4 space-y-2">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Formato de Anuncio</p>
-                  <Select value={adFormat} onValueChange={(v) => setAdFormat(v as any)}>
-                    <SelectTrigger className="bg-secondary/50 border-border h-9 text-sm"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="merch">👕 Mercancía</SelectItem>
-                      <SelectItem value="watermark">💧 Marca de Agua</SelectItem>
-                      <SelectItem value="mobile_screen">📱 Lifestyle</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {/* Processed assets */}
-              <div className="flex-1">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Assets procesados</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {brandAssets.map((src, i) => (
-                    <div key={i} className="relative group">
-                      <CheckerboardBg className="aspect-square rounded-xl overflow-hidden border border-border shadow-sm">
-                        <img src={src} alt="" className="w-full h-full object-contain p-2" />
-                      </CheckerboardBg>
-                      <a href={src} download={`asset-${i}.png`}
-                        className="absolute bottom-1.5 right-1.5 p-1.5 rounded-lg bg-card/80 backdrop-blur-sm border border-border opacity-0 group-hover:opacity-100 transition-opacity"
-                      ><Download size={12} className="text-foreground" /></a>
-                    </div>
-                  ))}
-                  {brandAssets.length === 0 && <p className="col-span-2 text-xs text-muted-foreground text-center py-6">Sin assets aún</p>}
-                </div>
-              </div>
             </motion.aside>
           )}
         </AnimatePresence>
@@ -911,7 +902,8 @@ const Parrilla = () => {
               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3 }}
                 className="bg-card border-b border-border p-5 overflow-hidden"
               >
-                <div className="max-w-6xl mx-auto">
+                <div className="max-w-6xl mx-auto space-y-5">
+                  {/* Agent header + chat */}
                   <div className="flex items-center gap-3 mb-5">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 via-purple-500 to-primary flex items-center justify-center shadow-lg shadow-purple-500/25">
                       <Sparkles size={20} className="text-white" />
@@ -926,40 +918,68 @@ const Parrilla = () => {
                     <CreativeAgentChat onBriefComplete={handleBriefComplete} isGenerating={isGenerating} brandDetected={brandDetected} brandPalette={brand.palette} brandFont={brand.font_family} platforms={platforms} frequency={frequency} objective={objective} generatingStatus={generatingStatus} />
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                    {/* Platforms */}
-                    <div className="lg:col-span-4 space-y-3">
-                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Plataformas</p>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        {[
-                          { key: "instagram" as const, label: "Instagram", icon: Instagram, gradient: "from-pink-500 via-red-500 to-yellow-500", emoji: "📸" },
-                          { key: "tiktok" as const, label: "TikTok", icon: TikTokIcon, gradient: "from-slate-900 to-slate-700", emoji: "🎵" },
-                          { key: "linkedin" as const, label: "LinkedIn", icon: Linkedin, gradient: "from-blue-600 to-blue-700", emoji: "💼" },
-                          { key: "twitter" as const, label: "X / Twitter", icon: Twitter, gradient: "from-slate-800 to-slate-900", emoji: "🐦" },
-                        ].map((p) => (
-                          <button key={p.key} onClick={() => togglePlatform(p.key)}
-                            className={`relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
-                              platforms[p.key] ? "border-primary bg-primary/10 shadow-md shadow-primary/10" : "border-border bg-card hover:border-muted-foreground/30 hover:bg-secondary"
-                            }`}
-                          >
-                            <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${p.gradient} flex items-center justify-center shadow-md`}>
-                              <p.icon size={16} className="text-white" />
-                            </div>
-                            <span className="text-xs font-semibold text-foreground">{p.emoji} {p.label}</span>
-                            {platforms[p.key] && (
-                              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                                <Check size={12} className="text-primary-foreground" />
-                              </motion.div>
-                            )}
-                          </button>
-                        ))}
-                      </div>
+                  {/* Row 1: Platforms */}
+                  <div className="space-y-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Plataformas</p>
+                    <div className="flex flex-wrap gap-2">
+                      {platformConfig.map((p) => (
+                        <button key={p.key} onClick={() => togglePlatform(p.key)}
+                          className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 transition-all ${
+                            platforms[p.key] ? "border-primary bg-primary/10 shadow-md shadow-primary/10" : "border-border bg-card hover:border-muted-foreground/30 hover:bg-secondary"
+                          }`}
+                        >
+                          <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${p.gradient} flex items-center justify-center shadow-md`}>
+                            <p.icon size={14} className="text-white" />
+                          </div>
+                          <span className="text-xs font-semibold text-foreground">{p.emoji} {p.label}</span>
+                          {platforms[p.key] && (
+                            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                              <Check size={12} className="text-primary-foreground" />
+                            </motion.div>
+                          )}
+                        </button>
+                      ))}
                     </div>
+                  </div>
 
-                    <div className="lg:col-span-2 space-y-3">
-                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Frecuencia</p>
+                  {/* Row 2: Formats (dynamic) */}
+                  <AnimatePresence>
+                    {Object.keys(formatsByPlatform).length > 0 && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="space-y-3 overflow-hidden">
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Formatos</p>
+                        <div className="space-y-2.5">
+                          {Object.entries(formatsByPlatform).map(([platform, formats]) => (
+                            <div key={platform} className="flex items-center gap-3">
+                              <span className="text-[10px] font-semibold text-muted-foreground uppercase w-20 shrink-0">{platformLabelsMap[platform]}</span>
+                              <div className="flex flex-wrap gap-1.5">
+                                {formats.map(fmt => (
+                                  <button key={fmt.id} onClick={() => toggleFormat(fmt.id)}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-medium transition-all ${
+                                      selectedFormats.has(fmt.id)
+                                        ? "border-primary bg-primary/10 text-foreground"
+                                        : "border-border bg-secondary/50 text-muted-foreground hover:border-muted-foreground/40"
+                                    }`}
+                                  >
+                                    <span className="text-sm">{fmt.icon}</span>
+                                    <span>{fmt.label}</span>
+                                    <span className="text-[9px] text-muted-foreground">{fmt.width}×{fmt.height}</span>
+                                    {selectedFormats.has(fmt.id) && <Check size={10} className="text-primary" />}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Row 3: Config + Generate */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase">Frecuencia</span>
                       <Select value={frequency} onValueChange={setFrequency}>
-                        <SelectTrigger className="bg-secondary/50 border-border h-11"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="bg-secondary/50 border-border h-9 w-[120px] text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="3-week">3/semana</SelectItem>
                           <SelectItem value="5-week">5/semana</SelectItem>
@@ -968,10 +988,10 @@ const Parrilla = () => {
                       </Select>
                     </div>
 
-                    <div className="lg:col-span-2 space-y-3">
-                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Objetivo</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase">Objetivo</span>
                       <Select value={objective} onValueChange={setObjective}>
-                        <SelectTrigger className="bg-secondary/50 border-border h-11"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="bg-secondary/50 border-border h-9 w-[140px] text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="engagement"><div className="flex items-center gap-2"><Heart size={14} className="text-pink-500" /> Engagement</div></SelectItem>
                           <SelectItem value="conversion"><div className="flex items-center gap-2"><Target size={14} className="text-emerald-500" /> Conversión</div></SelectItem>
@@ -980,41 +1000,45 @@ const Parrilla = () => {
                       </Select>
                     </div>
 
-                    <div className="lg:col-span-2 space-y-3">
-                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Template</p>
-                      <Select value={selectedTemplate} onValueChange={(v) => setSelectedTemplate(v as TemplateId)}>
-                        <SelectTrigger className="bg-secondary/50 border-border h-11"><SelectValue /></SelectTrigger>
+                    <div className="flex items-center gap-2 relative group/var">
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase">Variantes</span>
+                      <Select value={String(optionsPerPost)} onValueChange={(v) => setOptionsPerPost(Number(v))}>
+                        <SelectTrigger className="bg-secondary/50 border-border h-9 w-16 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {TEMPLATES.map(t => <SelectItem key={t.id} value={t.id}><div className="flex items-center gap-2">{t.icon} {t.name}</div></SelectItem>)}
+                          <SelectItem value="1">1</SelectItem>
+                          <SelectItem value="2">2</SelectItem>
+                          <SelectItem value="3">3</SelectItem>
                         </SelectContent>
                       </Select>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 rounded-md bg-card border border-border text-[9px] text-muted-foreground whitespace-nowrap opacity-0 group-hover/var:opacity-100 transition-opacity pointer-events-none shadow-lg">
+                        Número de variaciones de diseño por cada post
+                      </div>
                     </div>
 
-                    <div className="lg:col-span-2 space-y-3">
-                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Opciones</p>
-                      <div className="flex items-center gap-2">
-                        <Select value={String(optionsPerPost)} onValueChange={(v) => setOptionsPerPost(Number(v))}>
-                          <SelectTrigger className="bg-secondary/50 border-border h-11 w-16"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="1">1</SelectItem>
-                            <SelectItem value="2">2</SelectItem>
-                            <SelectItem value="3">3</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <div className="relative group/gen">
-                          <Button onClick={handleGenerateParrilla}
-                            disabled={isGenerating || !canGenerate}
-                            className="flex-1 h-11 text-sm font-semibold bg-gradient-to-r from-violet-600 via-purple-600 to-primary hover:from-violet-700 hover:via-purple-700 hover:to-primary/80 shadow-lg shadow-primary/25 disabled:opacity-50 text-white"
-                          >
-                            {isGenerating ? <><Loader2 size={16} className="animate-spin mr-2" /> {generatingStatus || "Generando..."}</> : <><Zap size={16} className="mr-2" /> Generar 🚀</>}
-                          </Button>
-                          {!canGenerate && !isGenerating && (
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 rounded-lg bg-card border border-border text-[10px] text-muted-foreground whitespace-nowrap opacity-0 group-hover/gen:opacity-100 transition-opacity pointer-events-none shadow-lg">
-                              {!brandDetected ? "Sube tu logo primero" : !campaignBrief.isComplete ? "Completa el brief con Nano Banano" : "Selecciona al menos 1 plataforma"}
-                            </div>
-                          )}
+                    <div className="w-px h-8 bg-border" />
+
+                    {selectedFormats.size > 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        Se generarán <span className="text-foreground font-bold">{totalPosts}</span> posts
+                      </span>
+                    )}
+
+                    <div className="relative group/gen ml-auto">
+                      <Button onClick={handleGenerateParrilla}
+                        disabled={isGenerating || !canGenerate}
+                        className={`h-11 px-6 text-sm font-semibold shadow-lg text-white transition-all ${
+                          canGenerate && !isGenerating
+                            ? "bg-gradient-to-r from-violet-600 via-purple-600 to-primary hover:from-violet-700 hover:via-purple-700 hover:to-primary/80 shadow-primary/25 animate-pulse"
+                            : "bg-gradient-to-r from-violet-600 via-purple-600 to-primary opacity-50"
+                        }`}
+                      >
+                        {isGenerating ? <><Loader2 size={16} className="animate-spin mr-2" /> {generatingStatus || "Generando..."}</> : <><Zap size={16} className="mr-2" /> Generar 🚀</>}
+                      </Button>
+                      {!canGenerate && !isGenerating && (
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 rounded-lg bg-card border border-border text-[10px] text-muted-foreground whitespace-nowrap opacity-0 group-hover/gen:opacity-100 transition-opacity pointer-events-none shadow-lg">
+                          {getDisabledReason()}
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1026,21 +1050,15 @@ const Parrilla = () => {
           <div className="flex-1 overflow-y-auto flex flex-col">
             {hasGenerated ? (
               <>
-                <Tabs value={activePlatform} onValueChange={(v) => setActivePlatform(v as Platform)} className="flex-1 flex flex-col overflow-hidden">
+                <Tabs value={activePlatform} onValueChange={(v) => setActivePlatform(v)} className="flex-1 flex flex-col overflow-hidden">
                   <div className="px-6 pt-5 pb-0 flex items-center justify-between">
                     <TabsList className="h-11 p-1 bg-secondary">
-                      <TabsTrigger value="instagram" className="gap-2 px-5 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
-                        <Instagram size={14} /> Instagram
-                        <Badge variant="secondary" className="text-[10px] bg-secondary">{posts.filter(p => p.platform === "instagram").length}</Badge>
-                      </TabsTrigger>
-                      <TabsTrigger value="tiktok" className="gap-2 px-5 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
-                        <TikTokIcon size={14} /> TikTok
-                        <Badge variant="secondary" className="text-[10px] bg-secondary">{posts.filter(p => p.platform === "tiktok").length}</Badge>
-                      </TabsTrigger>
-                      <TabsTrigger value="linkedin" className="gap-2 px-5 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
-                        <Linkedin size={14} /> LinkedIn
-                        <Badge variant="secondary" className="text-[10px] bg-secondary">{posts.filter(p => p.platform === "linkedin").length}</Badge>
-                      </TabsTrigger>
+                      {Object.entries(platforms).filter(([_, v]) => v).map(([key]) => (
+                        <TabsTrigger key={key} value={key} className="gap-2 px-5 data-[state=active]:bg-card data-[state=active]:text-foreground text-muted-foreground">
+                          <PlatformIcon platform={key} size={14} /> {platformLabelsMap[key]}
+                          <Badge variant="secondary" className="text-[10px] bg-secondary">{posts.filter(p => p.platform === key).length}</Badge>
+                        </TabsTrigger>
+                      ))}
                     </TabsList>
 
                     <div className="flex items-center p-1 rounded-xl bg-secondary">
@@ -1054,28 +1072,24 @@ const Parrilla = () => {
                   </div>
 
                   {viewMode === "kanban" ? (
-                    <>
-                      {(["instagram", "tiktok", "linkedin"] as Platform[]).map((plat) => (
-                        <TabsContent key={plat} value={plat} className="flex-1 overflow-auto p-6 mt-0">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                            <AnimatePresence>
-                              {platformPosts.map((post) => (
-                                <RenderedPostCard key={post.id} post={post}
-                                  onEdit={handleEditPost} onRegenerate={handleRegenerateSingle}
-                                  onDownload={handleDownloadPost} onApproveStatus={handleApprovePost}
-                                  isClientView={isClientView}
-                                />
-                              ))}
-                            </AnimatePresence>
-                            {platformPosts.length === 0 && (
-                              <div className="col-span-full py-20 text-center text-muted-foreground text-sm border-2 border-dashed border-border rounded-xl">
-                                Sin posts para esta plataforma
-                              </div>
-                            )}
+                    <div className="flex-1 overflow-auto p-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                        <AnimatePresence>
+                          {platformPosts.map((post) => (
+                            <RenderedPostCard key={post.id} post={post}
+                              onEdit={handleEditPost} onRegenerate={handleRegenerateSingle}
+                              onDownload={handleDownloadPost} onApproveStatus={handleApprovePost}
+                              isClientView={isClientView}
+                            />
+                          ))}
+                        </AnimatePresence>
+                        {platformPosts.length === 0 && (
+                          <div className="col-span-full py-20 text-center text-muted-foreground text-sm border-2 border-dashed border-border rounded-xl">
+                            Sin posts para esta plataforma
                           </div>
-                        </TabsContent>
-                      ))}
-                    </>
+                        )}
+                      </div>
+                    </div>
                   ) : (
                     <div className="flex-1 overflow-auto"><CalendarView posts={posts} /></div>
                   )}
@@ -1100,7 +1114,6 @@ const Parrilla = () => {
 
       {/* Edit Modal */}
       <EditPostModal post={editingPost} open={!!editingPost} onClose={() => setEditingPost(null)} onSave={handleSavePost} brand={brand} />
-
     </div>
   );
 };
