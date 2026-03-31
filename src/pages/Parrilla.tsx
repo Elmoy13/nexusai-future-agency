@@ -178,10 +178,10 @@ function getAspectClass(format: string) {
 }
 
 /* ── Post Card ── */
-const RenderedPostCard = ({ post, onEdit, onRegenerate, onDownload, onApproveStatus, isClientView }: {
+const RenderedPostCard = ({ post, onEdit, onRegenerate, onDownload, onApproveStatus, isClientView, onClickImage }: {
   post: PostCard; onEdit: (post: PostCard) => void; onRegenerate: (post: PostCard) => void;
   onDownload: (post: PostCard) => void; onApproveStatus: (id: string) => void;
-  isClientView?: boolean;
+  isClientView?: boolean; onClickImage?: (post: PostCard) => void;
 }) => {
   const platformGradients: Record<string, string> = {
     instagram: "from-pink-500 via-red-500 to-yellow-500",
