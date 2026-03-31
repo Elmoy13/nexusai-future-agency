@@ -795,6 +795,11 @@ const Parrilla = () => {
   const handleApproveAll = () => { setPosts(prev => prev.map(p => ({ ...p, status: "scheduled" as PostStatus }))); toast({ title: "✅ Todo aprobado" }); };
 
   const handleEditPost = useCallback((post: PostCard) => { setEditingPost(post); }, []);
+  const handleClickImage = useCallback((post: PostCard) => {
+    const idx = platformPosts.findIndex(p => p.id === post.id);
+    setPreviewIndex(idx >= 0 ? idx : 0);
+    setIsPreviewOpen(true);
+  }, [platformPosts]);
   const handleSavePost = useCallback((updatedPost: PostCard) => {
     setPosts(prev => prev.map(p => p.id === updatedPost.id ? updatedPost : p));
     toast({ title: "💾 Post actualizado" });
