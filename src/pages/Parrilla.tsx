@@ -751,6 +751,10 @@ const Parrilla = () => {
 
     setPosts(skeletonPosts);
     setHasGenerated(true);
+    // Auto-scroll to the grid after a tick
+    setTimeout(() => {
+      parrillaGridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 300);
 
     for (let i = 0; i < skeletonPosts.length; i++) {
       setGeneratingStatus(`🎨 Generando post ${i + 1} de ${total}...`);
