@@ -178,10 +178,10 @@ function getAspectClass(format: string) {
 }
 
 /* ── Post Card ── */
-const RenderedPostCard = ({ post, onEdit, onRegenerate, onDownload, onApproveStatus, isClientView }: {
+const RenderedPostCard = ({ post, onEdit, onRegenerate, onDownload, onApproveStatus, isClientView, onClickImage }: {
   post: PostCard; onEdit: (post: PostCard) => void; onRegenerate: (post: PostCard) => void;
   onDownload: (post: PostCard) => void; onApproveStatus: (id: string) => void;
-  isClientView?: boolean;
+  isClientView?: boolean; onClickImage?: (post: PostCard) => void;
 }) => {
   const platformGradients: Record<string, string> = {
     instagram: "from-pink-500 via-red-500 to-yellow-500",
@@ -200,7 +200,7 @@ const RenderedPostCard = ({ post, onEdit, onRegenerate, onDownload, onApproveSta
       {post.isRendering ? (
         <ShimmerSkeleton aspectClass={aspectClass} />
       ) : (
-        <div className={`${aspectClass} bg-secondary relative overflow-hidden`}>
+        <div className={`${aspectClass} bg-secondary relative overflow-hidden cursor-pointer`} onClick={() => onClickImage?.(post)}>
           <img src={post.image || "/placeholder.svg"} alt="" className="w-full h-full object-cover" />
           <div className="absolute top-3 left-3">
             <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${platformGradients[post.platform]} flex items-center justify-center shadow-md`}>
@@ -303,6 +303,96 @@ const CalendarView = ({ posts }: { posts: PostCard[] }) => {
         ))}
       </div>
     </div>
+  );
+};
+
+/* ── Fullscreen Image Preview Modal ── */
+const ImagePreviewModal = ({ posts, initialIndex, open, onClose, onApprove, onDownload }: {
+  posts: PostCard[]; initialIndex: number; open: boolean; onClose: () => void;
+  onApprove: (id: string) => void; onDownload: (post: PostCard) => void;
+}) => {
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  useEffect(() => { setCurrentIndex(initialIndex); }, [initialIndex]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowLeft") setCurrentIndex(i => Math.max(0, i - 1));
+      if (e.key === "ArrowRight") setCurrentIndex(i => Math.min(posts.length - 1, i + 1));
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [open, posts.length, onClose]);
+
+  if (!open || posts.length === 0) return null;
+  const post = posts[currentIndex];
+  if (!post) return null;
+  const fmt = ALL_FORMATS.find(f => f.id === post.format);
+  const platformLabels: Record<string, string> = { instagram: "Instagram", tiktok: "TikTok", linkedin: "LinkedIn", twitter: "X" };
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={onClose}
+        >
+          {/* Close button */}
+          <button onClick={onClose} className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
+            <X size={20} className="text-white" />
+          </button>
+
+          {/* Navigation arrows */}
+          {currentIndex > 0 && (
+            <button onClick={(e) => { e.stopPropagation(); setCurrentIndex(i => i - 1); }}
+              className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
+              <ChevronLeft size={24} className="text-white" />
+            </button>
+          )}
+          {currentIndex < posts.length - 1 && (
+            <button onClick={(e) => { e.stopPropagation(); setCurrentIndex(i => i + 1); }}
+              className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
+              <ChevronRight size={24} className="text-white" />
+            </button>
+          )}
+
+          {/* Image */}
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.3 }}
+            className="max-w-[85vw] max-h-[70vh] flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img src={post.image || "/placeholder.svg"} alt={post.headline || ""} className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-2xl" />
+          </motion.div>
+
+          {/* Bottom bar */}
+          <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }}
+            className="mt-4 px-6 py-3 rounded-2xl bg-card/90 backdrop-blur-md border border-border shadow-xl flex flex-col sm:flex-row items-center gap-3 max-w-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex-1 text-center sm:text-left">
+              {post.headline && <p className="text-sm font-semibold text-foreground">{post.headline}</p>}
+              <p className="text-xs text-muted-foreground">
+                {platformLabels[post.platform] || post.platform}
+                {fmt && ` • ${fmt.label} ${fmt.width}×${fmt.height}`}
+                {` • ${currentIndex + 1} de ${posts.length}`}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => onDownload(post)} className="gap-1.5 text-xs border-border">
+                <Download size={14} /> Descargar
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => toast({ title: "Próximamente", description: "La edición inline estará disponible pronto." })} className="gap-1.5 text-xs border-border">
+                <Edit3 size={14} /> Editar
+              </Button>
+              <Button size="sm" onClick={() => { onApprove(post.id); }} className="gap-1.5 text-xs bg-emerald-500 hover:bg-emerald-600 text-white">
+                <CheckCircle2 size={14} /> Aprobar
+              </Button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 
@@ -460,6 +550,9 @@ const Parrilla = () => {
   const [campaignBrief, setCampaignBrief] = useState<{ description: string; tone: string; extras: string; isComplete: boolean }>({ description: "", tone: "", extras: "", isComplete: false });
   const [brand, setBrand] = useState<BrandProfile>(() => loadBrand(id));
   const [editingPost, setEditingPost] = useState<PostCard | null>(null);
+  const [previewIndex, setPreviewIndex] = useState(-1);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const parrillaGridRef = useRef<HTMLDivElement>(null);
   const [isAnalyzingBrand, setIsAnalyzingBrand] = useState(false);
   const [brandDetected, setBrandDetected] = useState(() => {
     try {
@@ -658,6 +751,10 @@ const Parrilla = () => {
 
     setPosts(skeletonPosts);
     setHasGenerated(true);
+    // Auto-scroll to the grid after a tick
+    setTimeout(() => {
+      parrillaGridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 300);
 
     for (let i = 0; i < skeletonPosts.length; i++) {
       setGeneratingStatus(`🎨 Generando post ${i + 1} de ${total}...`);
@@ -697,7 +794,14 @@ const Parrilla = () => {
   const handleApprovePost = useCallback((id: string) => { setPosts(prev => prev.map(p => p.id === id ? { ...p, status: "scheduled" as PostStatus } : p)); toast({ title: "✅ Post aprobado" }); }, []);
   const handleApproveAll = () => { setPosts(prev => prev.map(p => ({ ...p, status: "scheduled" as PostStatus }))); toast({ title: "✅ Todo aprobado" }); };
 
+  const platformPosts = posts.filter((p) => p.platform === activePlatform);
+
   const handleEditPost = useCallback((post: PostCard) => { setEditingPost(post); }, []);
+  const handleClickImage = useCallback((post: PostCard) => {
+    const idx = platformPosts.findIndex(p => p.id === post.id);
+    setPreviewIndex(idx >= 0 ? idx : 0);
+    setIsPreviewOpen(true);
+  }, [platformPosts]);
   const handleSavePost = useCallback((updatedPost: PostCard) => {
     setPosts(prev => prev.map(p => p.id === updatedPost.id ? updatedPost : p));
     toast({ title: "💾 Post actualizado" });
@@ -730,7 +834,6 @@ const Parrilla = () => {
     return groups;
   }, [availableFormats]);
 
-  const platformPosts = posts.filter((p) => p.platform === activePlatform);
 
   const platformConfig = [
     { key: "instagram" as const, label: "Instagram", icon: Instagram, gradient: "from-pink-500 via-red-500 to-yellow-500", emoji: "📸" },
@@ -742,7 +845,7 @@ const Parrilla = () => {
   const platformLabelsMap: Record<string, string> = { instagram: "Instagram", tiktok: "TikTok", linkedin: "LinkedIn", twitter: "X / Twitter" };
 
   return (
-    <div className="min-h-screen bg-background transition-colors duration-500">
+    <div className="h-screen flex flex-col bg-background transition-colors duration-500 overflow-hidden">
       {/* Top Bar */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-xl shadow-sm">
         <div className="flex flex-col px-6 py-3">
@@ -776,7 +879,7 @@ const Parrilla = () => {
         </div>
       </header>
 
-      <div className="flex h-[calc(100vh-64px)]">
+      <div className="flex flex-1 overflow-hidden">
         {/* Left Panel - Brand Assets */}
         <AnimatePresence>
           {!isClientView && (
@@ -1055,10 +1158,10 @@ const Parrilla = () => {
           </AnimatePresence>
 
           {/* Content Grid */}
-          <div className="flex-1 overflow-y-auto flex flex-col">
+          <div ref={parrillaGridRef} className="flex-1 overflow-y-auto flex flex-col" id="parrilla-grid">
             {hasGenerated ? (
               <>
-                <Tabs value={activePlatform} onValueChange={(v) => setActivePlatform(v)} className="flex-1 flex flex-col overflow-hidden">
+                <Tabs value={activePlatform} onValueChange={(v) => setActivePlatform(v)} className="flex-1 flex flex-col min-h-0">
                   <div className="px-6 pt-5 pb-0 flex items-center justify-between">
                     <TabsList className="h-11 p-1 bg-secondary">
                       {Object.entries(platforms).filter(([_, v]) => v).map(([key]) => (
@@ -1080,14 +1183,14 @@ const Parrilla = () => {
                   </div>
 
                   {viewMode === "kanban" ? (
-                    <div className="flex-1 overflow-auto p-6">
+                    <div className="flex-1 overflow-y-auto p-6">
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                         <AnimatePresence>
                           {platformPosts.map((post) => (
                             <RenderedPostCard key={post.id} post={post}
                               onEdit={handleEditPost} onRegenerate={handleRegenerateSingle}
                               onDownload={handleDownloadPost} onApproveStatus={handleApprovePost}
-                              isClientView={isClientView}
+                              isClientView={isClientView} onClickImage={handleClickImage}
                             />
                           ))}
                         </AnimatePresence>
@@ -1122,6 +1225,16 @@ const Parrilla = () => {
 
       {/* Edit Modal */}
       <EditPostModal post={editingPost} open={!!editingPost} onClose={() => setEditingPost(null)} onSave={handleSavePost} brand={brand} />
+
+      {/* Image Preview Modal */}
+      <ImagePreviewModal
+        posts={platformPosts}
+        initialIndex={previewIndex}
+        open={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        onApprove={handleApprovePost}
+        onDownload={handleDownloadPost}
+      />
     </div>
   );
 };
