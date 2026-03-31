@@ -847,39 +847,45 @@ const Parrilla = () => {
                 <Switch id="auto-remove-bg" checked={autoRemoveBg} onCheckedChange={setAutoRemoveBg} className="data-[state=checked]:bg-primary" />
               </div>
 
-              {/* Brand Analysis Results */}
+              {/* ── Brand Intelligence: 3-State Flow ── */}
+
+              {/* State 1: No logo — hint */}
+              {brandAssets.length === 0 && !isAnalyzingBrand && !brandDetected && (
+                <p className="text-xs text-muted-foreground text-center py-4 px-2 italic">
+                  Sube tu logo para detectar automáticamente los colores de tu marca
+                </p>
+              )}
+
+              {/* State 2: Analyzing */}
               {isAnalyzingBrand && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mb-4 space-y-3">
                   <div className="flex items-center gap-2">
                     <Loader2 size={14} className="animate-spin text-primary" />
-                    <p className="text-xs text-muted-foreground">Analizando tu marca...</p>
+                    <p className="text-xs text-primary font-medium">🔍 Analizando tu marca...</p>
                   </div>
-                  {/* Shimmer placeholders */}
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 justify-center">
                     {[...Array(5)].map((_, i) => (
-                      <div key={i} className="w-8 h-8 rounded-full bg-secondary animate-pulse" />
+                      <motion.div key={i} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: i * 0.1 }}
+                        className="w-8 h-8 rounded-full bg-secondary animate-pulse border border-border"
+                      />
                     ))}
                   </div>
                   <div className="h-9 bg-secondary rounded-lg animate-pulse" />
                 </motion.div>
               )}
 
+              {/* State 3: Detection complete */}
               {brandDetected && !isAnalyzingBrand && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-4 space-y-4">
-                  {/* Detected Colors */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Palette size={14} className="text-muted-foreground" />
-                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Colores detectados</p>
-                      </div>
-                      <p className="text-[9px] text-primary">Detectados desde tu logo ✨</p>
-                    </div>
-                    {/* Palette row */}
-                    <div className="flex items-center gap-2">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-4 space-y-4">
+                  {/* Palette */}
+                  <div className="space-y-2.5">
+                    <p className="text-[11px] font-bold text-foreground uppercase tracking-wider">✨ Paleta Detectada</p>
+                    <div className="flex items-center gap-2 justify-center">
                       {brand.palette.map((color, i) => (
-                        <motion.div key={i} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: i * 0.08 }} className="relative group/color">
-                          <label className="cursor-pointer">
+                        <motion.div key={i} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: i * 0.08, type: "spring" }}
+                          className="flex flex-col items-center gap-1"
+                        >
+                          <label className="cursor-pointer group/swatch">
                             <input type="color" value={color} onChange={(e) => {
                               const newPalette = [...brand.palette];
                               newPalette[i] = e.target.value;
@@ -889,82 +895,45 @@ const Parrilla = () => {
                               if (i === 2) updates.accent_color = e.target.value;
                               setBrand(prev => ({ ...prev, ...updates }));
                             }} className="sr-only" />
-                            <div className="w-8 h-8 rounded-full border-2 border-border hover:border-primary transition-colors shadow-sm hover:scale-110"
-                              style={{ backgroundColor: color }} />
+                            <div
+                              className="w-8 h-8 rounded-full border border-white/20 shadow-sm group-hover/swatch:scale-110 group-hover/swatch:ring-2 group-hover/swatch:ring-primary transition-all"
+                              style={{ backgroundColor: color }}
+                            />
                           </label>
+                          {i < 3 && (
+                            <>
+                              <p className="text-[8px] text-muted-foreground font-medium">
+                                {["Primario", "Secundario", "Acento"][i]}
+                              </p>
+                              <p className="text-[8px] text-muted-foreground font-mono">{color}</p>
+                            </>
+                          )}
                         </motion.div>
                       ))}
                     </div>
-                    {/* Labels for first 3 */}
-                    <div className="flex gap-2">
-                      {["Primario", "Secundario", "Acento"].map((label, i) => (
-                        <div key={label} className="flex-1 text-center">
-                          <div className="w-4 h-4 rounded-full mx-auto mb-0.5 border border-border" style={{ backgroundColor: brand.palette[i] }} />
-                          <p className="text-[9px] text-muted-foreground">{label}</p>
-                        </div>
-                      ))}
-                    </div>
+                    <p className="text-[9px] text-muted-foreground text-center">Puedes editar cualquier color</p>
                   </div>
 
-                  {/* Suggested Font */}
+                  {/* Typography */}
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Type size={14} className="text-muted-foreground" />
-                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tipografía sugerida</p>
-                    </div>
+                    <p className="text-[11px] font-bold text-foreground uppercase tracking-wider">🔤 Tipografía Sugerida</p>
                     <Select value={brand.font_family} onValueChange={(v) => setBrand(prev => ({ ...prev, font_family: v }))}>
                       <SelectTrigger className="bg-secondary/50 border-border h-9 text-sm"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {brand.suggested_fonts.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                        {brand.suggested_fonts.map(f => <SelectItem key={f} value={f}>{f} ⭐</SelectItem>)}
+                        <SelectSeparator />
+                        {["Inter", "Poppins", "Montserrat", "Playfair Display", "Roboto", "Space Grotesk"]
+                          .filter(f => !brand.suggested_fonts.includes(f))
+                          .map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)
+                        }
                       </SelectContent>
                     </Select>
-                    {/* Font preview */}
                     <div className="bg-secondary/50 rounded-lg p-3 text-center border border-border">
-                      <p className="text-lg text-foreground" style={{ fontFamily: brand.font_family }}>Aa Bb Cc</p>
+                      <p className="text-lg text-foreground" style={{ fontFamily: brand.font_family }}>Aa Bb Cc 123</p>
                       <p className="text-[10px] text-muted-foreground mt-1">{brand.font_family}</p>
                     </div>
                   </div>
                 </motion.div>
-              )}
-
-              {/* Manual colors if no detection yet */}
-              {!brandDetected && !isAnalyzingBrand && (
-                <div className="mb-4 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Palette size={14} className="text-muted-foreground" />
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Colores de Marca</p>
-                  </div>
-                  <div className="flex gap-3">
-                    <div className="flex-1 space-y-1">
-                      <label className="text-[10px] text-muted-foreground">Primario</label>
-                      <div className="flex items-center gap-2">
-                        <input type="color" value={brand.primary_color} onChange={(e) => setBrand(prev => ({ ...prev, primary_color: e.target.value }))}
-                          className="w-8 h-8 rounded-lg border border-border cursor-pointer bg-transparent" />
-                        <span className="text-[10px] text-muted-foreground font-mono">{brand.primary_color}</span>
-                      </div>
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <label className="text-[10px] text-muted-foreground">Secundario</label>
-                      <div className="flex items-center gap-2">
-                        <input type="color" value={brand.secondary_color} onChange={(e) => setBrand(prev => ({ ...prev, secondary_color: e.target.value }))}
-                          className="w-8 h-8 rounded-lg border border-border cursor-pointer bg-transparent" />
-                        <span className="text-[10px] text-muted-foreground font-mono">{brand.secondary_color}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Type size={14} className="text-muted-foreground" />
-                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tipografía</p>
-                    </div>
-                    <Select value={brand.font_family} onValueChange={(v) => setBrand(prev => ({ ...prev, font_family: v }))}>
-                      <SelectTrigger className="bg-secondary/50 border-border h-9 text-sm"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {["Montserrat", "Inter", "Poppins", "Playfair Display", "Roboto"].map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
               )}
 
               {/* Ad Format */}
