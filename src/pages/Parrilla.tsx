@@ -878,7 +878,7 @@ const Parrilla = () => {
         </div>
       </header>
 
-      <div className="flex h-[calc(100vh-64px)]">
+      <div className="flex flex-1 overflow-hidden">
         {/* Left Panel - Brand Assets */}
         <AnimatePresence>
           {!isClientView && (
