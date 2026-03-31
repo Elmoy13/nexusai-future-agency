@@ -68,7 +68,7 @@ const TEMPLATES: { id: TemplateId; name: string; icon: string; description: stri
   { id: "card-overlay", name: "Card Overlay", icon: "▣", description: "Card flotante" },
 ];
 
-const BRAND_STORAGE_KEY = "nexus_parrilla_brand";
+const getBrandStorageKey = (parrillaId?: string) => `brand_profile_${parrillaId || "default"}`;
 
 const DEFAULT_BRAND: BrandProfile = {
   primary_color: "#FF6B35",
