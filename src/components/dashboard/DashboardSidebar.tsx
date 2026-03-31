@@ -70,6 +70,19 @@ const DashboardSidebar = ({ activeView, onViewChange }: Props) => {
 
       {/* Settings + User profile */}
       <div className="mt-auto space-y-3">
+        {/* Post Creator */}
+        <button
+          onClick={() => navigate("/post-creator")}
+          className={cn(
+            "flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-200 border-none cursor-pointer text-muted-foreground hover:text-foreground hover:bg-secondary/40 bg-transparent w-full",
+            collapsed ? "justify-center px-0 py-3" : "px-3 py-2.5"
+          )}
+          title={collapsed ? "Crear Post" : undefined}
+        >
+          <PenSquare size={18} className="shrink-0" />
+          {!collapsed && "Crear Post"}
+        </button>
+
         {/* Settings button */}
         <button
           onClick={() => navigate("/settings")}
