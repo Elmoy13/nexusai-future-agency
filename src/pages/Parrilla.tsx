@@ -96,15 +96,7 @@ function saveBrand(b: BrandProfile, parrillaId?: string) {
   localStorage.setItem(getBrandStorageKey(parrillaId), JSON.stringify(b));
 }
 
-const mockBrandAnalysis = {
-  primary_color: "#E63946",
-  secondary_color: "#1D3557",
-  accent_color: "#F1FAEE",
-  palette: ["#E63946", "#1D3557", "#F1FAEE", "#A8DADC", "#457B9D"],
-  background_suggestion: "dark",
-  contrast_color: "#FFFFFF",
-  suggested_fonts: ["Montserrat", "Poppins", "Inter"],
-};
+const API_URL = import.meta.env.VITE_API_URL || "https://loaded-roles-behavior-mystery.trycloudflare.com";
 
 function getFormatFromPlatform(platform: string) {
   const map: Record<string, string> = {
