@@ -585,7 +585,7 @@ const Parrilla = () => {
   // Real render (with fallback to mock)
   const renderPost = useCallback(async (post: PostCard, logoB64: string | undefined): Promise<string> => {
     try {
-      const res = await fetch("https://loaded-roles-behavior-mystery.trycloudflare.com/api/v1/posts/render", {
+      const res = await fetch(`${API_URL}/api/v1/posts/render`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
