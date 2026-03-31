@@ -834,7 +834,6 @@ const Parrilla = () => {
     return groups;
   }, [availableFormats]);
 
-  const platformPosts = posts.filter((p) => p.platform === activePlatform);
 
   const platformConfig = [
     { key: "instagram" as const, label: "Instagram", icon: Instagram, gradient: "from-pink-500 via-red-500 to-yellow-500", emoji: "📸" },
