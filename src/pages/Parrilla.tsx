@@ -1010,12 +1010,19 @@ const Parrilla = () => {
                             <SelectItem value="3">3</SelectItem>
                           </SelectContent>
                         </Select>
-                        <Button onClick={() => handleGenerateWithPrompt()}
-                          disabled={isGenerating || (!platforms.instagram && !platforms.tiktok && !platforms.linkedin && !platforms.twitter)}
-                          className="flex-1 h-11 text-sm font-semibold bg-gradient-to-r from-violet-600 via-purple-600 to-primary hover:from-violet-700 hover:via-purple-700 hover:to-primary/80 shadow-lg shadow-primary/25 disabled:opacity-50 text-white"
-                        >
-                          {isGenerating ? <><Loader2 size={16} className="animate-spin mr-2" /> Procesando...</> : <><Zap size={16} className="mr-2" /> Generar 🚀</>}
-                        </Button>
+                        <div className="relative group/gen">
+                          <Button onClick={handleGenerateParrilla}
+                            disabled={isGenerating || !canGenerate}
+                            className="flex-1 h-11 text-sm font-semibold bg-gradient-to-r from-violet-600 via-purple-600 to-primary hover:from-violet-700 hover:via-purple-700 hover:to-primary/80 shadow-lg shadow-primary/25 disabled:opacity-50 text-white"
+                          >
+                            {isGenerating ? <><Loader2 size={16} className="animate-spin mr-2" /> {generatingStatus || "Generando..."}</> : <><Zap size={16} className="mr-2" /> Generar 🚀</>}
+                          </Button>
+                          {!canGenerate && !isGenerating && (
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 rounded-lg bg-card border border-border text-[10px] text-muted-foreground whitespace-nowrap opacity-0 group-hover/gen:opacity-100 transition-opacity pointer-events-none shadow-lg">
+                              {!brandDetected ? "Sube tu logo primero" : !campaignBrief.isComplete ? "Completa el brief con Nano Banano" : "Selecciona al menos 1 plataforma"}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
