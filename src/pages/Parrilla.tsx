@@ -750,12 +750,6 @@ const Parrilla = () => {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <div className={`flex items-center gap-3 px-4 py-2 rounded-full border transition-colors ${isClientView ? "bg-violet-500/20 border-violet-500/40" : "bg-secondary border-border"}`}>
-                <Eye size={16} className={isClientView ? "text-violet-400" : "text-muted-foreground"} />
-                <span className={`text-sm font-medium ${isClientView ? "text-violet-300" : "text-muted-foreground"}`}>Modo Cliente</span>
-                <Switch checked={isClientView} onCheckedChange={setIsClientView} className="data-[state=checked]:bg-violet-500" />
-              </div>
-              <div className="w-px h-8 bg-border" />
               <Button
                 onClick={handleApproveAll}
                 disabled={posts.length === 0}
