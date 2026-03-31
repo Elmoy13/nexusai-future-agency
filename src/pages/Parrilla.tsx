@@ -517,8 +517,8 @@ const Parrilla = () => {
   // Brand analysis (mock or real)
   const analyzeBrand = useCallback(async (logoB64: string) => {
     setIsAnalyzingBrand(true);
+    setBrandDetected(false);
     try {
-      // Try real API first
       const res = await fetch("https://loaded-roles-behavior-mystery.trycloudflare.com/api/v1/brand/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -532,18 +532,19 @@ const Parrilla = () => {
           accent_color: data.accent_color || mockBrandAnalysis.accent_color,
           palette: data.palette || mockBrandAnalysis.palette,
           contrast_color: data.contrast_color || mockBrandAnalysis.contrast_color,
-          font_family: data.suggested_fonts?.[0] || brand.font_family,
+          font_family: data.suggested_fonts?.[0] || "Montserrat",
           suggested_fonts: data.suggested_fonts || mockBrandAnalysis.suggested_fonts,
           background_suggestion: data.background_suggestion || "dark",
         };
         setBrand(newBrand);
         setBrandDetected(true);
+        setIsAnalyzingBrand(false);
         toast({ title: "✨ Marca analizada", description: "Colores y tipografía detectados desde tu logo." });
         return;
       }
     } catch {}
-    // Fallback: mock
-    await new Promise(r => setTimeout(r, 2000));
+    // Fallback: mock with 2.5s delay
+    await new Promise(r => setTimeout(r, 2500));
     const newBrand: BrandProfile = {
       ...DEFAULT_BRAND,
       ...mockBrandAnalysis,
@@ -551,9 +552,9 @@ const Parrilla = () => {
     };
     setBrand(newBrand);
     setBrandDetected(true);
-    toast({ title: "✨ Marca analizada", description: "Colores y tipografía detectados desde tu logo." });
     setIsAnalyzingBrand(false);
-  }, [brand.font_family]);
+    toast({ title: "✨ Marca analizada", description: "Colores y tipografía detectados desde tu logo." });
+  }, []);
 
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
