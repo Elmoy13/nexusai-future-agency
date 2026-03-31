@@ -12,6 +12,7 @@ import Editor from "./pages/Editor";
 import Agent from "./pages/Agent";
 import Parrilla from "./pages/Parrilla";
 import Community from "./pages/Community";
+import PostCreator from "./pages/PostCreator";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/community/:id" element={<Community />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/editor/:id" element={<Editor />} />
+            <Route path="/post-creator" element={<PostCreator />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
