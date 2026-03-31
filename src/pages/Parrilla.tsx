@@ -1157,10 +1157,10 @@ const Parrilla = () => {
           </AnimatePresence>
 
           {/* Content Grid */}
-          <div className="flex-1 overflow-y-auto flex flex-col">
+          <div ref={parrillaGridRef} className="flex-1 overflow-y-auto flex flex-col" id="parrilla-grid">
             {hasGenerated ? (
               <>
-                <Tabs value={activePlatform} onValueChange={(v) => setActivePlatform(v)} className="flex-1 flex flex-col overflow-hidden">
+                <Tabs value={activePlatform} onValueChange={(v) => setActivePlatform(v)} className="flex-1 flex flex-col min-h-0">
                   <div className="px-6 pt-5 pb-0 flex items-center justify-between">
                     <TabsList className="h-11 p-1 bg-secondary">
                       {Object.entries(platforms).filter(([_, v]) => v).map(([key]) => (
