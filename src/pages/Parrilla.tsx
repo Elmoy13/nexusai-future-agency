@@ -441,7 +441,12 @@ const Parrilla = () => {
   const [hasGenerated, setHasGenerated] = useState(false);
   const [isClientView, setIsClientView] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("kanban");
-  const [brandAssets, setBrandAssets] = useState<string[]>([]);
+  const [brandAssets, setBrandAssets] = useState<string[]>(() => {
+    try {
+      const savedLogo = localStorage.getItem(getLogoStorageKey(id));
+      return savedLogo ? [savedLogo] : [];
+    } catch { return []; }
+  });
   const [brandAssetBlobs, setBrandAssetBlobs] = useState<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -457,7 +462,11 @@ const Parrilla = () => {
   const [editingPost, setEditingPost] = useState<PostCard | null>(null);
   const [isAnalyzingBrand, setIsAnalyzingBrand] = useState(false);
   const [brandDetected, setBrandDetected] = useState(() => {
-    try { return !!localStorage.getItem(getBrandStorageKey(id)); } catch { return false; }
+    try {
+      const hasLogo = !!localStorage.getItem(getLogoStorageKey(id));
+      const hasBrand = !!localStorage.getItem(getBrandStorageKey(id));
+      return hasLogo && hasBrand;
+    } catch { return false; }
   });
 
   // Available formats based on selected platforms
