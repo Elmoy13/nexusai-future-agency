@@ -477,8 +477,6 @@ const Parrilla = () => {
   const [viewMode, setViewMode] = useState<ViewMode>("kanban");
   const [brandAssets, setBrandAssets] = useState<string[]>([]);
   const [brandAssetBlobs, setBrandAssetBlobs] = useState<Blob[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [processingImage, setProcessingImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [platforms, setPlatforms] = useState({ instagram: true, tiktok: true, linkedin: false, twitter: false });
   const [frequency, setFrequency] = useState("3-week");
