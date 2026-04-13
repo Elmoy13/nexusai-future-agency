@@ -606,8 +606,16 @@ const Parrilla = () => {
   const [optionsPerPost, setOptionsPerPost] = useState(2);
 
   const [generatingStatus, setGeneratingStatus] = useState("");
-  const [campaignBrief, setCampaignBrief] = useState<{ description: string; tone: string; extras: string; isComplete: boolean }>({ description: "", tone: "", extras: "", isComplete: false });
   const [brand, setBrand] = useState<BrandProfile>(() => loadBrand(id));
+
+  // Chat state (real AI)
+  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
+    { role: "assistant", content: "¡Hola! 👋 Soy tu **Nano Banano Content Agent**.\n\n📸 **Sube tu logo** y **fotos de tu producto** en el panel de Brand Assets para que pueda analizar tu marca con IA visual. 👈\n\nDespués hablamos sobre tu campaña. 🚀" }
+  ]);
+  const [isChatThinking, setIsChatThinking] = useState(false);
+  const [brandVision, setBrandVision] = useState<any>(null);
+  const [productVision, setProductVision] = useState<any>(null);
+  const [isAnalyzingProduct, setIsAnalyzingProduct] = useState(false);
   const [brandName, setBrandName] = useState<string>(() => {
     try { return localStorage.getItem(getBrandNameStorageKey(id)) || ""; } catch { return ""; }
   });
@@ -669,12 +677,101 @@ const Parrilla = () => {
 
   useEffect(() => { saveBrand(brand, id); }, [brand, id]);
 
-  // Brand analysis — real API call
+  // Send chat message to AI
+  const sendChatMessage = useCallback(async (userMessage: string) => {
+    const newMessages = [...chatMessages, { role: "user" as const, content: userMessage }];
+    setChatMessages(newMessages);
+    setIsChatThinking(true);
+    try {
+      const res = await fetch(`${API_URL}/api/v1/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: newMessages,
+          brand_context: brandVision,
+          product_context: productVision,
+          brand_colors: brand,
+        }),
+      });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const data = await res.json();
+      setChatMessages([...newMessages, { role: "assistant", content: data.reply }]);
+    } catch (err) {
+      console.error("Chat error:", err);
+      setChatMessages([...newMessages, { role: "assistant", content: "⚠️ Error al conectar con el agente. Intenta de nuevo." }]);
+    } finally {
+      setIsChatThinking(false);
+    }
+  }, [chatMessages, brandVision, productVision, brand]);
+
+  // Trigger intro message when brand + product are both analyzed
+  const introSentRef = useRef(false);
+  useEffect(() => {
+    if (brandVision && productVision && !introSentRef.current) {
+      introSentRef.current = true;
+      (async () => {
+        setIsChatThinking(true);
+        try {
+          const introMessages = [{ role: "user" as const, content: "Hola, acabo de subir mi logo y una foto de mi producto. Analízalos y preséntate." }];
+          const res = await fetch(`${API_URL}/api/v1/chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              messages: introMessages,
+              brand_context: brandVision,
+              product_context: productVision,
+              brand_colors: brand,
+            }),
+          });
+          if (!res.ok) throw new Error(`Error ${res.status}`);
+          const data = await res.json();
+          setChatMessages([{ role: "assistant", content: data.reply }]);
+        } catch {
+          setChatMessages([{ role: "assistant", content: "¡Hola! 👋 Soy tu **Nano Banano Content Agent**. Ya analicé tu marca y producto. Cuéntame sobre tu campaña." }]);
+        } finally {
+          setIsChatThinking(false);
+        }
+      })();
+    }
+  }, [brandVision, productVision, brand]);
+
+  // Trigger intro for brand-only (no product yet)
+  const brandIntroSentRef = useRef(false);
+  useEffect(() => {
+    if (brandVision && !productVision && !brandIntroSentRef.current && !introSentRef.current) {
+      brandIntroSentRef.current = true;
+      (async () => {
+        setIsChatThinking(true);
+        try {
+          const introMessages = [{ role: "user" as const, content: "Hola, acabo de subir mi logo. Analízalo y preséntate." }];
+          const res = await fetch(`${API_URL}/api/v1/chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              messages: introMessages,
+              brand_context: brandVision,
+              product_context: null,
+              brand_colors: brand,
+            }),
+          });
+          if (!res.ok) throw new Error(`Error ${res.status}`);
+          const data = await res.json();
+          setChatMessages([{ role: "assistant", content: data.reply }]);
+        } catch {
+          setChatMessages([{ role: "assistant", content: "¡Hola! 👋 Soy tu **Nano Banano Content Agent**. Ya analicé tu logo. Sube fotos de tu producto y cuéntame sobre tu campaña." }]);
+        } finally {
+          setIsChatThinking(false);
+        }
+      })();
+    }
+  }, [brandVision, productVision, brand]);
+
+  // Brand analysis — real API call with vision
   const analyzeBrand = useCallback(async (logoB64: string) => {
     setIsAnalyzingBrand(true);
     setBrandDetected(false);
     try {
-      const res = await fetch(`${API_URL}/api/v1/brand/analyze`, {
+      const res = await fetch(`${API_URL}/api/v1/brand/analyze-vision`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ logo_b64: logoB64 }),
@@ -695,12 +792,41 @@ const Parrilla = () => {
       setBrand(newBrand);
       setBrandDetected(true);
       setIsAnalyzingBrand(false);
-      toast({ title: "✨ Marca analizada", description: "Colores y tipografía detectados desde tu logo." });
+      // Save vision analysis
+      if (data.vision_analysis) {
+        setBrandVision(data.vision_analysis);
+        if (data.vision_analysis.brand_name_detected && !brandName) {
+          setBrandName(data.vision_analysis.brand_name_detected);
+          try { localStorage.setItem(getBrandNameStorageKey(id), data.vision_analysis.brand_name_detected); } catch {}
+        }
+      }
+      toast({ title: "✨ Marca analizada con IA visual", description: "Colores, tipografía y personalidad detectados." });
     } catch (error) {
       console.error("Error analyzing brand:", error);
       setIsAnalyzingBrand(false);
       setBrandDetected(false);
       toast({ title: "⚠️ No se pudo analizar el logo", description: "Configura los colores manualmente o intenta de nuevo.", variant: "destructive" });
+    }
+  }, [brandName, id]);
+
+  // Product analysis
+  const analyzeProduct = useCallback(async (productB64: string) => {
+    setIsAnalyzingProduct(true);
+    try {
+      const res = await fetch(`${API_URL}/api/v1/product/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ product_b64: productB64 }),
+      });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const data = await res.json();
+      setProductVision(data);
+      toast({ title: "🧠 Producto analizado", description: data.product_description || "Análisis visual completado." });
+    } catch (err) {
+      console.error("Error analyzing product:", err);
+      toast({ title: "⚠️ No se pudo analizar el producto", variant: "destructive" });
+    } finally {
+      setIsAnalyzingProduct(false);
     }
   }, []);
 
@@ -731,22 +857,28 @@ const Parrilla = () => {
     e.target.value = "";
     const remaining = 4 - productImages.length;
     const toProcess = files.slice(0, remaining);
-    toProcess.forEach(file => {
+    let firstProductB64: string | null = null;
+    toProcess.forEach((file, idx) => {
       if (file.size > 10 * 1024 * 1024) {
         toast({ title: "Archivo demasiado grande", description: "Máximo 10MB por imagen.", variant: "destructive" });
         return;
       }
       const reader = new FileReader();
       reader.onloadend = () => {
+        const b64 = reader.result as string;
         setProductImages(prev => {
           if (prev.length >= 4) return prev;
-          return [...prev, reader.result as string];
+          return [...prev, b64];
         });
+        // Analyze the first product image
+        if (idx === 0 && !productVision) {
+          analyzeProduct(b64);
+        }
       };
       reader.readAsDataURL(file);
     });
     toast({ title: "📸 Foto(s) cargada(s)", description: `${toProcess.length} foto(s) de producto añadida(s).` });
-  }, [productImages.length]);
+  }, [productImages.length, productVision, analyzeProduct]);
 
   const blobToBase64 = useCallback((blob: Blob): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -831,9 +963,13 @@ const Parrilla = () => {
       parrillaGridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 300);
 
+    // Extract campaign context from chat messages
+    const userMessages = chatMessages.filter(m => m.role === "user").map(m => m.content);
+    const campaignDescription = userMessages.join("\n");
+
     const requestBody = {
       brand: {
-        name: brandName || "Mi Marca",
+        name: brandVision?.brand_name_detected || brandName || "Mi Marca",
         logo_b64: logoB64 || undefined,
         primary_color: brand.primary_color,
         secondary_color: brand.secondary_color,
@@ -841,10 +977,12 @@ const Parrilla = () => {
         font_family: brand.font_family,
       },
       campaign: {
-        description: campaignBrief.description,
-        tone: campaignBrief.tone,
-        extras: campaignBrief.extras,
+        description: campaignDescription,
+        tone: "",
+        extras: "",
       },
+      brand_vision: brandVision || null,
+      product_vision: productVision || null,
       product_images: productImages,
       posts_config: postsConfig,
       include_logo_in_image: includeLogoInImage,
@@ -977,17 +1115,14 @@ const Parrilla = () => {
       setIsGenerating(false);
       setGeneratingStatus("");
     }
-  }, [selectedFormats, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, campaignBrief, brand, brandName, id, productImages, includeLogoInImage]);
+  }, [selectedFormats, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, chatMessages, brand, brandName, brandVision, productVision, id, productImages, includeLogoInImage]);
 
-  const handleBriefComplete = useCallback((brief: { description: string; tone: string; extras: string; isComplete: boolean }) => {
-    setCampaignBrief(brief);
-  }, []);
-
-  const canGenerate = brandDetected && campaignBrief.isComplete && selectedFormats.size > 0 && productImages.length > 0;
+  const hasUserChatMessage = chatMessages.some(m => m.role === "user");
+  const canGenerate = brandDetected && productImages.length > 0 && selectedFormats.size > 0 && hasUserChatMessage;
   const getDisabledReason = () => {
     if (!brandDetected) return "Sube tu logo primero";
     if (productImages.length === 0) return "Sube al menos una foto de tu producto";
-    if (!campaignBrief.isComplete) return "Completa el brief con Nano Banano";
+    if (!hasUserChatMessage) return "Conversa con Nano Banano sobre tu campaña";
     if (selectedFormats.size === 0) return "Selecciona al menos una plataforma y formato";
     return "";
   };
@@ -1258,6 +1393,24 @@ const Parrilla = () => {
                       <p className="text-[10px] text-muted-foreground mt-1">{brand.font_family}</p>
                     </div>
                   </div>
+                  {/* Brand Vision Analysis */}
+                  {brandVision && (
+                    <div className="space-y-1.5 px-1">
+                      <p className="text-[10px] text-muted-foreground leading-relaxed">
+                        🧠 {brandVision.logo_description || "Marca analizada"}
+                      </p>
+                      {brandVision.brand_name_detected && (
+                        <p className="text-[10px] text-muted-foreground">
+                          📛 Nombre detectado: <span className="text-foreground font-medium">{brandVision.brand_name_detected}</span>
+                        </p>
+                      )}
+                      {brandVision.personality && (
+                        <p className="text-[10px] text-muted-foreground">
+                          ✨ Personalidad: <span className="text-foreground font-medium">{brandVision.personality}</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </motion.div>
               )}
 
@@ -1295,6 +1448,14 @@ const Parrilla = () => {
                       )}
                     </div>
                     <p className="text-[10px] text-emerald-400 font-medium">✅ {productImages.length} foto(s) lista(s) — La IA usará estas como referencia</p>
+                    {isAnalyzingProduct && (
+                      <p className="text-[10px] text-muted-foreground animate-pulse">🧠 Analizando producto con IA...</p>
+                    )}
+                    {productVision && !isAnalyzingProduct && (
+                      <p className="text-[10px] text-muted-foreground">
+                        🧠 {productVision.product_type ? `${productVision.product_type} — ` : ""}{productVision.product_description || "Producto analizado"}
+                      </p>
+                    )}
                   </div>
                 )}
                 <input ref={productFileInputRef} type="file" accept="image/png,image/jpeg" multiple className="hidden" onChange={handleProductImageUpload} />
@@ -1324,7 +1485,14 @@ const Parrilla = () => {
                   </div>
 
                   <div className="mb-5">
-                    <CreativeAgentChat onBriefComplete={handleBriefComplete} isGenerating={isGenerating} brandDetected={brandDetected} brandPalette={brand.palette} brandFont={brand.font_family} platforms={platforms} frequency={frequency} objective={objective} generatingStatus={generatingStatus} productImageCount={productImages.length} />
+                    <CreativeAgentChat
+                      messages={chatMessages}
+                      onSendMessage={sendChatMessage}
+                      isThinking={isChatThinking}
+                      isGenerating={isGenerating}
+                      generatingStatus={generatingStatus}
+                      brandDetected={brandDetected}
+                    />
                   </div>
 
                   {/* Row 1: Platforms */}
