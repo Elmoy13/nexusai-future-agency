@@ -115,6 +115,7 @@ const CreativeAgentChat = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
   const brandDetectedRef = useRef(false);
+  const prevProductCountRef = useRef(0);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -126,8 +127,13 @@ const CreativeAgentChat = ({
     return () => clearInterval(interval);
   }, [isGenerating]);
 
+  const addAgentMessage = useCallback((text: string, type: ChatMessage["type"] = "normal") => {
+    setTimeout(() => {
+      setMessages(prev => [...prev, { role: "agent", text, type }]);
+    }, 500);
+  }, []);
+
   // React to brand detection
-  const brandDetectedRef = useRef(false);
   useEffect(() => {
     if (brandDetected && !brandDetectedRef.current) {
       brandDetectedRef.current = true;
@@ -139,7 +145,6 @@ const CreativeAgentChat = ({
   }, [brandDetected, brandPalette, brandFont]);
 
   // React to product images
-  const prevProductCountRef = useRef(0);
   useEffect(() => {
     if (productImageCount > 0 && productImageCount !== prevProductCountRef.current) {
       prevProductCountRef.current = productImageCount;
@@ -149,12 +154,6 @@ const CreativeAgentChat = ({
       prevProductCountRef.current = 0;
     }
   }, [productImageCount, addAgentMessage]);
-
-  const addAgentMessage = useCallback((text: string, type: ChatMessage["type"] = "normal") => {
-    setTimeout(() => {
-      setMessages(prev => [...prev, { role: "agent", text, type }]);
-    }, 500);
-  }, []);
 
   const handleSend = useCallback((overrideText?: string) => {
     const text = (overrideText || input).trim();
