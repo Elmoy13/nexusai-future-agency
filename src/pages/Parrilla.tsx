@@ -65,6 +65,7 @@ interface PostCard {
   imagePrompt?: string;
   styleDescription?: string;
   isRendering?: boolean;
+  error?: string | null;
 }
 
 interface BrandProfile {
@@ -200,6 +201,15 @@ const RenderedPostCard = ({ post, onEdit, onRegenerate, onDownload, onApproveSta
     >
       {post.isRendering ? (
         <ShimmerSkeleton aspectClass={aspectClass} />
+      ) : post.error ? (
+        <div className={`${aspectClass} bg-destructive/10 border border-destructive/30 rounded-t-xl flex flex-col items-center justify-center gap-2`}>
+          <X size={24} className="text-destructive" />
+          <p className="text-xs font-medium text-destructive">Error al generar este post</p>
+          <button onClick={() => onRegenerate(post)}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-destructive/20 text-destructive hover:bg-destructive/30 transition-colors flex items-center gap-1">
+            <RefreshCw size={12} /> Reintentar
+          </button>
+        </div>
       ) : (
         <div className={`${aspectClass} bg-secondary relative overflow-hidden cursor-pointer`} onClick={() => onClickImage?.(post)}>
           <img src={post.image || "/placeholder.svg"} alt="" className="w-full h-full object-cover" />
@@ -427,12 +437,33 @@ const EditPostModal = ({ post, open, onClose, onSave, brand }: {
   const handleRegenerate = async () => {
     if (!post) return;
     setIsRegenerating(true);
-    const dims = getDimensionsFromFormat(format);
-    const color = brand.primary_color.replace("#", "");
-    await new Promise(r => setTimeout(r, 4000));
-    const newImage = `https://placehold.co/${dims.w}x${dims.h}/${color}/white?text=${encodeURIComponent(headline || "Post")}`;
-    setPreviewImage(newImage);
-    setIsRegenerating(false);
+    try {
+      const res = await fetch(`${API_URL}/api/v1/posts/render`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          format,
+          brand: {
+            logo_b64: undefined,
+            primary_color: brand.primary_color,
+            secondary_color: brand.secondary_color,
+            accent_color: brand.accent_color,
+            font_family: brand.font_family,
+          },
+          copy: { headline, body, cta },
+          image_prompt: imagePrompt || "",
+          style_description: styleDescription || "profesional y moderno",
+        }),
+      });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const data = await res.json();
+      setPreviewImage(data.rendered_post || data.image || null);
+    } catch (err) {
+      console.error("Error regenerating:", err);
+      toast({ title: "⚠️ Error al regenerar", description: "No se pudo conectar con el servidor.", variant: "destructive" });
+    } finally {
+      setIsRegenerating(false);
+    }
   };
 
   const handleSave = () => {
@@ -700,44 +731,39 @@ const Parrilla = () => {
     });
   }, []);
 
-  const mockRenderPost = useCallback(async (post: PostCard): Promise<string> => {
-    const dims = getDimensionsFromFormat(post.format);
-    await new Promise(r => setTimeout(r, 3000 + Math.random() * 2000));
-    const color = brand.primary_color.replace("#", "");
-    return `https://placehold.co/${dims.w}x${dims.h}/${color}/white?text=${encodeURIComponent(post.headline || "Post")}`;
-  }, [brand]);
-
   const renderPost = useCallback(async (post: PostCard, logoB64: string | undefined): Promise<string> => {
-    try {
-      const res = await fetch(`${API_URL}/api/v1/posts/render`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          format: post.format,
-          brand: {
-            logo_b64: logoB64 || undefined,
-            primary_color: brand.primary_color,
-            secondary_color: brand.secondary_color,
-            accent_color: brand.accent_color,
-            font_family: brand.font_family,
-          },
-          copy: {
-            headline: post.headline || post.title || "",
-            body: post.body || post.caption || "",
-            cta: post.cta || "",
-          },
-          image_prompt: post.imagePrompt || "",
-          style_description: post.styleDescription || "profesional y moderno",
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.rendered_post) return data.rendered_post;
-        if (data.image) return data.image;
-      }
-    } catch {}
-    return mockRenderPost(post);
-  }, [brand, mockRenderPost]);
+    const res = await fetch(`${API_URL}/api/v1/posts/render`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        format: post.format,
+        brand: {
+          name: brandName || "Mi Marca",
+          logo_b64: logoB64 || undefined,
+          primary_color: brand.primary_color,
+          secondary_color: brand.secondary_color,
+          accent_color: brand.accent_color,
+          font_family: brand.font_family,
+        },
+        copy: {
+          headline: post.headline || post.title || "",
+          body: post.body || post.caption || "",
+          cta: post.cta || "",
+        },
+        image_prompt: post.imagePrompt || "",
+        style_description: post.styleDescription || "profesional y moderno",
+        product_images: productImages,
+      }),
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(`Error ${res.status}: ${errText}`);
+    }
+    const data = await res.json();
+    if (data.rendered_post) return data.rendered_post;
+    if (data.image) return data.image;
+    throw new Error("No image returned from API");
+  }, [brand, brandName, productImages]);
 
   const handleGenerateParrilla = useCallback(async () => {
     setIsGenerating(true);
@@ -796,8 +822,12 @@ const Parrilla = () => {
       posts_config: postsConfig,
     };
 
+    const timeoutWarning = setTimeout(() => {
+      setGeneratingStatus("⏳ Está tardando más de lo normal. Espera un poco más o intenta de nuevo.");
+    }, 180000);
+
     try {
-      setGeneratingStatus("🧠 Generando copy e imágenes con IA...");
+      setGeneratingStatus("🧠 Generando copy e imágenes con IA... (esto puede tomar 1-2 minutos)");
       const response = await fetch(`${API_URL}/api/v1/posts/render-batch`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -813,7 +843,7 @@ const Parrilla = () => {
 
       const generatedPosts: PostCard[] = (data.results || []).map((result: any, index: number) => ({
         id: `post-${Date.now()}-${index}`,
-        image: result.rendered_post,
+        image: result.status === "error" ? undefined : result.rendered_post,
         headline: result.headline || "",
         body: result.body || "",
         cta: result.cta || "",
@@ -823,10 +853,16 @@ const Parrilla = () => {
         status: "draft" as PostStatus,
         calendarDay: (index * 2) + 1,
         isRendering: false,
+        error: result.status === "error" ? (result.error || "Error al generar") : null,
       }));
 
+      const errorCount = generatedPosts.filter(p => p.error).length;
       setPosts(generatedPosts);
-      toast({ title: "🚀 Parrilla generada", description: `${generatedPosts.length} posts generados exitosamente.` });
+      if (errorCount > 0) {
+        toast({ title: "⚠️ Parrilla con errores", description: `${generatedPosts.length - errorCount} OK, ${errorCount} fallidos. Reintenta los fallidos.`, variant: "destructive" });
+      } else {
+        toast({ title: "🚀 Parrilla generada", description: `${generatedPosts.length} posts generados exitosamente.` });
+      }
     } catch (error: any) {
       console.error("Error generating posts:", error);
       setPosts([]);
@@ -837,6 +873,7 @@ const Parrilla = () => {
         variant: "destructive",
       });
     } finally {
+      clearTimeout(timeoutWarning);
       setIsGenerating(false);
       setGeneratingStatus("");
     }
@@ -882,13 +919,20 @@ const Parrilla = () => {
   }, []);
 
   const handleRegenerateSingle = useCallback(async (post: PostCard) => {
-    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, isRendering: true } : p));
-    let logoB64: string | undefined;
-    if (brandAssetBlobs.length > 0) logoB64 = await blobToBase64(brandAssetBlobs[0]);
-    const newImage = await renderPost(post, logoB64);
-    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, image: newImage, isRendering: false } : p));
-    toast({ title: "✨ Post regenerado" });
-  }, [brandAssetBlobs, blobToBase64, renderPost]);
+    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, isRendering: true, error: null } : p));
+    try {
+      let logoB64: string | undefined;
+      try { logoB64 = localStorage.getItem(getLogoStorageKey(id)) || undefined; } catch {}
+      if (!logoB64 && brandAssetBlobs.length > 0) logoB64 = await blobToBase64(brandAssetBlobs[0]);
+      const newImage = await renderPost(post, logoB64);
+      setPosts(prev => prev.map(p => p.id === post.id ? { ...p, image: newImage, isRendering: false, error: null } : p));
+      toast({ title: "✨ Post regenerado" });
+    } catch (err: any) {
+      console.error("Error regenerating post:", err);
+      setPosts(prev => prev.map(p => p.id === post.id ? { ...p, isRendering: false, error: "Error al regenerar" } : p));
+      toast({ title: "⚠️ Error al regenerar", description: "No se pudo conectar con el servidor.", variant: "destructive" });
+    }
+  }, [brandAssetBlobs, blobToBase64, renderPost, id]);
 
   const handleDownloadPost = useCallback((post: PostCard) => {
     if (!post.image) return;
