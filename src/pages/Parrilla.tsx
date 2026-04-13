@@ -855,22 +855,28 @@ const Parrilla = () => {
     e.target.value = "";
     const remaining = 4 - productImages.length;
     const toProcess = files.slice(0, remaining);
-    toProcess.forEach(file => {
+    let firstProductB64: string | null = null;
+    toProcess.forEach((file, idx) => {
       if (file.size > 10 * 1024 * 1024) {
         toast({ title: "Archivo demasiado grande", description: "Máximo 10MB por imagen.", variant: "destructive" });
         return;
       }
       const reader = new FileReader();
       reader.onloadend = () => {
+        const b64 = reader.result as string;
         setProductImages(prev => {
           if (prev.length >= 4) return prev;
-          return [...prev, reader.result as string];
+          return [...prev, b64];
         });
+        // Analyze the first product image
+        if (idx === 0 && !productVision) {
+          analyzeProduct(b64);
+        }
       };
       reader.readAsDataURL(file);
     });
     toast({ title: "📸 Foto(s) cargada(s)", description: `${toProcess.length} foto(s) de producto añadida(s).` });
-  }, [productImages.length]);
+  }, [productImages.length, productVision, analyzeProduct]);
 
   const blobToBase64 = useCallback((blob: Blob): Promise<string> => {
     return new Promise((resolve, reject) => {
