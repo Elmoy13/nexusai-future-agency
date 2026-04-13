@@ -1153,7 +1153,7 @@ const Parrilla = () => {
                   </div>
 
                   <div className="mb-5">
-                    <CreativeAgentChat onBriefComplete={handleBriefComplete} isGenerating={isGenerating} brandDetected={brandDetected} brandPalette={brand.palette} brandFont={brand.font_family} platforms={platforms} frequency={frequency} objective={objective} generatingStatus={generatingStatus} />
+                    <CreativeAgentChat onBriefComplete={handleBriefComplete} isGenerating={isGenerating} brandDetected={brandDetected} brandPalette={brand.palette} brandFont={brand.font_family} platforms={platforms} frequency={frequency} objective={objective} generatingStatus={generatingStatus} productImageCount={productImages.length} />
                   </div>
 
                   {/* Row 1: Platforms */}
