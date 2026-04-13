@@ -28,6 +28,7 @@ interface CreativeAgentChatProps {
   frequency: string;
   objective: string;
   generatingStatus?: string;
+  productImageCount?: number;
 }
 
 /* ── Color describer ── */
