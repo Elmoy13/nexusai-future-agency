@@ -104,6 +104,7 @@ const CreativeAgentChat = ({
   frequency,
   objective,
   generatingStatus,
+  productImageCount = 0,
 }: CreativeAgentChatProps) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     { role: "agent", text: "¡Hola! 👋 Soy tu **Nano Banano Content Agent**. Vamos a crear contenido visual increíble juntos.\n\n📸 **Primero sube tu logo** en el panel de Brand Assets para que pueda analizar tu marca. 👈" },
