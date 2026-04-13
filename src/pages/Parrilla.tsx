@@ -539,7 +539,9 @@ const Parrilla = () => {
     } catch { return []; }
   });
   const [brandAssetBlobs, setBrandAssetBlobs] = useState<Blob[]>([]);
+  const [productImages, setProductImages] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const productFileInputRef = useRef<HTMLInputElement>(null);
 
   const [platforms, setPlatforms] = useState({ instagram: true, tiktok: true, linkedin: false, twitter: false });
   const [selectedFormats, setSelectedFormats] = useState<Set<string>>(new Set(["instagram_feed", "tiktok_video"]));
