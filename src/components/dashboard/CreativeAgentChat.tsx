@@ -127,6 +127,7 @@ const CreativeAgentChat = ({
   }, [isGenerating]);
 
   // React to brand detection
+  const brandDetectedRef = useRef(false);
   useEffect(() => {
     if (brandDetected && !brandDetectedRef.current) {
       brandDetectedRef.current = true;
@@ -136,6 +137,18 @@ const CreativeAgentChat = ({
       setStep("question-1");
     }
   }, [brandDetected, brandPalette, brandFont]);
+
+  // React to product images
+  const prevProductCountRef = useRef(0);
+  useEffect(() => {
+    if (productImageCount > 0 && productImageCount !== prevProductCountRef.current) {
+      prevProductCountRef.current = productImageCount;
+      addAgentMessage(`📸 ¡Perfecto! Ya tengo **${productImageCount} foto(s)** de tu producto. Las voy a usar como referencia para que tus posts se vean increíbles con tu producto REAL, no imágenes genéricas. 🔥`);
+    }
+    if (productImageCount === 0 && prevProductCountRef.current > 0) {
+      prevProductCountRef.current = 0;
+    }
+  }, [productImageCount, addAgentMessage]);
 
   const addAgentMessage = useCallback((text: string, type: ChatMessage["type"] = "normal") => {
     setTimeout(() => {
