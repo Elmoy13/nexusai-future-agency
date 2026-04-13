@@ -1391,6 +1391,24 @@ const Parrilla = () => {
                       <p className="text-[10px] text-muted-foreground mt-1">{brand.font_family}</p>
                     </div>
                   </div>
+                  {/* Brand Vision Analysis */}
+                  {brandVision && (
+                    <div className="space-y-1.5 px-1">
+                      <p className="text-[10px] text-muted-foreground leading-relaxed">
+                        🧠 {brandVision.logo_description || "Marca analizada"}
+                      </p>
+                      {brandVision.brand_name_detected && (
+                        <p className="text-[10px] text-muted-foreground">
+                          📛 Nombre detectado: <span className="text-foreground font-medium">{brandVision.brand_name_detected}</span>
+                        </p>
+                      )}
+                      {brandVision.personality && (
+                        <p className="text-[10px] text-muted-foreground">
+                          ✨ Personalidad: <span className="text-foreground font-medium">{brandVision.personality}</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </motion.div>
               )}
 
@@ -1428,6 +1446,14 @@ const Parrilla = () => {
                       )}
                     </div>
                     <p className="text-[10px] text-emerald-400 font-medium">✅ {productImages.length} foto(s) lista(s) — La IA usará estas como referencia</p>
+                    {isAnalyzingProduct && (
+                      <p className="text-[10px] text-muted-foreground animate-pulse">🧠 Analizando producto con IA...</p>
+                    )}
+                    {productVision && !isAnalyzingProduct && (
+                      <p className="text-[10px] text-muted-foreground">
+                        🧠 {productVision.product_type ? `${productVision.product_type} — ` : ""}{productVision.product_description || "Producto analizado"}
+                      </p>
+                    )}
                   </div>
                 )}
                 <input ref={productFileInputRef} type="file" accept="image/png,image/jpeg" multiple className="hidden" onChange={handleProductImageUpload} />
