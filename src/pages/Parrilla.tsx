@@ -822,17 +822,39 @@ const Parrilla = () => {
       posts_config: postsConfig,
     };
 
-    const timeoutWarning = setTimeout(() => {
-      setGeneratingStatus("⏳ Está tardando más de lo normal. Espera un poco más o intenta de nuevo.");
-    }, 180000);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minutes
+
+    const motivationalMessages = [
+      "🎨 Creando escenas con tu producto...",
+      "✨ Diseñando templates personalizados...",
+      "🎯 Aplicando tu identidad de marca...",
+      "📐 Ajustando composición y tipografía...",
+      "🖌️ Refinando los detalles visuales...",
+      "🚀 Casi listo, finalizando los últimos posts...",
+    ];
+
+    const startTime = Date.now();
+    const timerInterval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const mins = Math.floor(elapsed / 60);
+      const secs = elapsed % 60;
+      const msgIndex = Math.floor(elapsed / 15) % motivationalMessages.length;
+      setGeneratingStatus(
+        `⚡ Generando ${postsConfig.length} posts con IA...\n${motivationalMessages[msgIndex]}\n⏱️ Tiempo transcurrido: ${mins}:${secs.toString().padStart(2, "0")}`
+      );
+    }, 1000);
 
     try {
-      setGeneratingStatus("🧠 Generando copy e imágenes con IA... (esto puede tomar 1-2 minutos)");
+      setGeneratingStatus(`⚡ Generando ${postsConfig.length} posts con IA... esto puede tomar unos minutos`);
       const response = await fetch(`${API_URL}/api/v1/posts/render-batch`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errText = await response.text().catch(() => "");
@@ -864,16 +886,26 @@ const Parrilla = () => {
         toast({ title: "🚀 Parrilla generada", description: `${generatedPosts.length} posts generados exitosamente.` });
       }
     } catch (error: any) {
+      clearTimeout(timeoutId);
       console.error("Error generating posts:", error);
       setPosts([]);
       setHasGenerated(false);
-      toast({
-        title: "⚠️ No se pudo generar la parrilla",
-        description: "No se pudo conectar con el servidor de generación. Verifica que el backend esté corriendo.",
-        variant: "destructive",
-      });
+      if (error.name === "AbortError") {
+        toast({
+          title: "⏱️ Tiempo agotado",
+          description: "La generación tardó más de 10 minutos. Intenta con menos posts o formatos.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "⚠️ No se pudo generar la parrilla",
+          description: error.message || "No se pudo conectar con el servidor de generación. Verifica que el backend esté corriendo.",
+          variant: "destructive",
+        });
+      }
     } finally {
-      clearTimeout(timeoutWarning);
+      clearInterval(timerInterval);
+      clearTimeout(timeoutId);
       setIsGenerating(false);
       setGeneratingStatus("");
     }
