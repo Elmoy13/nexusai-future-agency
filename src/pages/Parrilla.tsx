@@ -427,12 +427,33 @@ const EditPostModal = ({ post, open, onClose, onSave, brand }: {
   const handleRegenerate = async () => {
     if (!post) return;
     setIsRegenerating(true);
-    const dims = getDimensionsFromFormat(format);
-    const color = brand.primary_color.replace("#", "");
-    await new Promise(r => setTimeout(r, 4000));
-    const newImage = `https://placehold.co/${dims.w}x${dims.h}/${color}/white?text=${encodeURIComponent(headline || "Post")}`;
-    setPreviewImage(newImage);
-    setIsRegenerating(false);
+    try {
+      const res = await fetch(`${API_URL}/api/v1/posts/render`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          format,
+          brand: {
+            logo_b64: undefined,
+            primary_color: brand.primary_color,
+            secondary_color: brand.secondary_color,
+            accent_color: brand.accent_color,
+            font_family: brand.font_family,
+          },
+          copy: { headline, body, cta },
+          image_prompt: imagePrompt || "",
+          style_description: styleDescription || "profesional y moderno",
+        }),
+      });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const data = await res.json();
+      setPreviewImage(data.rendered_post || data.image || null);
+    } catch (err) {
+      console.error("Error regenerating:", err);
+      toast({ title: "⚠️ Error al regenerar", description: "No se pudo conectar con el servidor.", variant: "destructive" });
+    } finally {
+      setIsRegenerating(false);
+    }
   };
 
   const handleSave = () => {
@@ -700,44 +721,39 @@ const Parrilla = () => {
     });
   }, []);
 
-  const mockRenderPost = useCallback(async (post: PostCard): Promise<string> => {
-    const dims = getDimensionsFromFormat(post.format);
-    await new Promise(r => setTimeout(r, 3000 + Math.random() * 2000));
-    const color = brand.primary_color.replace("#", "");
-    return `https://placehold.co/${dims.w}x${dims.h}/${color}/white?text=${encodeURIComponent(post.headline || "Post")}`;
-  }, [brand]);
-
   const renderPost = useCallback(async (post: PostCard, logoB64: string | undefined): Promise<string> => {
-    try {
-      const res = await fetch(`${API_URL}/api/v1/posts/render`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          format: post.format,
-          brand: {
-            logo_b64: logoB64 || undefined,
-            primary_color: brand.primary_color,
-            secondary_color: brand.secondary_color,
-            accent_color: brand.accent_color,
-            font_family: brand.font_family,
-          },
-          copy: {
-            headline: post.headline || post.title || "",
-            body: post.body || post.caption || "",
-            cta: post.cta || "",
-          },
-          image_prompt: post.imagePrompt || "",
-          style_description: post.styleDescription || "profesional y moderno",
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.rendered_post) return data.rendered_post;
-        if (data.image) return data.image;
-      }
-    } catch {}
-    return mockRenderPost(post);
-  }, [brand, mockRenderPost]);
+    const res = await fetch(`${API_URL}/api/v1/posts/render`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        format: post.format,
+        brand: {
+          name: brandName || "Mi Marca",
+          logo_b64: logoB64 || undefined,
+          primary_color: brand.primary_color,
+          secondary_color: brand.secondary_color,
+          accent_color: brand.accent_color,
+          font_family: brand.font_family,
+        },
+        copy: {
+          headline: post.headline || post.title || "",
+          body: post.body || post.caption || "",
+          cta: post.cta || "",
+        },
+        image_prompt: post.imagePrompt || "",
+        style_description: post.styleDescription || "profesional y moderno",
+        product_images: productImages,
+      }),
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(`Error ${res.status}: ${errText}`);
+    }
+    const data = await res.json();
+    if (data.rendered_post) return data.rendered_post;
+    if (data.image) return data.image;
+    throw new Error("No image returned from API");
+  }, [brand, brandName, productImages]);
 
   const handleGenerateParrilla = useCallback(async () => {
     setIsGenerating(true);
