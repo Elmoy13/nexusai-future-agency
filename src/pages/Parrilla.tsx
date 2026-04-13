@@ -768,11 +768,11 @@ const Parrilla = () => {
 
   const handleGenerateParrilla = useCallback(async () => {
     setIsGenerating(true);
+    setGenerationProgress(null);
     setGeneratingStatus("⚡ Preparando parrilla...");
 
     const activeFormats = Array.from(selectedFormats);
     const postsPerFormat = getFrequencyCount(frequency) * optionsPerPost;
-    const total = activeFormats.length * postsPerFormat;
 
     // Build posts_config
     const postsConfig: { platform: string; format: string }[] = [];
@@ -792,7 +792,7 @@ const Parrilla = () => {
 
     // Show skeletons
     const skeletonPosts: PostCard[] = postsConfig.map((pc, idx) => ({
-      id: `gen-${Date.now()}-${idx}`,
+      id: `skeleton-${idx}`,
       platform: pc.platform as Platform,
       format: pc.format,
       status: "draft" as PostStatus,
@@ -801,6 +801,7 @@ const Parrilla = () => {
     }));
     setPosts(skeletonPosts);
     setHasGenerated(true);
+    setGenerationProgress({ completed: 0, total: postsConfig.length });
     setTimeout(() => {
       parrillaGridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 300);
@@ -823,9 +824,6 @@ const Parrilla = () => {
       posts_config: postsConfig,
     };
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minutes
-
     const motivationalMessages = [
       "🎨 Creando escenas con tu producto...",
       "✨ Diseñando templates personalizados...",
@@ -842,71 +840,109 @@ const Parrilla = () => {
       const secs = elapsed % 60;
       const msgIndex = Math.floor(elapsed / 15) % motivationalMessages.length;
       setGeneratingStatus(
-        `⚡ Generando ${postsConfig.length} posts con IA...\n${motivationalMessages[msgIndex]}\n⏱️ Tiempo transcurrido: ${mins}:${secs.toString().padStart(2, "0")}`
+        `⚡ Generando posts con IA...\n${motivationalMessages[msgIndex]}\n⏱️ ${mins}:${secs.toString().padStart(2, "0")}`
       );
     }, 1000);
 
     try {
-      setGeneratingStatus(`⚡ Generando ${postsConfig.length} posts con IA... esto puede tomar unos minutos`);
-      const response = await fetch(`${API_URL}/api/v1/posts/render-batch`, {
+      // Step 1: Start generation (returns immediately)
+      const startRes = await fetch(`${API_URL}/api/v1/posts/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
-        signal: controller.signal,
       });
 
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errText = await response.text().catch(() => "");
-        throw new Error(`Error ${response.status}: ${errText}`);
+      if (!startRes.ok) {
+        const errText = await startRes.text().catch(() => "");
+        throw new Error(`Error ${startRes.status}: ${errText}`);
       }
 
-      const data = await response.json();
+      const { job_id, total_posts } = await startRes.json();
 
-      const generatedPosts: PostCard[] = (data.results || []).map((result: any, index: number) => ({
-        id: `post-${Date.now()}-${index}`,
-        image: result.status === "error" ? undefined : result.rendered_post,
-        headline: result.headline || "",
-        body: result.body || "",
-        cta: result.cta || "",
-        imagePrompt: result.image_prompt || "",
-        platform: postsConfig[index]?.platform as Platform || "instagram",
-        format: postsConfig[index]?.format || "instagram_feed",
-        status: "draft" as PostStatus,
-        calendarDay: (index * 2) + 1,
-        isRendering: false,
-        error: result.status === "error" ? (result.error || "Error al generar") : null,
-      }));
+      // Update skeleton count if server says different
+      if (total_posts && total_posts !== postsConfig.length) {
+        setGenerationProgress({ completed: 0, total: total_posts });
+      }
 
-      const errorCount = generatedPosts.filter(p => p.error).length;
-      setPosts(generatedPosts);
+      // Step 2: Polling every 5 seconds
+      let isComplete = false;
+      while (!isComplete) {
+        await new Promise(r => setTimeout(r, 5000));
+
+        const pollRes = await fetch(`${API_URL}/api/v1/posts/job/${job_id}`);
+        if (!pollRes.ok) {
+          console.warn("Poll error, retrying...", pollRes.status);
+          continue;
+        }
+
+        const { job, posts: serverPosts } = await pollRes.json();
+
+        // Update posts progressively
+        setPosts(prevPosts => {
+          const updated = [...prevPosts];
+          (serverPosts || []).forEach((sp: any) => {
+            const idx = sp.index != null ? sp.index : undefined;
+            if (idx == null || idx >= updated.length) return;
+
+            if (sp.status === "success" && sp.rendered_image_url) {
+              updated[idx] = {
+                id: sp.id || `post-${job_id}-${idx}`,
+                platform: (sp.platform || postsConfig[idx]?.platform || "instagram") as Platform,
+                format: sp.format || postsConfig[idx]?.format || "instagram_feed",
+                status: "draft" as PostStatus,
+                calendarDay: (idx * 2) + 1,
+                image: sp.rendered_image_url,
+                headline: sp.headline || "",
+                body: sp.body || "",
+                cta: sp.cta || "",
+                imagePrompt: sp.image_prompt || "",
+                isRendering: false,
+                error: null,
+              };
+            } else if (sp.status === "error") {
+              updated[idx] = {
+                ...updated[idx],
+                isRendering: false,
+                error: sp.error_message || "Error al generar este post",
+              };
+            }
+          });
+          return updated;
+        });
+
+        // Update progress
+        const completedCount = job?.completed_posts ?? 0;
+        const totalCount = job?.total_posts ?? postsConfig.length;
+        setGenerationProgress({ completed: completedCount, total: totalCount });
+
+        // Check if done
+        if (job?.status === "completed" || job?.status === "failed") {
+          isComplete = true;
+        }
+      }
+
+      // Final toast
+      const finalPosts = await new Promise<PostCard[]>(resolve => {
+        setPosts(prev => { resolve(prev); return prev; });
+      });
+      const errorCount = finalPosts.filter(p => p.error).length;
       if (errorCount > 0) {
-        toast({ title: "⚠️ Parrilla con errores", description: `${generatedPosts.length - errorCount} OK, ${errorCount} fallidos. Reintenta los fallidos.`, variant: "destructive" });
+        toast({ title: "⚠️ Parrilla con errores", description: `${finalPosts.length - errorCount} OK, ${errorCount} fallidos. Reintenta los fallidos.`, variant: "destructive" });
       } else {
-        toast({ title: "🚀 Parrilla generada", description: `${generatedPosts.length} posts generados exitosamente.` });
+        toast({ title: "🚀 Parrilla generada", description: `${finalPosts.length} posts generados exitosamente.` });
       }
     } catch (error: any) {
-      clearTimeout(timeoutId);
       console.error("Error generating posts:", error);
       setPosts([]);
       setHasGenerated(false);
-      if (error.name === "AbortError") {
-        toast({
-          title: "⏱️ Tiempo agotado",
-          description: "La generación tardó más de 10 minutos. Intenta con menos posts o formatos.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "⚠️ No se pudo generar la parrilla",
-          description: error.message || "No se pudo conectar con el servidor de generación. Verifica que el backend esté corriendo.",
-          variant: "destructive",
-        });
-      }
+      setGenerationProgress(null);
+      toast({
+        title: "⚠️ No se pudo generar la parrilla",
+        description: error.message || "No se pudo conectar con el servidor de generación.",
+        variant: "destructive",
+      });
     } finally {
       clearInterval(timerInterval);
-      clearTimeout(timeoutId);
       setIsGenerating(false);
       setGeneratingStatus("");
     }
