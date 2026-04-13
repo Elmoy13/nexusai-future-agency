@@ -599,6 +599,7 @@ const Parrilla = () => {
       return hasLogo && hasBrand;
     } catch { return false; }
   });
+  const [includeLogoInImage, setIncludeLogoInImage] = useState(false);
 
   // Available formats based on selected platforms
   const availableFormats = useMemo(() => {
