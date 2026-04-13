@@ -1346,8 +1346,8 @@ const Parrilla = () => {
                   </p>
                 </div>
               )}
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
 
-              {/* ── Brand Intelligence: 3-State Flow ── */}
               {brandAssets.length === 0 && !isAnalyzingBrand && !brandDetected && (
                 <p className="text-xs text-muted-foreground text-center py-4 px-2 italic">
                   Sube tu logo para detectar automáticamente los colores de tu marca
