@@ -20,7 +20,7 @@ import {
   TrendingUp, MessageSquare, Heart, Share2, Bookmark, MoreHorizontal,
   Check, MessageCircle, LayoutGrid, CalendarDays, ChevronLeft, ChevronRight,
   Wand2, Home, Hexagon, FileText as BriefIcon, Twitter, Palette, Type,
-  MoreVertical, Edit3, RefreshCw, Layers, Camera, Plus
+  MoreVertical, Edit3, RefreshCw, Layers, Camera, Plus, ClipboardCopy
 } from "lucide-react";
 
 /* ── Types ── */
