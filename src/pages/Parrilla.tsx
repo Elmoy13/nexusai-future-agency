@@ -955,9 +955,13 @@ const Parrilla = () => {
       parrillaGridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 300);
 
+    // Extract campaign context from chat messages
+    const userMessages = chatMessages.filter(m => m.role === "user").map(m => m.content);
+    const campaignDescription = userMessages.join("\n");
+
     const requestBody = {
       brand: {
-        name: brandName || "Mi Marca",
+        name: brandVision?.brand_name_detected || brandName || "Mi Marca",
         logo_b64: logoB64 || undefined,
         primary_color: brand.primary_color,
         secondary_color: brand.secondary_color,
@@ -965,10 +969,12 @@ const Parrilla = () => {
         font_family: brand.font_family,
       },
       campaign: {
-        description: campaignBrief.description,
-        tone: campaignBrief.tone,
-        extras: campaignBrief.extras,
+        description: campaignDescription,
+        tone: "",
+        extras: "",
       },
+      brand_vision: brandVision || null,
+      product_vision: productVision || null,
       product_images: productImages,
       posts_config: postsConfig,
       include_logo_in_image: includeLogoInImage,
@@ -1101,17 +1107,14 @@ const Parrilla = () => {
       setIsGenerating(false);
       setGeneratingStatus("");
     }
-  }, [selectedFormats, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, campaignBrief, brand, brandName, id, productImages, includeLogoInImage]);
+  }, [selectedFormats, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, chatMessages, brand, brandName, brandVision, productVision, id, productImages, includeLogoInImage]);
 
-  const handleBriefComplete = useCallback((brief: { description: string; tone: string; extras: string; isComplete: boolean }) => {
-    setCampaignBrief(brief);
-  }, []);
-
-  const canGenerate = brandDetected && campaignBrief.isComplete && selectedFormats.size > 0 && productImages.length > 0;
+  const hasUserChatMessage = chatMessages.some(m => m.role === "user");
+  const canGenerate = brandDetected && productImages.length > 0 && selectedFormats.size > 0 && hasUserChatMessage;
   const getDisabledReason = () => {
     if (!brandDetected) return "Sube tu logo primero";
     if (productImages.length === 0) return "Sube al menos una foto de tu producto";
-    if (!campaignBrief.isComplete) return "Completa el brief con Nano Banano";
+    if (!hasUserChatMessage) return "Conversa con Nano Banano sobre tu campaña";
     if (selectedFormats.size === 0) return "Selecciona al menos una plataforma y formato";
     return "";
   };
@@ -1448,7 +1451,14 @@ const Parrilla = () => {
                   </div>
 
                   <div className="mb-5">
-                    <CreativeAgentChat onBriefComplete={handleBriefComplete} isGenerating={isGenerating} brandDetected={brandDetected} brandPalette={brand.palette} brandFont={brand.font_family} platforms={platforms} frequency={frequency} objective={objective} generatingStatus={generatingStatus} productImageCount={productImages.length} />
+                    <CreativeAgentChat
+                      messages={chatMessages}
+                      onSendMessage={sendChatMessage}
+                      isThinking={isChatThinking}
+                      isGenerating={isGenerating}
+                      generatingStatus={generatingStatus}
+                      brandDetected={brandDetected}
+                    />
                   </div>
 
                   {/* Row 1: Platforms */}
