@@ -65,6 +65,7 @@ interface PostCard {
   imagePrompt?: string;
   styleDescription?: string;
   isRendering?: boolean;
+  error?: string | null;
 }
 
 interface BrandProfile {
@@ -898,13 +899,20 @@ const Parrilla = () => {
   }, []);
 
   const handleRegenerateSingle = useCallback(async (post: PostCard) => {
-    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, isRendering: true } : p));
-    let logoB64: string | undefined;
-    if (brandAssetBlobs.length > 0) logoB64 = await blobToBase64(brandAssetBlobs[0]);
-    const newImage = await renderPost(post, logoB64);
-    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, image: newImage, isRendering: false } : p));
-    toast({ title: "✨ Post regenerado" });
-  }, [brandAssetBlobs, blobToBase64, renderPost]);
+    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, isRendering: true, error: null } : p));
+    try {
+      let logoB64: string | undefined;
+      try { logoB64 = localStorage.getItem(getLogoStorageKey(id)) || undefined; } catch {}
+      if (!logoB64 && brandAssetBlobs.length > 0) logoB64 = await blobToBase64(brandAssetBlobs[0]);
+      const newImage = await renderPost(post, logoB64);
+      setPosts(prev => prev.map(p => p.id === post.id ? { ...p, image: newImage, isRendering: false, error: null } : p));
+      toast({ title: "✨ Post regenerado" });
+    } catch (err: any) {
+      console.error("Error regenerating post:", err);
+      setPosts(prev => prev.map(p => p.id === post.id ? { ...p, isRendering: false, error: "Error al regenerar" } : p));
+      toast({ title: "⚠️ Error al regenerar", description: "No se pudo conectar con el servidor.", variant: "destructive" });
+    }
+  }, [brandAssetBlobs, blobToBase64, renderPost, id]);
 
   const handleDownloadPost = useCallback((post: PostCard) => {
     if (!post.image) return;
