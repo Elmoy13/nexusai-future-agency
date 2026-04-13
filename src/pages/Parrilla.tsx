@@ -606,8 +606,14 @@ const Parrilla = () => {
   const [optionsPerPost, setOptionsPerPost] = useState(2);
 
   const [generatingStatus, setGeneratingStatus] = useState("");
-  const [campaignBrief, setCampaignBrief] = useState<{ description: string; tone: string; extras: string; isComplete: boolean }>({ description: "", tone: "", extras: "", isComplete: false });
   const [brand, setBrand] = useState<BrandProfile>(() => loadBrand(id));
+
+  // Chat state (real AI)
+  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [isChatThinking, setIsChatThinking] = useState(false);
+  const [brandVision, setBrandVision] = useState<any>(null);
+  const [productVision, setProductVision] = useState<any>(null);
+  const [isAnalyzingProduct, setIsAnalyzingProduct] = useState(false);
   const [brandName, setBrandName] = useState<string>(() => {
     try { return localStorage.getItem(getBrandNameStorageKey(id)) || ""; } catch { return ""; }
   });
@@ -669,12 +675,101 @@ const Parrilla = () => {
 
   useEffect(() => { saveBrand(brand, id); }, [brand, id]);
 
-  // Brand analysis — real API call
+  // Send chat message to AI
+  const sendChatMessage = useCallback(async (userMessage: string) => {
+    const newMessages = [...chatMessages, { role: "user" as const, content: userMessage }];
+    setChatMessages(newMessages);
+    setIsChatThinking(true);
+    try {
+      const res = await fetch(`${API_URL}/api/v1/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: newMessages,
+          brand_context: brandVision,
+          product_context: productVision,
+          brand_colors: brand,
+        }),
+      });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const data = await res.json();
+      setChatMessages([...newMessages, { role: "assistant", content: data.reply }]);
+    } catch (err) {
+      console.error("Chat error:", err);
+      setChatMessages([...newMessages, { role: "assistant", content: "⚠️ Error al conectar con el agente. Intenta de nuevo." }]);
+    } finally {
+      setIsChatThinking(false);
+    }
+  }, [chatMessages, brandVision, productVision, brand]);
+
+  // Trigger intro message when brand + product are both analyzed
+  const introSentRef = useRef(false);
+  useEffect(() => {
+    if (brandVision && productVision && !introSentRef.current) {
+      introSentRef.current = true;
+      (async () => {
+        setIsChatThinking(true);
+        try {
+          const introMessages = [{ role: "user" as const, content: "Hola, acabo de subir mi logo y una foto de mi producto. Analízalos y preséntate." }];
+          const res = await fetch(`${API_URL}/api/v1/chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              messages: introMessages,
+              brand_context: brandVision,
+              product_context: productVision,
+              brand_colors: brand,
+            }),
+          });
+          if (!res.ok) throw new Error(`Error ${res.status}`);
+          const data = await res.json();
+          setChatMessages([{ role: "assistant", content: data.reply }]);
+        } catch {
+          setChatMessages([{ role: "assistant", content: "¡Hola! 👋 Soy tu **Nano Banano Content Agent**. Ya analicé tu marca y producto. Cuéntame sobre tu campaña." }]);
+        } finally {
+          setIsChatThinking(false);
+        }
+      })();
+    }
+  }, [brandVision, productVision, brand]);
+
+  // Trigger intro for brand-only (no product yet)
+  const brandIntroSentRef = useRef(false);
+  useEffect(() => {
+    if (brandVision && !productVision && !brandIntroSentRef.current && !introSentRef.current) {
+      brandIntroSentRef.current = true;
+      (async () => {
+        setIsChatThinking(true);
+        try {
+          const introMessages = [{ role: "user" as const, content: "Hola, acabo de subir mi logo. Analízalo y preséntate." }];
+          const res = await fetch(`${API_URL}/api/v1/chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              messages: introMessages,
+              brand_context: brandVision,
+              product_context: null,
+              brand_colors: brand,
+            }),
+          });
+          if (!res.ok) throw new Error(`Error ${res.status}`);
+          const data = await res.json();
+          setChatMessages([{ role: "assistant", content: data.reply }]);
+        } catch {
+          setChatMessages([{ role: "assistant", content: "¡Hola! 👋 Soy tu **Nano Banano Content Agent**. Ya analicé tu logo. Sube fotos de tu producto y cuéntame sobre tu campaña." }]);
+        } finally {
+          setIsChatThinking(false);
+        }
+      })();
+    }
+  }, [brandVision, productVision, brand]);
+
+  // Brand analysis — real API call with vision
   const analyzeBrand = useCallback(async (logoB64: string) => {
     setIsAnalyzingBrand(true);
     setBrandDetected(false);
     try {
-      const res = await fetch(`${API_URL}/api/v1/brand/analyze`, {
+      const res = await fetch(`${API_URL}/api/v1/brand/analyze-vision`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ logo_b64: logoB64 }),
@@ -695,12 +790,41 @@ const Parrilla = () => {
       setBrand(newBrand);
       setBrandDetected(true);
       setIsAnalyzingBrand(false);
-      toast({ title: "✨ Marca analizada", description: "Colores y tipografía detectados desde tu logo." });
+      // Save vision analysis
+      if (data.vision_analysis) {
+        setBrandVision(data.vision_analysis);
+        if (data.vision_analysis.brand_name_detected && !brandName) {
+          setBrandName(data.vision_analysis.brand_name_detected);
+          try { localStorage.setItem(getBrandNameStorageKey(id), data.vision_analysis.brand_name_detected); } catch {}
+        }
+      }
+      toast({ title: "✨ Marca analizada con IA visual", description: "Colores, tipografía y personalidad detectados." });
     } catch (error) {
       console.error("Error analyzing brand:", error);
       setIsAnalyzingBrand(false);
       setBrandDetected(false);
       toast({ title: "⚠️ No se pudo analizar el logo", description: "Configura los colores manualmente o intenta de nuevo.", variant: "destructive" });
+    }
+  }, [brandName, id]);
+
+  // Product analysis
+  const analyzeProduct = useCallback(async (productB64: string) => {
+    setIsAnalyzingProduct(true);
+    try {
+      const res = await fetch(`${API_URL}/api/v1/product/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ product_b64: productB64 }),
+      });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const data = await res.json();
+      setProductVision(data);
+      toast({ title: "🧠 Producto analizado", description: data.product_description || "Análisis visual completado." });
+    } catch (err) {
+      console.error("Error analyzing product:", err);
+      toast({ title: "⚠️ No se pudo analizar el producto", variant: "destructive" });
+    } finally {
+      setIsAnalyzingProduct(false);
     }
   }, []);
 
