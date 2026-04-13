@@ -668,6 +668,29 @@ const Parrilla = () => {
     reader.readAsDataURL(file);
   }, [analyzeBrand]);
 
+  const handleProductImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    e.target.value = "";
+    const remaining = 4 - productImages.length;
+    const toProcess = files.slice(0, remaining);
+    toProcess.forEach(file => {
+      if (file.size > 10 * 1024 * 1024) {
+        toast({ title: "Archivo demasiado grande", description: "Máximo 10MB por imagen.", variant: "destructive" });
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProductImages(prev => {
+          if (prev.length >= 4) return prev;
+          return [...prev, reader.result as string];
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+    toast({ title: "📸 Foto(s) cargada(s)", description: `${toProcess.length} foto(s) de producto añadida(s).` });
+  }, [productImages.length]);
+
   const blobToBase64 = useCallback((blob: Blob): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
