@@ -588,7 +588,9 @@ const Parrilla = () => {
   const [generationProgress, setGenerationProgress] = useState<{ completed: number; total: number } | null>(null);
   const [isClientView, setIsClientView] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("kanban");
+  const isNewParrilla = id === "nueva" || !id;
   const [brandAssets, setBrandAssets] = useState<string[]>(() => {
+    if (isNewParrilla) return [];
     try {
       const savedLogo = localStorage.getItem(getLogoStorageKey(id));
       return savedLogo ? [savedLogo] : [];
