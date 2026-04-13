@@ -840,7 +840,7 @@ const Parrilla = () => {
       setIsGenerating(false);
       setGeneratingStatus("");
     }
-  }, [selectedFormats, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, campaignBrief, brand, brandName, id]);
+  }, [selectedFormats, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, campaignBrief, brand, brandName, id, productImages]);
 
   const handleBriefComplete = useCallback((brief: { description: string; tone: string; extras: string; isComplete: boolean }) => {
     setCampaignBrief(brief);
