@@ -20,7 +20,7 @@ import {
   TrendingUp, MessageSquare, Heart, Share2, Bookmark, MoreHorizontal,
   Check, MessageCircle, LayoutGrid, CalendarDays, ChevronLeft, ChevronRight,
   Wand2, Home, Hexagon, FileText as BriefIcon, Twitter, Palette, Type,
-  MoreVertical, Edit3, RefreshCw, Layers
+  MoreVertical, Edit3, RefreshCw, Layers, Camera, Plus
 } from "lucide-react";
 
 /* ── Types ── */
@@ -539,7 +539,9 @@ const Parrilla = () => {
     } catch { return []; }
   });
   const [brandAssetBlobs, setBrandAssetBlobs] = useState<Blob[]>([]);
+  const [productImages, setProductImages] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const productFileInputRef = useRef<HTMLInputElement>(null);
 
   const [platforms, setPlatforms] = useState({ instagram: true, tiktok: true, linkedin: false, twitter: false });
   const [selectedFormats, setSelectedFormats] = useState<Set<string>>(new Set(["instagram_feed", "tiktok_video"]));
@@ -666,6 +668,29 @@ const Parrilla = () => {
     reader.readAsDataURL(file);
   }, [analyzeBrand]);
 
+  const handleProductImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    e.target.value = "";
+    const remaining = 4 - productImages.length;
+    const toProcess = files.slice(0, remaining);
+    toProcess.forEach(file => {
+      if (file.size > 10 * 1024 * 1024) {
+        toast({ title: "Archivo demasiado grande", description: "Máximo 10MB por imagen.", variant: "destructive" });
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProductImages(prev => {
+          if (prev.length >= 4) return prev;
+          return [...prev, reader.result as string];
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+    toast({ title: "📸 Foto(s) cargada(s)", description: `${toProcess.length} foto(s) de producto añadida(s).` });
+  }, [productImages.length]);
+
   const blobToBase64 = useCallback((blob: Blob): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -767,6 +792,7 @@ const Parrilla = () => {
         tone: campaignBrief.tone,
         extras: campaignBrief.extras,
       },
+      product_images: productImages,
       posts_config: postsConfig,
     };
 
@@ -814,15 +840,16 @@ const Parrilla = () => {
       setIsGenerating(false);
       setGeneratingStatus("");
     }
-  }, [selectedFormats, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, campaignBrief, brand, brandName, id]);
+  }, [selectedFormats, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, campaignBrief, brand, brandName, id, productImages]);
 
   const handleBriefComplete = useCallback((brief: { description: string; tone: string; extras: string; isComplete: boolean }) => {
     setCampaignBrief(brief);
   }, []);
 
-  const canGenerate = brandDetected && campaignBrief.isComplete && selectedFormats.size > 0;
+  const canGenerate = brandDetected && campaignBrief.isComplete && selectedFormats.size > 0 && productImages.length > 0;
   const getDisabledReason = () => {
     if (!brandDetected) return "Sube tu logo primero";
+    if (productImages.length === 0) return "Sube al menos una foto de tu producto";
     if (!campaignBrief.isComplete) return "Completa el brief con Nano Banano";
     if (selectedFormats.size === 0) return "Selecciona al menos una plataforma y formato";
     return "";
@@ -1062,6 +1089,45 @@ const Parrilla = () => {
                   </div>
                 </motion.div>
               )}
+
+              {/* 📸 Product Photos */}
+              <div className="mb-4 space-y-2.5">
+                <p className="text-[11px] font-bold text-foreground uppercase tracking-wider">📸 Fotos del Producto</p>
+                {productImages.length === 0 ? (
+                  <button onClick={() => productFileInputRef.current?.click()}
+                    className="w-full py-6 rounded-xl border-2 border-dashed border-border hover:border-primary bg-secondary/50 hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-2 group"
+                  >
+                    <Camera size={24} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                    <p className="text-xs font-medium text-foreground">Sube fotos de tu producto</p>
+                    <p className="text-[10px] text-muted-foreground">La IA usará estas fotos para crear tus posts</p>
+                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      {productImages.map((img, i) => (
+                        <div key={i} className="relative aspect-square rounded-lg border border-border overflow-hidden group/thumb">
+                          <img src={img} alt={`Producto ${i + 1}`} className="w-full h-full object-cover" />
+                          <button
+                            onClick={() => setProductImages(prev => prev.filter((_, idx) => idx !== i))}
+                            className="absolute top-1 right-1 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity"
+                          >
+                            <X size={10} className="text-white" />
+                          </button>
+                        </div>
+                      ))}
+                      {productImages.length < 4 && (
+                        <button onClick={() => productFileInputRef.current?.click()}
+                          className="aspect-square rounded-lg border-2 border-dashed border-border hover:border-primary bg-secondary/30 hover:bg-primary/5 transition-all flex items-center justify-center"
+                        >
+                          <Plus size={20} className="text-muted-foreground" />
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-emerald-400 font-medium">✅ {productImages.length} foto(s) lista(s) — La IA usará estas como referencia</p>
+                  </div>
+                )}
+                <input ref={productFileInputRef} type="file" accept="image/png,image/jpeg" multiple className="hidden" onChange={handleProductImageUpload} />
+              </div>
             </motion.aside>
           )}
         </AnimatePresence>
@@ -1087,7 +1153,7 @@ const Parrilla = () => {
                   </div>
 
                   <div className="mb-5">
-                    <CreativeAgentChat onBriefComplete={handleBriefComplete} isGenerating={isGenerating} brandDetected={brandDetected} brandPalette={brand.palette} brandFont={brand.font_family} platforms={platforms} frequency={frequency} objective={objective} generatingStatus={generatingStatus} />
+                    <CreativeAgentChat onBriefComplete={handleBriefComplete} isGenerating={isGenerating} brandDetected={brandDetected} brandPalette={brand.palette} brandFont={brand.font_family} platforms={platforms} frequency={frequency} objective={objective} generatingStatus={generatingStatus} productImageCount={productImages.length} />
                   </div>
 
                   {/* Row 1: Platforms */}

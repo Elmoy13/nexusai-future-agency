@@ -28,6 +28,7 @@ interface CreativeAgentChatProps {
   frequency: string;
   objective: string;
   generatingStatus?: string;
+  productImageCount?: number;
 }
 
 /* ── Color describer ── */
@@ -103,6 +104,7 @@ const CreativeAgentChat = ({
   frequency,
   objective,
   generatingStatus,
+  productImageCount = 0,
 }: CreativeAgentChatProps) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     { role: "agent", text: "¡Hola! 👋 Soy tu **Nano Banano Content Agent**. Vamos a crear contenido visual increíble juntos.\n\n📸 **Primero sube tu logo** en el panel de Brand Assets para que pueda analizar tu marca. 👈" },
@@ -113,6 +115,7 @@ const CreativeAgentChat = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
   const brandDetectedRef = useRef(false);
+  const prevProductCountRef = useRef(0);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -123,6 +126,12 @@ const CreativeAgentChat = ({
     const interval = setInterval(() => setLoadingMsgIdx(prev => (prev + 1) % LOADING_MESSAGES.length), 2500);
     return () => clearInterval(interval);
   }, [isGenerating]);
+
+  const addAgentMessage = useCallback((text: string, type: ChatMessage["type"] = "normal") => {
+    setTimeout(() => {
+      setMessages(prev => [...prev, { role: "agent", text, type }]);
+    }, 500);
+  }, []);
 
   // React to brand detection
   useEffect(() => {
@@ -135,11 +144,16 @@ const CreativeAgentChat = ({
     }
   }, [brandDetected, brandPalette, brandFont]);
 
-  const addAgentMessage = useCallback((text: string, type: ChatMessage["type"] = "normal") => {
-    setTimeout(() => {
-      setMessages(prev => [...prev, { role: "agent", text, type }]);
-    }, 500);
-  }, []);
+  // React to product images
+  useEffect(() => {
+    if (productImageCount > 0 && productImageCount !== prevProductCountRef.current) {
+      prevProductCountRef.current = productImageCount;
+      addAgentMessage(`📸 ¡Perfecto! Ya tengo **${productImageCount} foto(s)** de tu producto. Las voy a usar como referencia para que tus posts se vean increíbles con tu producto REAL, no imágenes genéricas. 🔥`);
+    }
+    if (productImageCount === 0 && prevProductCountRef.current > 0) {
+      prevProductCountRef.current = 0;
+    }
+  }, [productImageCount, addAgentMessage]);
 
   const handleSend = useCallback((overrideText?: string) => {
     const text = (overrideText || input).trim();
