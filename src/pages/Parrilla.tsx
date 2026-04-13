@@ -792,6 +792,7 @@ const Parrilla = () => {
         tone: campaignBrief.tone,
         extras: campaignBrief.extras,
       },
+      product_images: productImages,
       posts_config: postsConfig,
     };
 
