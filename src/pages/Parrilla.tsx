@@ -836,13 +836,18 @@ const Parrilla = () => {
     ];
 
     const startTime = Date.now();
+    const secsPerPost = includeLogoInImage ? 60 : 30;
+    const estimatedMins = Math.ceil((postsConfig.length * secsPerPost) / 60);
+    const estimateLabel = includeLogoInImage
+      ? `⏳ Tiempo estimado: ~${estimatedMins} min (integración de logo activada)`
+      : `⏳ Tiempo estimado: ~${estimatedMins} min`;
     const timerInterval = setInterval(() => {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
       const mins = Math.floor(elapsed / 60);
       const secs = elapsed % 60;
       const msgIndex = Math.floor(elapsed / 15) % motivationalMessages.length;
       setGeneratingStatus(
-        `⚡ Generando posts con IA...\n${motivationalMessages[msgIndex]}\n⏱️ ${mins}:${secs.toString().padStart(2, "0")}`
+        `⚡ Generando posts con IA...\n${motivationalMessages[msgIndex]}\n${estimateLabel}\n⏱️ ${mins}:${secs.toString().padStart(2, "0")}`
       );
     }, 1000);
 
