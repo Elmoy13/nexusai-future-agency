@@ -109,7 +109,7 @@ function saveBrand(b: BrandProfile, parrillaId?: string) {
   localStorage.setItem(getBrandStorageKey(parrillaId), JSON.stringify(b));
 }
 
-const API_URL = import.meta.env.VITE_API_URL || "https://arise-meter-watson-thu.trycloudflare.com";
+const API_URL = import.meta.env.VITE_API_URL || "https://rat-reflect-dad-sensitivity.trycloudflare.com";
 
 function getDimensionsFromFormat(format: string): { w: number; h: number } {
   const f = ALL_FORMATS.find(f => f.id === format);

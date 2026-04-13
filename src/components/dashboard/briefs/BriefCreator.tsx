@@ -20,7 +20,7 @@ import ReactMarkdown from "react-markdown";
 import type { SlideElement } from "./campaignData";
 import { ScaledSlidePreview } from "@/components/agent/ScaledSlidePreview";
 
-const BASE_URL = "https://arise-meter-watson-thu.trycloudflare.com";
+const BASE_URL = "https://rat-reflect-dad-sensitivity.trycloudflare.com";
 
 /* ── Helpers ─────────────────────────────────────────────── */
 
