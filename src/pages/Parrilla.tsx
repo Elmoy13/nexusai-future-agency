@@ -1283,26 +1283,56 @@ const Parrilla = () => {
                 />
               </div>
 
-              {/* Upload */}
-              <button onClick={() => fileInputRef.current?.click()}
-                className="w-full aspect-[4/3] rounded-2xl border-2 border-dashed border-border hover:border-primary bg-secondary/50 hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-3 group mb-4"
-              >
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-cyan-500 flex items-center justify-center shadow-lg shadow-primary/25 group-hover:scale-105 transition-transform">
-                  <Upload size={24} className="text-primary-foreground" />
-                </div>
-                <div className="text-center">
-                  <p className="text-sm font-semibold text-foreground">Subir Logo de Marca</p>
-                  <p className="text-[11px] text-muted-foreground">PNG, JPG hasta 10MB</p>
-                </div>
-              </button>
-              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
-
-              {/* Logo preview */}
-              {brandAssets.length > 0 && (
+              {/* Upload / Logo Preview */}
+              {brandAssets.length === 0 ? (
+                <button onClick={() => fileInputRef.current?.click()}
+                  className="w-full aspect-[4/3] rounded-2xl border-2 border-dashed border-border hover:border-primary bg-secondary/50 hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-3 group mb-4"
+                >
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-cyan-500 flex items-center justify-center shadow-lg shadow-primary/25 group-hover:scale-105 transition-transform">
+                    <Upload size={24} className="text-primary-foreground" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-semibold text-foreground">Subir Logo de Marca</p>
+                    <p className="text-[11px] text-muted-foreground">PNG, JPG hasta 10MB</p>
+                  </div>
+                </button>
+              ) : (
                 <div className="mb-4 space-y-3">
-                  <CheckerboardBg className="aspect-square rounded-xl overflow-hidden border border-border shadow-sm">
-                    <img src={brandAssets[brandAssets.length - 1]} alt="Logo" className="w-full h-full object-contain p-2" />
-                  </CheckerboardBg>
+                  <div className="relative group/logo">
+                    <CheckerboardBg className="aspect-square rounded-xl overflow-hidden border border-border shadow-sm">
+                      <img src={brandAssets[brandAssets.length - 1]} alt="Logo" className="w-full h-full object-contain p-2" />
+                    </CheckerboardBg>
+                    {/* Overlay actions */}
+                    <div className="absolute inset-0 bg-background/60 backdrop-blur-sm rounded-xl opacity-0 group-hover/logo:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="h-8 text-xs gap-1.5 bg-secondary/90 hover:bg-secondary"
+                      >
+                        <Upload size={13} /> Cambiar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          setBrandAssets([]);
+                          setBrandAssetBlobs([]);
+                          setBrandDetected(false);
+                          setBrandVision(null);
+                          setBrand(DEFAULT_BRAND);
+                          try {
+                            localStorage.removeItem(getLogoStorageKey(id));
+                            localStorage.removeItem(getBrandStorageKey(id));
+                          } catch {}
+                          toast({ title: "Logo eliminado" });
+                        }}
+                        className="h-8 text-xs gap-1.5 bg-destructive/20 text-destructive hover:bg-destructive/30 border-destructive/30"
+                      >
+                        <X size={13} /> Quitar
+                      </Button>
+                    </div>
+                  </div>
                   <div className="flex items-center justify-between gap-2 px-1">
                     <label htmlFor="logo-integrate" className="text-[11px] font-medium text-foreground cursor-pointer">
                       ✨ Integrar logo en la imagen
