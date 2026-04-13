@@ -1128,6 +1128,7 @@ const Parrilla = () => {
                 )}
                 <input ref={productFileInputRef} type="file" accept="image/png,image/jpeg" multiple className="hidden" onChange={handleProductImageUpload} />
               </div>
+            </motion.aside>
           )}
         </AnimatePresence>
 
