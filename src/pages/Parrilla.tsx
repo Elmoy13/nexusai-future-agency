@@ -561,6 +561,7 @@ const Parrilla = () => {
   const [posts, setPosts] = useState<PostCard[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState<{ completed: number; total: number } | null>(null);
   const [isClientView, setIsClientView] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("kanban");
   const [brandAssets, setBrandAssets] = useState<string[]>(() => {
