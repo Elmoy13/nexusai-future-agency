@@ -20,7 +20,7 @@ import {
   TrendingUp, MessageSquare, Heart, Share2, Bookmark, MoreHorizontal,
   Check, MessageCircle, LayoutGrid, CalendarDays, ChevronLeft, ChevronRight,
   Wand2, Home, Hexagon, FileText as BriefIcon, Twitter, Palette, Type,
-  MoreVertical, Edit3, RefreshCw, Layers, Camera, Plus
+  MoreVertical, Edit3, RefreshCw, Layers, Camera, Plus, ClipboardCopy
 } from "lucide-react";
 
 /* ── Types ── */
@@ -228,27 +228,51 @@ const RenderedPostCard = ({ post, onEdit, onRegenerate, onDownload, onApproveSta
           )}
         </div>
       )}
-      <div className="p-3 space-y-1.5">
-        {post.headline && <p className="text-sm font-semibold text-foreground truncate">{post.headline}</p>}
-        {(post.body || post.caption) && <p className="text-xs text-muted-foreground line-clamp-2">{post.body || post.caption}</p>}
-        {post.scheduledAt && <div className="flex items-center gap-1.5 text-[11px] text-amber-400 font-medium"><Calendar size={12} /> {post.scheduledAt}</div>}
-        {!isClientView && !post.isRendering && (
-          <div className="flex items-center gap-1 pt-2 border-t border-border/50">
-            <button onClick={() => onEdit(post)} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Editar">
-              <Edit3 size={12} /> Editar
-            </button>
-            <button onClick={() => onRegenerate(post)} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Regenerar">
-              <RefreshCw size={12} /> Regenerar
-            </button>
-            <button onClick={() => onDownload(post)} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Descargar">
-              <Download size={12} />
-            </button>
-            <button onClick={() => onApproveStatus(post.id)} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-emerald-400 hover:bg-secondary transition-colors ml-auto" title="Aprobar">
-              <CheckCircle2 size={12} /> Aprobar
+      {/* Caption section */}
+      {(post.headline || post.body || post.cta) && !post.isRendering && !post.error && (
+        <div className="p-3 space-y-2 bg-secondary/30 border-t border-border/40">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">📝 Caption</span>
+            <button
+              onClick={() => {
+                const parts = [post.headline, post.body, post.cta].filter(Boolean);
+                navigator.clipboard.writeText(parts.join("\n\n"));
+                toast({ title: "Caption copiado ✅" });
+              }}
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              title="Copiar caption"
+            >
+              <ClipboardCopy size={11} /> Copiar
             </button>
           </div>
-        )}
-      </div>
+          {post.headline && <p className="text-sm font-semibold text-foreground leading-snug">{post.headline}</p>}
+          {post.body && <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">{post.body}</p>}
+          {post.cta && (
+            <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-semibold bg-primary/15 text-primary border border-primary/20">
+              {post.cta}
+            </span>
+          )}
+        </div>
+      )}
+      {post.scheduledAt && (
+        <div className="px-3 py-1.5 flex items-center gap-1.5 text-[11px] text-amber-400 font-medium"><Calendar size={12} /> {post.scheduledAt}</div>
+      )}
+      {!isClientView && !post.isRendering && (
+        <div className="flex items-center gap-1 px-3 py-2 border-t border-border/50">
+          <button onClick={() => onEdit(post)} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Editar">
+            <Edit3 size={12} /> Editar
+          </button>
+          <button onClick={() => onRegenerate(post)} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Regenerar">
+            <RefreshCw size={12} />
+          </button>
+          <button onClick={() => onDownload(post)} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Descargar">
+            <Download size={12} />
+          </button>
+          <button onClick={() => onApproveStatus(post.id)} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-emerald-400 hover:bg-secondary transition-colors ml-auto" title="Aprobar">
+            <CheckCircle2 size={12} /> Aprobar
+          </button>
+        </div>
+      )}
     </motion.div>
   );
 };
