@@ -609,7 +609,9 @@ const Parrilla = () => {
   const [brand, setBrand] = useState<BrandProfile>(() => loadBrand(id));
 
   // Chat state (real AI)
-  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
+    { role: "assistant", content: "¡Hola! 👋 Soy tu **Nano Banano Content Agent**.\n\n📸 **Sube tu logo** y **fotos de tu producto** en el panel de Brand Assets para que pueda analizar tu marca con IA visual. 👈\n\nDespués hablamos sobre tu campaña. 🚀" }
+  ]);
   const [isChatThinking, setIsChatThinking] = useState(false);
   const [brandVision, setBrandVision] = useState<any>(null);
   const [productVision, setProductVision] = useState<any>(null);
