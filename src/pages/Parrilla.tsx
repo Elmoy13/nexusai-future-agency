@@ -1003,12 +1003,28 @@ const Parrilla = () => {
     }
   }, [brandAssetBlobs, blobToBase64, renderPost, id]);
 
-  const handleDownloadPost = useCallback((post: PostCard) => {
+  const handleDownloadPost = useCallback(async (post: PostCard) => {
     if (!post.image) return;
-    const a = document.createElement("a");
-    a.href = post.image;
-    a.download = `post-${post.id}.png`;
-    a.click();
+    try {
+      // If it's a URL (not base64), fetch and download
+      if (post.image.startsWith("http")) {
+        const response = await fetch(post.image);
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `post-${post.id}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        const a = document.createElement("a");
+        a.href = post.image;
+        a.download = `post-${post.id}.png`;
+        a.click();
+      }
+    } catch {
+      toast({ title: "⚠️ Error al descargar", description: "No se pudo descargar la imagen.", variant: "destructive" });
+    }
   }, []);
 
   // Group formats by platform for display
