@@ -608,7 +608,7 @@ const Parrilla = () => {
   const [optionsPerPost, setOptionsPerPost] = useState(2);
 
   const [generatingStatus, setGeneratingStatus] = useState("");
-  const [brand, setBrand] = useState<BrandProfile>(() => isNewParrilla ? defaultBrand : loadBrand(id));
+  const [brand, setBrand] = useState<BrandProfile>(() => isNewParrilla ? DEFAULT_BRAND : loadBrand(id));
 
   // Chat state (real AI)
   const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
