@@ -845,9 +845,10 @@ const Parrilla = () => {
     setCampaignBrief(brief);
   }, []);
 
-  const canGenerate = brandDetected && campaignBrief.isComplete && selectedFormats.size > 0;
+  const canGenerate = brandDetected && campaignBrief.isComplete && selectedFormats.size > 0 && productImages.length > 0;
   const getDisabledReason = () => {
     if (!brandDetected) return "Sube tu logo primero";
+    if (productImages.length === 0) return "Sube al menos una foto de tu producto";
     if (!campaignBrief.isComplete) return "Completa el brief con Nano Banano";
     if (selectedFormats.size === 0) return "Selecciona al menos una plataforma y formato";
     return "";
