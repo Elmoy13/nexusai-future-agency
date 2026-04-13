@@ -823,6 +823,7 @@ const Parrilla = () => {
       },
       product_images: productImages,
       posts_config: postsConfig,
+      include_logo_in_image: includeLogoInImage,
     };
 
     const motivationalMessages = [
@@ -1130,10 +1131,21 @@ const Parrilla = () => {
 
               {/* Logo preview */}
               {brandAssets.length > 0 && (
-                <div className="mb-4">
+                <div className="mb-4 space-y-3">
                   <CheckerboardBg className="aspect-square rounded-xl overflow-hidden border border-border shadow-sm">
                     <img src={brandAssets[brandAssets.length - 1]} alt="Logo" className="w-full h-full object-contain p-2" />
                   </CheckerboardBg>
+                  <div className="flex items-center justify-between gap-2 px-1">
+                    <label htmlFor="logo-integrate" className="text-[11px] font-medium text-foreground cursor-pointer">
+                      ✨ Integrar logo en la imagen
+                    </label>
+                    <Switch id="logo-integrate" checked={includeLogoInImage} onCheckedChange={setIncludeLogoInImage} />
+                  </div>
+                  <p className="text-[10px] px-1 leading-relaxed" style={{ color: includeLogoInImage ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))' }}>
+                    {includeLogoInImage
+                      ? "La IA integrará tu logo dentro de la escena (tarda un poco más)"
+                      : "El logo aparecerá como marca de agua en la esquina"}
+                  </p>
                 </div>
               )}
 
