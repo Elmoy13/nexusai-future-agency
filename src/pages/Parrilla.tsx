@@ -1089,7 +1089,45 @@ const Parrilla = () => {
                   </div>
                 </motion.div>
               )}
-            </motion.aside>
+
+              {/* 📸 Product Photos */}
+              <div className="mb-4 space-y-2.5">
+                <p className="text-[11px] font-bold text-foreground uppercase tracking-wider">📸 Fotos del Producto</p>
+                {productImages.length === 0 ? (
+                  <button onClick={() => productFileInputRef.current?.click()}
+                    className="w-full py-6 rounded-xl border-2 border-dashed border-border hover:border-primary bg-secondary/50 hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-2 group"
+                  >
+                    <Camera size={24} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                    <p className="text-xs font-medium text-foreground">Sube fotos de tu producto</p>
+                    <p className="text-[10px] text-muted-foreground">La IA usará estas fotos para crear tus posts</p>
+                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      {productImages.map((img, i) => (
+                        <div key={i} className="relative aspect-square rounded-lg border border-border overflow-hidden group/thumb">
+                          <img src={img} alt={`Producto ${i + 1}`} className="w-full h-full object-cover" />
+                          <button
+                            onClick={() => setProductImages(prev => prev.filter((_, idx) => idx !== i))}
+                            className="absolute top-1 right-1 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity"
+                          >
+                            <X size={10} className="text-white" />
+                          </button>
+                        </div>
+                      ))}
+                      {productImages.length < 4 && (
+                        <button onClick={() => productFileInputRef.current?.click()}
+                          className="aspect-square rounded-lg border-2 border-dashed border-border hover:border-primary bg-secondary/30 hover:bg-primary/5 transition-all flex items-center justify-center"
+                        >
+                          <Plus size={20} className="text-muted-foreground" />
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-emerald-400 font-medium">✅ {productImages.length} foto(s) lista(s) — La IA usará estas como referencia</p>
+                  </div>
+                )}
+                <input ref={productFileInputRef} type="file" accept="image/png,image/jpeg" multiple className="hidden" onChange={handleProductImageUpload} />
+              </div>
           )}
         </AnimatePresence>
 
