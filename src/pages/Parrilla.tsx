@@ -822,8 +822,12 @@ const Parrilla = () => {
       posts_config: postsConfig,
     };
 
+    const timeoutWarning = setTimeout(() => {
+      setGeneratingStatus("⏳ Está tardando más de lo normal. Espera un poco más o intenta de nuevo.");
+    }, 180000);
+
     try {
-      setGeneratingStatus("🧠 Generando copy e imágenes con IA...");
+      setGeneratingStatus("🧠 Generando copy e imágenes con IA... (esto puede tomar 1-2 minutos)");
       const response = await fetch(`${API_URL}/api/v1/posts/render-batch`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -839,7 +843,7 @@ const Parrilla = () => {
 
       const generatedPosts: PostCard[] = (data.results || []).map((result: any, index: number) => ({
         id: `post-${Date.now()}-${index}`,
-        image: result.rendered_post,
+        image: result.status === "error" ? undefined : result.rendered_post,
         headline: result.headline || "",
         body: result.body || "",
         cta: result.cta || "",
@@ -849,10 +853,16 @@ const Parrilla = () => {
         status: "draft" as PostStatus,
         calendarDay: (index * 2) + 1,
         isRendering: false,
+        error: result.status === "error" ? (result.error || "Error al generar") : null,
       }));
 
+      const errorCount = generatedPosts.filter(p => p.error).length;
       setPosts(generatedPosts);
-      toast({ title: "🚀 Parrilla generada", description: `${generatedPosts.length} posts generados exitosamente.` });
+      if (errorCount > 0) {
+        toast({ title: "⚠️ Parrilla con errores", description: `${generatedPosts.length - errorCount} OK, ${errorCount} fallidos. Reintenta los fallidos.`, variant: "destructive" });
+      } else {
+        toast({ title: "🚀 Parrilla generada", description: `${generatedPosts.length} posts generados exitosamente.` });
+      }
     } catch (error: any) {
       console.error("Error generating posts:", error);
       setPosts([]);
@@ -863,6 +873,7 @@ const Parrilla = () => {
         variant: "destructive",
       });
     } finally {
+      clearTimeout(timeoutWarning);
       setIsGenerating(false);
       setGeneratingStatus("");
     }
