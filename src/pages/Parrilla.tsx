@@ -201,6 +201,15 @@ const RenderedPostCard = ({ post, onEdit, onRegenerate, onDownload, onApproveSta
     >
       {post.isRendering ? (
         <ShimmerSkeleton aspectClass={aspectClass} />
+      ) : post.error ? (
+        <div className={`${aspectClass} bg-destructive/10 border border-destructive/30 rounded-t-xl flex flex-col items-center justify-center gap-2`}>
+          <X size={24} className="text-destructive" />
+          <p className="text-xs font-medium text-destructive">Error al generar este post</p>
+          <button onClick={() => onRegenerate(post)}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-destructive/20 text-destructive hover:bg-destructive/30 transition-colors flex items-center gap-1">
+            <RefreshCw size={12} /> Reintentar
+          </button>
+        </div>
       ) : (
         <div className={`${aspectClass} bg-secondary relative overflow-hidden cursor-pointer`} onClick={() => onClickImage?.(post)}>
           <img src={post.image || "/placeholder.svg"} alt="" className="w-full h-full object-cover" />
