@@ -608,7 +608,7 @@ const Parrilla = () => {
   const [optionsPerPost, setOptionsPerPost] = useState(2);
 
   const [generatingStatus, setGeneratingStatus] = useState("");
-  const [brand, setBrand] = useState<BrandProfile>(() => loadBrand(id));
+  const [brand, setBrand] = useState<BrandProfile>(() => isNewParrilla ? defaultBrand : loadBrand(id));
 
   // Chat state (real AI)
   const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
@@ -619,6 +619,7 @@ const Parrilla = () => {
   const [productVision, setProductVision] = useState<any>(null);
   const [isAnalyzingProduct, setIsAnalyzingProduct] = useState(false);
   const [brandName, setBrandName] = useState<string>(() => {
+    if (isNewParrilla) return "";
     try { return localStorage.getItem(getBrandNameStorageKey(id)) || ""; } catch { return ""; }
   });
   const [editingPost, setEditingPost] = useState<PostCard | null>(null);
@@ -627,6 +628,7 @@ const Parrilla = () => {
   const parrillaGridRef = useRef<HTMLDivElement>(null);
   const [isAnalyzingBrand, setIsAnalyzingBrand] = useState(false);
   const [brandDetected, setBrandDetected] = useState(() => {
+    if (isNewParrilla) return false;
     try {
       const hasLogo = !!localStorage.getItem(getLogoStorageKey(id));
       const hasBrand = !!localStorage.getItem(getBrandStorageKey(id));
