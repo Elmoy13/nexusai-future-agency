@@ -457,7 +457,11 @@ const ImagePreviewModal = ({ posts, initialIndex, open, onClose, onApprove, onDo
             className="max-w-[85vw] max-h-[70vh] flex items-center justify-center"
             onClick={(e) => e.stopPropagation()}
           >
-            <img src={post.image || "/placeholder.svg"} alt={post.headline || ""} className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-2xl" />
+            {post.video_url && post.video_status === "completed" ? (
+              <video src={post.video_url} controls autoPlay loop className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-2xl" />
+            ) : (
+              <img src={post.image || "/placeholder.svg"} alt={post.headline || ""} className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-2xl" />
+            )}
           </motion.div>
 
           {/* Bottom bar */}
