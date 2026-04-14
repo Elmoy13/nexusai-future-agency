@@ -1238,26 +1238,62 @@ const Parrilla = () => {
   }, [brandAssetBlobs, blobToBase64, renderPost, id]);
 
   const handleDownloadPost = useCallback(async (post: PostCard) => {
-    if (!post.image) return;
+    const hasVideo = post.video_url && post.video_status === "completed";
+    const url = hasVideo ? post.video_url! : post.image;
+    if (!url) return;
+    const ext = hasVideo ? "mp4" : "png";
     try {
-      // If it's a URL (not base64), fetch and download
-      if (post.image.startsWith("http")) {
-        const response = await fetch(post.image);
+      if (url.startsWith("http")) {
+        const response = await fetch(url);
         const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
+        const blobUrl = URL.createObjectURL(blob);
         const a = document.createElement("a");
-        a.href = url;
-        a.download = `post-${post.id}.png`;
+        a.href = blobUrl;
+        a.download = `post-${post.id}.${ext}`;
         a.click();
-        URL.revokeObjectURL(url);
+        URL.revokeObjectURL(blobUrl);
       } else {
         const a = document.createElement("a");
-        a.href = post.image;
-        a.download = `post-${post.id}.png`;
+        a.href = url;
+        a.download = `post-${post.id}.${ext}`;
         a.click();
       }
     } catch {
-      toast({ title: "⚠️ Error al descargar", description: "No se pudo descargar la imagen.", variant: "destructive" });
+      toast({ title: "⚠️ Error al descargar", description: `No se pudo descargar el ${hasVideo ? "video" : "imagen"}.`, variant: "destructive" });
+    }
+  }, []);
+
+  const handleGenerateVideo = useCallback(async (post: PostCard) => {
+    // Set status to generating
+    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, video_status: "generating" as const } : p));
+    toast({ title: "🎬 Generando video...", description: "Esto toma ~1-2 minutos." });
+
+    try {
+      await fetch(`${API_URL}/api/v1/posts/${post.id}/video`, { method: "POST" });
+
+      // Poll every 5 seconds
+      const poll = setInterval(async () => {
+        try {
+          const res = await fetch(`${API_URL}/api/v1/posts/${post.id}/video/status`);
+          if (!res.ok) return;
+          const data = await res.json();
+
+          if (data.video_status === "completed") {
+            clearInterval(poll);
+            setPosts(prev => prev.map(p => p.id === post.id ? { ...p, video_url: data.video_url, video_status: "completed" as const } : p));
+            toast({ title: "🎬 Video listo ✅" });
+          } else if (data.video_status === "error") {
+            clearInterval(poll);
+            setPosts(prev => prev.map(p => p.id === post.id ? { ...p, video_status: "error" as const, video_error: data.video_error } : p));
+            toast({ title: "⚠️ Error al generar video", description: data.video_error || "Intenta de nuevo.", variant: "destructive" });
+          }
+        } catch {
+          // Ignore polling errors, will retry
+        }
+      }, 5000);
+    } catch {
+      setPosts(prev => prev.map(p => p.id === post.id ? { ...p, video_status: "error" as const } : p));
+      toast({ title: "⚠️ Error al iniciar video", variant: "destructive" });
     }
   }, []);
 
@@ -1781,6 +1817,7 @@ const Parrilla = () => {
                           onEdit={handleEditPost} onRegenerate={handleRegenerateSingle}
                           onDownload={handleDownloadPost} onApproveStatus={handleApprovePost}
                           isClientView={isClientView} onClickImage={handleClickImage}
+                          onGenerateVideo={handleGenerateVideo}
                         />
                       ))}
                     </AnimatePresence>
