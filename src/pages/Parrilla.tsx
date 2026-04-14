@@ -66,6 +66,9 @@ interface PostCard {
   styleDescription?: string;
   isRendering?: boolean;
   error?: string | null;
+  video_url?: string;
+  video_status?: "idle" | "generating" | "completed" | "error";
+  video_error?: string;
 }
 
 interface BrandProfile {
@@ -180,20 +183,23 @@ function getAspectClass(format: string) {
 }
 
 /* ── Post Card ── */
-const RenderedPostCard = ({ post, onEdit, onRegenerate, onDownload, onApproveStatus, isClientView, onClickImage }: {
+const RenderedPostCard = ({ post, onEdit, onRegenerate, onDownload, onApproveStatus, isClientView, onClickImage, onGenerateVideo }: {
   post: PostCard; onEdit: (post: PostCard) => void; onRegenerate: (post: PostCard) => void;
   onDownload: (post: PostCard) => void; onApproveStatus: (id: string) => void;
   isClientView?: boolean; onClickImage?: (post: PostCard) => void;
+  onGenerateVideo?: (post: PostCard) => void;
 }) => {
+  const [isHoveringMedia, setIsHoveringMedia] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const platformGradients: Record<string, string> = {
     instagram: "from-pink-500 via-red-500 to-yellow-500",
     tiktok: "from-slate-900 to-slate-700",
     linkedin: "from-blue-600 to-blue-700",
     twitter: "from-slate-800 to-slate-900",
   };
-  const platformLabels: Record<string, string> = { instagram: "Instagram", tiktok: "TikTok", linkedin: "LinkedIn", twitter: "X" };
   const aspectClass = getAspectClass(post.format || "instagram_feed");
   const fmt = ALL_FORMATS.find(f => f.id === post.format);
+  const hasVideo = post.video_url && post.video_status === "completed";
 
   return (
     <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
@@ -211,12 +217,48 @@ const RenderedPostCard = ({ post, onEdit, onRegenerate, onDownload, onApproveSta
           </button>
         </div>
       ) : (
-        <div className={`${aspectClass} bg-secondary relative overflow-hidden cursor-pointer`} onClick={() => onClickImage?.(post)}>
-          <img src={post.image || "/placeholder.svg"} alt="" className="w-full h-full object-cover" />
-          <div className="absolute top-3 left-3">
+        <div
+          className={`${aspectClass} bg-secondary relative overflow-hidden cursor-pointer`}
+          onClick={() => onClickImage?.(post)}
+          onMouseEnter={() => setIsHoveringMedia(true)}
+          onMouseLeave={() => setIsHoveringMedia(false)}
+        >
+          {hasVideo ? (
+            <>
+              <video
+                ref={videoRef}
+                src={post.video_url}
+                autoPlay loop muted playsInline
+                className="w-full h-full object-cover"
+              />
+              <AnimatePresence>
+                {isHoveringMedia && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="absolute inset-0 flex items-center justify-center bg-black/20"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center">
+                      <Play size={20} className="text-white ml-0.5" />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </>
+          ) : (
+            <img src={post.image || "/placeholder.svg"} alt="" className="w-full h-full object-cover" />
+          )}
+          <div className="absolute top-3 left-3 flex items-center gap-1.5">
             <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${platformGradients[post.platform]} flex items-center justify-center shadow-md`}>
               <PlatformIcon platform={post.platform} size={14} />
             </div>
+            {hasVideo ? (
+              <Badge className="text-[9px] bg-purple-500/80 backdrop-blur-sm border-purple-400/30 text-white hover:bg-purple-500/90">
+                🎬 Video
+              </Badge>
+            ) : post.image && (
+              <Badge variant="outline" className="text-[9px] bg-card/60 backdrop-blur-sm border-border/50 text-muted-foreground">
+                📷 Imagen
+              </Badge>
+            )}
           </div>
           <div className="absolute top-3 right-3"><StatusBadge status={post.status} /></div>
           {fmt && (
@@ -268,6 +310,24 @@ const RenderedPostCard = ({ post, onEdit, onRegenerate, onDownload, onApproveSta
           <button onClick={() => onDownload(post)} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Descargar">
             <Download size={12} />
           </button>
+          {/* Video button */}
+          {post.video_status === "generating" ? (
+            <button disabled className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-muted-foreground opacity-60 cursor-not-allowed" title="Generando video...">
+              <Loader2 size={12} className="animate-spin" /> Generando...
+            </button>
+          ) : post.video_status === "error" ? (
+            <button onClick={() => onGenerateVideo?.(post)} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-destructive hover:bg-destructive/10 transition-colors" title="Reintentar video">
+              <Video size={12} /> Error — Reintentar
+            </button>
+          ) : hasVideo ? (
+            <button className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-emerald-400" title="Video listo">
+              <Video size={12} /> ✅
+            </button>
+          ) : post.image ? (
+            <button onClick={() => onGenerateVideo?.(post)} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Convertir a video">
+              <Video size={12} /> Video
+            </button>
+          ) : null}
           <button onClick={() => onApproveStatus(post.id)} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-emerald-400 hover:bg-secondary transition-colors ml-auto" title="Aprobar">
             <CheckCircle2 size={12} /> Aprobar
           </button>
@@ -397,7 +457,11 @@ const ImagePreviewModal = ({ posts, initialIndex, open, onClose, onApprove, onDo
             className="max-w-[85vw] max-h-[70vh] flex items-center justify-center"
             onClick={(e) => e.stopPropagation()}
           >
-            <img src={post.image || "/placeholder.svg"} alt={post.headline || ""} className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-2xl" />
+            {post.video_url && post.video_status === "completed" ? (
+              <video src={post.video_url} controls autoPlay loop className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-2xl" />
+            ) : (
+              <img src={post.image || "/placeholder.svg"} alt={post.headline || ""} className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-2xl" />
+            )}
           </motion.div>
 
           {/* Bottom bar */}
@@ -1174,26 +1238,62 @@ const Parrilla = () => {
   }, [brandAssetBlobs, blobToBase64, renderPost, id]);
 
   const handleDownloadPost = useCallback(async (post: PostCard) => {
-    if (!post.image) return;
+    const hasVideo = post.video_url && post.video_status === "completed";
+    const url = hasVideo ? post.video_url! : post.image;
+    if (!url) return;
+    const ext = hasVideo ? "mp4" : "png";
     try {
-      // If it's a URL (not base64), fetch and download
-      if (post.image.startsWith("http")) {
-        const response = await fetch(post.image);
+      if (url.startsWith("http")) {
+        const response = await fetch(url);
         const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
+        const blobUrl = URL.createObjectURL(blob);
         const a = document.createElement("a");
-        a.href = url;
-        a.download = `post-${post.id}.png`;
+        a.href = blobUrl;
+        a.download = `post-${post.id}.${ext}`;
         a.click();
-        URL.revokeObjectURL(url);
+        URL.revokeObjectURL(blobUrl);
       } else {
         const a = document.createElement("a");
-        a.href = post.image;
-        a.download = `post-${post.id}.png`;
+        a.href = url;
+        a.download = `post-${post.id}.${ext}`;
         a.click();
       }
     } catch {
-      toast({ title: "⚠️ Error al descargar", description: "No se pudo descargar la imagen.", variant: "destructive" });
+      toast({ title: "⚠️ Error al descargar", description: `No se pudo descargar el ${hasVideo ? "video" : "imagen"}.`, variant: "destructive" });
+    }
+  }, []);
+
+  const handleGenerateVideo = useCallback(async (post: PostCard) => {
+    // Set status to generating
+    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, video_status: "generating" as const } : p));
+    toast({ title: "🎬 Generando video...", description: "Esto toma ~1-2 minutos." });
+
+    try {
+      await fetch(`${API_URL}/api/v1/posts/${post.id}/video`, { method: "POST" });
+
+      // Poll every 5 seconds
+      const poll = setInterval(async () => {
+        try {
+          const res = await fetch(`${API_URL}/api/v1/posts/${post.id}/video/status`);
+          if (!res.ok) return;
+          const data = await res.json();
+
+          if (data.video_status === "completed") {
+            clearInterval(poll);
+            setPosts(prev => prev.map(p => p.id === post.id ? { ...p, video_url: data.video_url, video_status: "completed" as const } : p));
+            toast({ title: "🎬 Video listo ✅" });
+          } else if (data.video_status === "error") {
+            clearInterval(poll);
+            setPosts(prev => prev.map(p => p.id === post.id ? { ...p, video_status: "error" as const, video_error: data.video_error } : p));
+            toast({ title: "⚠️ Error al generar video", description: data.video_error || "Intenta de nuevo.", variant: "destructive" });
+          }
+        } catch {
+          // Ignore polling errors, will retry
+        }
+      }, 5000);
+    } catch {
+      setPosts(prev => prev.map(p => p.id === post.id ? { ...p, video_status: "error" as const } : p));
+      toast({ title: "⚠️ Error al iniciar video", variant: "destructive" });
     }
   }, []);
 
@@ -1717,6 +1817,7 @@ const Parrilla = () => {
                           onEdit={handleEditPost} onRegenerate={handleRegenerateSingle}
                           onDownload={handleDownloadPost} onApproveStatus={handleApprovePost}
                           isClientView={isClientView} onClickImage={handleClickImage}
+                          onGenerateVideo={handleGenerateVideo}
                         />
                       ))}
                     </AnimatePresence>
