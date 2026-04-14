@@ -66,6 +66,9 @@ interface PostCard {
   styleDescription?: string;
   isRendering?: boolean;
   error?: string | null;
+  video_url?: string;
+  video_status?: "idle" | "generating" | "completed" | "error";
+  video_error?: string;
 }
 
 interface BrandProfile {
@@ -180,20 +183,23 @@ function getAspectClass(format: string) {
 }
 
 /* ── Post Card ── */
-const RenderedPostCard = ({ post, onEdit, onRegenerate, onDownload, onApproveStatus, isClientView, onClickImage }: {
+const RenderedPostCard = ({ post, onEdit, onRegenerate, onDownload, onApproveStatus, isClientView, onClickImage, onGenerateVideo }: {
   post: PostCard; onEdit: (post: PostCard) => void; onRegenerate: (post: PostCard) => void;
   onDownload: (post: PostCard) => void; onApproveStatus: (id: string) => void;
   isClientView?: boolean; onClickImage?: (post: PostCard) => void;
+  onGenerateVideo?: (post: PostCard) => void;
 }) => {
+  const [isHoveringMedia, setIsHoveringMedia] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const platformGradients: Record<string, string> = {
     instagram: "from-pink-500 via-red-500 to-yellow-500",
     tiktok: "from-slate-900 to-slate-700",
     linkedin: "from-blue-600 to-blue-700",
     twitter: "from-slate-800 to-slate-900",
   };
-  const platformLabels: Record<string, string> = { instagram: "Instagram", tiktok: "TikTok", linkedin: "LinkedIn", twitter: "X" };
   const aspectClass = getAspectClass(post.format || "instagram_feed");
   const fmt = ALL_FORMATS.find(f => f.id === post.format);
+  const hasVideo = post.video_url && post.video_status === "completed";
 
   return (
     <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
@@ -211,12 +217,48 @@ const RenderedPostCard = ({ post, onEdit, onRegenerate, onDownload, onApproveSta
           </button>
         </div>
       ) : (
-        <div className={`${aspectClass} bg-secondary relative overflow-hidden cursor-pointer`} onClick={() => onClickImage?.(post)}>
-          <img src={post.image || "/placeholder.svg"} alt="" className="w-full h-full object-cover" />
-          <div className="absolute top-3 left-3">
+        <div
+          className={`${aspectClass} bg-secondary relative overflow-hidden cursor-pointer`}
+          onClick={() => onClickImage?.(post)}
+          onMouseEnter={() => setIsHoveringMedia(true)}
+          onMouseLeave={() => setIsHoveringMedia(false)}
+        >
+          {hasVideo ? (
+            <>
+              <video
+                ref={videoRef}
+                src={post.video_url}
+                autoPlay loop muted playsInline
+                className="w-full h-full object-cover"
+              />
+              <AnimatePresence>
+                {isHoveringMedia && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="absolute inset-0 flex items-center justify-center bg-black/20"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center">
+                      <Play size={20} className="text-white ml-0.5" />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </>
+          ) : (
+            <img src={post.image || "/placeholder.svg"} alt="" className="w-full h-full object-cover" />
+          )}
+          <div className="absolute top-3 left-3 flex items-center gap-1.5">
             <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${platformGradients[post.platform]} flex items-center justify-center shadow-md`}>
               <PlatformIcon platform={post.platform} size={14} />
             </div>
+            {hasVideo ? (
+              <Badge className="text-[9px] bg-purple-500/80 backdrop-blur-sm border-purple-400/30 text-white hover:bg-purple-500/90">
+                🎬 Video
+              </Badge>
+            ) : post.image && (
+              <Badge variant="outline" className="text-[9px] bg-card/60 backdrop-blur-sm border-border/50 text-muted-foreground">
+                📷 Imagen
+              </Badge>
+            )}
           </div>
           <div className="absolute top-3 right-3"><StatusBadge status={post.status} /></div>
           {fmt && (
@@ -268,6 +310,24 @@ const RenderedPostCard = ({ post, onEdit, onRegenerate, onDownload, onApproveSta
           <button onClick={() => onDownload(post)} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Descargar">
             <Download size={12} />
           </button>
+          {/* Video button */}
+          {post.video_status === "generating" ? (
+            <button disabled className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-muted-foreground opacity-60 cursor-not-allowed" title="Generando video...">
+              <Loader2 size={12} className="animate-spin" /> Generando...
+            </button>
+          ) : post.video_status === "error" ? (
+            <button onClick={() => onGenerateVideo?.(post)} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-destructive hover:bg-destructive/10 transition-colors" title="Reintentar video">
+              <Video size={12} /> Error — Reintentar
+            </button>
+          ) : hasVideo ? (
+            <button className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-emerald-400" title="Video listo">
+              <Video size={12} /> ✅
+            </button>
+          ) : post.image ? (
+            <button onClick={() => onGenerateVideo?.(post)} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Convertir a video">
+              <Video size={12} /> Video
+            </button>
+          ) : null}
           <button onClick={() => onApproveStatus(post.id)} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-emerald-400 hover:bg-secondary transition-colors ml-auto" title="Aprobar">
             <CheckCircle2 size={12} /> Aprobar
           </button>
