@@ -149,7 +149,7 @@ const Community = () => {
     setTogglingMode(true);
     try {
       const res = await fetch(
-        `https://rat-reflect-dad-sensitivity.trycloudflare.com/api/v1/conversations/${selectedConversationId}/mode`,
+        `https://newsletter-sim-holmes-packs.trycloudflare.com/api/v1/conversations/${selectedConversationId}/mode`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -270,7 +270,7 @@ const Community = () => {
     setInputMessage("");
 
     try {
-      const res = await fetch("https://rat-reflect-dad-sensitivity.trycloudflare.com/api/v1/messages/send", {
+      const res = await fetch("https://newsletter-sim-holmes-packs.trycloudflare.com/api/v1/messages/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
