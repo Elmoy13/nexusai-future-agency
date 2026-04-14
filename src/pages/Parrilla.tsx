@@ -67,7 +67,7 @@ interface PostCard {
   isRendering?: boolean;
   error?: string | null;
   video_url?: string;
-  video_status?: "idle" | "generating" | "completed" | "error";
+  video_status?: "idle" | "generating" | "completed" | "success" | "processing" | "error";
   video_error?: string;
 }
 
