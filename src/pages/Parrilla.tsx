@@ -457,7 +457,7 @@ const ImagePreviewModal = ({ posts, initialIndex, open, onClose, onApprove, onDo
             className="max-w-[85vw] max-h-[70vh] flex items-center justify-center"
             onClick={(e) => e.stopPropagation()}
           >
-            {post.video_url && post.video_status === "completed" ? (
+            {post.video_url && (post.video_status === "completed" || post.video_status === "success") ? (
               <video src={post.video_url} controls autoPlay loop className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-2xl" />
             ) : (
               <img src={post.image || "/placeholder.svg"} alt={post.headline || ""} className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-2xl" />
@@ -1238,7 +1238,7 @@ const Parrilla = () => {
   }, [brandAssetBlobs, blobToBase64, renderPost, id]);
 
   const handleDownloadPost = useCallback(async (post: PostCard) => {
-    const hasVideo = post.video_url && post.video_status === "completed";
+    const hasVideo = post.video_url && (post.video_status === "completed" || post.video_status === "success");
     const url = hasVideo ? post.video_url! : post.image;
     if (!url) return;
     const ext = hasVideo ? "mp4" : "png";
@@ -1278,7 +1278,7 @@ const Parrilla = () => {
           if (!res.ok) return;
           const data = await res.json();
 
-          if (data.video_status === "completed") {
+          if (data.video_status === "completed" || data.video_status === "success") {
             clearInterval(poll);
             setPosts(prev => prev.map(p => p.id === post.id ? { ...p, video_url: data.video_url, video_status: "completed" as const } : p));
             toast({ title: "🎬 Video listo ✅" });
