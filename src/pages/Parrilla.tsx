@@ -199,7 +199,7 @@ const RenderedPostCard = ({ post, onEdit, onRegenerate, onDownload, onApproveSta
   };
   const aspectClass = getAspectClass(post.format || "instagram_feed");
   const fmt = ALL_FORMATS.find(f => f.id === post.format);
-  const hasVideo = post.video_url && post.video_status === "completed";
+  const hasVideo = post.video_url && (post.video_status === "completed" || post.video_status === "success");
 
   return (
     <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
