@@ -9,6 +9,14 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { useHistory } from "@/hooks/useHistory";
+import { useEditorPersistence } from "@/hooks/useEditorPersistence";
+import {
+  getBrief,
+  isUuid,
+  type BrandBrief,
+  type EditorState,
+  type EditorSlideMeta,
+} from "@/lib/briefService";
 import {
   ArrowLeft, Save, FileDown, Check, Loader2,
   LayoutTemplate, Type, Image, Hexagon, Sparkles,
@@ -19,7 +27,7 @@ import {
   Smartphone, Monitor, Tablet, Globe, Linkedin, Youtube, Twitter, 
   RectangleHorizontal, Square, Copy, MoveLeft, MoveRight, PaintBucket,
   Shapes, Film, Circle, Triangle, Star, Zap, ChevronDown, Wand2, Braces, ClipboardCopy, ClipboardCheck,
-  Download, Upload,
+  Download, Upload, AlertTriangle, Home, Tv,
 } from "lucide-react";
 import { initialCampaigns } from "@/components/dashboard/briefs/campaignData";
 import type { SlideData, SlideElement } from "@/components/dashboard/briefs/campaignData";
