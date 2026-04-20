@@ -2902,6 +2902,31 @@ const Editor = () => {
 
   const hasSelection = selectedIds.size > 0;
 
+  // ─── Pantallas de loading / not_found ───────────────────
+  if (mode === "loading") {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-background gap-3">
+        <Loader2 className="animate-spin text-primary" size={28} />
+        <p className="text-sm text-muted-foreground">Cargando presentación…</p>
+      </div>
+    );
+  }
+  if (mode === "not_found") {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-background gap-4 px-6">
+        <AlertTriangle className="text-amber-500" size={42} />
+        <h1 className="text-xl font-bold text-foreground">Presentación no encontrada</h1>
+        <p className="text-sm text-muted-foreground text-center max-w-md">
+          El identificador <code className="px-1.5 py-0.5 rounded bg-muted text-xs">{id}</code> no
+          existe o ya no está disponible.
+        </p>
+        <Button onClick={() => navigate("/dashboard")} variant="default" size="sm" className="gap-2">
+          <Home size={14} /> Volver al dashboard
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen w-screen flex flex-col bg-slate-100 overflow-hidden">
       {/* Presentation overlay */}
