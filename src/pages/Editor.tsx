@@ -2440,7 +2440,6 @@ const Editor = () => {
 
   const updateElement = (elId: string, patch: Partial<SlideElement>) => {
     history.set((prev) => prev.map((e) => (e.id === elId ? { ...e, ...patch } : e)));
-    setSaveState("idle");
   };
 
   const deleteElement = (elId: string) => {
@@ -2732,19 +2731,21 @@ const Editor = () => {
     return () => window.removeEventListener("keydown", handler);
   }, [presenting, selectedIds, currentElements, clipboard, history, eyedropperMode]);
 
-  /* ── Save ── */
+  /* ── Save manual: fuerza el flush del debounce de auto-save ── */
   const handleSave = async () => {
-    setSaveState("saving");
-    try {
-      await fetch("https://webhook.site/b80d309d-86be-445b-9bf5-4f678639f781", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "save_presentation", presentation_id: id ?? campaign.id, title: docTitle, slides: slidesElements, timestamp: new Date().toISOString(), status: "success" }),
+    if (mode !== "real") {
+      toast({
+        title: mode === "demo" ? "📺 Modo demo" : "Sin persistencia",
+        description: "Los cambios en este modo no se guardan en la base de datos.",
       });
-    } catch { /* CORS */ }
-    await new Promise((r) => setTimeout(r, 800));
-    setSaveState("saved");
-    toast({ title: "✅ Presentación guardada" });
-    setTimeout(() => setSaveState("idle"), 3000);
+      return;
+    }
+    try {
+      await persistence.flush();
+      toast({ title: "✅ Guardado" });
+    } catch {
+      toast({ title: "❌ No se pudo guardar", variant: "destructive" });
+    }
   };
 
   /* ── Real PDF Export ── */
@@ -2905,7 +2906,7 @@ const Editor = () => {
           </div>
           <input
             value={docTitle}
-            onChange={(e) => { setDocTitle(e.target.value); setSaveState("idle"); }}
+            onChange={(e) => setDocTitle(e.target.value)}
             className="text-sm font-bold text-foreground bg-transparent border-none outline-none focus:ring-0 w-64 truncate"
           />
           <div className="flex items-center gap-0.5 ml-2">
@@ -2915,22 +2916,33 @@ const Editor = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-            <Cloud size={12} className={saveState === "saved" ? "text-emerald-500" : "text-muted-foreground/50"} />
-            {saveState === "saving" ? "Sincronizando..." : saveState === "saved" ? "Guardado" : "Guardado automáticamente"}
-          </span>
+          {mode === "demo" && (
+            <span className="text-[11px] flex items-center gap-1.5 px-2 py-1 rounded bg-amber-500/10 text-amber-600 border border-amber-500/30">
+              <Tv size={12} /> Modo demo
+            </span>
+          )}
+          {mode === "legacy" && (
+            <span className="text-[11px] flex items-center gap-1.5 px-2 py-1 rounded bg-orange-500/10 text-orange-600 border border-orange-500/30">
+              <AlertTriangle size={12} /> Borrador local (no se guarda)
+            </span>
+          )}
+          {mode === "real" && (
+            <SaveIndicator
+              status={persistence.status}
+              lastSavedAt={persistence.lastSavedAt}
+              onRetry={persistence.retry}
+            />
+          )}
           <Button onClick={startPresenting} variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 border-border/40"><Play size={13} /> Presentar</Button>
           <Button onClick={handleExport} disabled={exporting} variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 border-border/40"><FileDown size={13} /> Exportar PDF</Button>
           <Button onClick={() => setShowCodeModal(true)} variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 border-border/40" title="Código Fuente (JSON)"><Braces size={13} /> Código</Button>
           <Button
             onClick={handleSave}
-            disabled={saveState === "saving"}
+            disabled={persistence.status === "saving" && mode === "real"}
             size="sm"
             className="h-8 px-4 text-xs gap-1.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold shadow-sm shadow-cyan-500/20"
           >
-            {saveState === "saving" ? (<><Loader2 size={13} className="animate-spin" /> Sincronizando...</>) :
-             saveState === "saved" ? (<><Check size={13} /> Guardado</>) :
-             (<><Save size={13} /> Guardar Cambios</>)}
+            <Save size={13} /> Guardar ahora
           </Button>
         </div>
       </div>
