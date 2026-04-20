@@ -1572,6 +1572,38 @@ const Parrilla = () => {
                 </motion.div>
               )}
 
+              {/* 🌐 Content Language */}
+              <div className="mb-4 space-y-2">
+                <p className="text-[11px] font-bold text-foreground uppercase tracking-wider">🌐 Idioma del contenido</p>
+                <Select value={language} onValueChange={(v) => setLanguage(v as "auto" | "es" | "en")}>
+                  <SelectTrigger className="bg-secondary/50 border-border h-9 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">🌐 Auto-detectar</SelectItem>
+                    <SelectItem value="es">🇪🇸 Español</SelectItem>
+                    <SelectItem value="en">🇺🇸 English</SelectItem>
+                  </SelectContent>
+                </Select>
+                {language === "auto" ? (
+                  detectedLanguage ? (
+                    <p className="text-[10px] text-emerald-400 font-medium px-1 transition-colors">
+                      Detectado: {detectedLanguage === "es" ? "Español 🇪🇸" : "English 🇺🇸"} ✓
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground px-1 leading-relaxed">
+                      Se detectará del chat y tu marca
+                    </p>
+                  )
+                ) : (
+                  <p className="text-[10px] text-muted-foreground px-1 leading-relaxed">
+                    {language === "es"
+                      ? "Forzado a Español — Nano Banano y los posts saldrán en este idioma"
+                      : "Forced to English — Nano Banano and posts will use this language"}
+                  </p>
+                )}
+              </div>
+
               {/* 📸 Product Photos */}
               <div className="mb-4 space-y-2.5">
                 <p className="text-[11px] font-bold text-foreground uppercase tracking-wider">📸 Fotos del Producto</p>
