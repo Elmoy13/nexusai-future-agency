@@ -35,7 +35,7 @@ const Brand = () => {
     (async () => {
       setLoading(true);
       const [{ data: b }, { data: js }] = await Promise.all([
-        supabase.from("brands").select("id, name, brief, logo_url").eq("id", id).maybeSingle(),
+        supabase.from("brands").select("id, name, brief, logo_url, primary_color, secondary_color, accent_colors, font_family").eq("id", id).maybeSingle(),
         supabase
           .from("generation_jobs")
           .select("id, campaign_description, status, created_at")
