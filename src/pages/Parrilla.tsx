@@ -1676,6 +1676,8 @@ const Parrilla = () => {
       brand_vision: brandVision || null,
       product_vision: productVision || null,
       product_images: productImages,
+      selected_product_ids: selectedProductIds,
+      draft_id: draftId,
       posts_config: postsConfig,
       include_logo_in_image: includeLogoInImage,
       include_text_in_image: includeTextInImage,
