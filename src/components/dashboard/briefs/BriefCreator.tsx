@@ -13,12 +13,32 @@ import {
   Image as ImageIcon,
   RotateCcw,
   Upload,
+  Check,
+  Loader2,
+  AlertCircle,
+  Wand2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { useDebouncedCallback } from "use-debounce";
 import ReactMarkdown from "react-markdown";
 import type { SlideElement } from "./campaignData";
 import { ScaledSlidePreview } from "@/components/agent/ScaledSlidePreview";
+import { useAgency } from "@/contexts/AgencyContext";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  createBrief,
+  getBrief,
+  updateBrief,
+  type BrandBrief,
+  type BriefKind,
+  type BriefPatch,
+  type ChatMessage as DbChatMessage,
+  type UploadedImage,
+} from "@/lib/briefService";
+import { createDraft } from "@/lib/draftService";
+import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const BASE_URL = "https://steady-potential-drug-advances.trycloudflare.com";
 
@@ -43,32 +63,66 @@ interface ApiSlide {
 }
 
 type Step = "welcome" | "interviewing" | "done";
+type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 const uid = () => `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+/* ── Serialization helpers ──────────────────────────────── */
+function toDbMessages(msgs: ChatMessage[]): DbChatMessage[] {
+  return msgs.map((m) => ({
+    role: m.role,
+    content: m.content,
+    timestamp: new Date().toISOString(),
+    attachments: m.images,
+    cta: m.cta,
+  }));
+}
+
+function fromDbMessages(msgs: DbChatMessage[] | null | undefined): ChatMessage[] {
+  if (!Array.isArray(msgs)) return [];
+  return msgs.map((m) => ({
+    id: uid(),
+    role: m.role,
+    content: m.content,
+    images: m.attachments,
+    cta: m.cta as "open-editor" | undefined,
+  }));
+}
 
 /* ── Component ───────────────────────────────────────────── */
 
 interface Props {
+  /** Legacy — optional display hint when no brief is bootstrapped */
   brandName?: string;
+  /** Required — controlled brief flow */
+  briefId?: string;
+  brandId?: string;
+  kind?: BriefKind;
+  /** Called after a brief is created so parent can sync URL */
+  onBriefCreated?: (briefId: string) => void;
 }
 
-const BriefCreator = ({ brandName }: Props) => {
+const BriefCreator = ({ brandName, briefId: briefIdProp, brandId, kind = "campaign", onBriefCreated }: Props) => {
   const navigate = useNavigate();
+  const { currentAgencyId } = useAgency();
+  const { user } = useAuth();
+
+  // Brief lifecycle
+  const [brief, setBrief] = useState<BrandBrief | null>(null);
+  const [briefId, setBriefId] = useState<string | null>(briefIdProp ?? null);
+  const [isHydrating, setIsHydrating] = useState<boolean>(!!briefIdProp || !!brandId);
+  const [resolvedBrandName, setResolvedBrandName] = useState<string | undefined>(brandName);
 
   // Session
-  const [sessionId] = useState(() => crypto.randomUUID());
+  const [sessionId, setSessionId] = useState<string>(() => crypto.randomUUID());
   const [step, setStep] = useState<Step>("welcome");
 
+  // Save status
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+
   // Chat
-  const [messages, setMessages] = useState<ChatMessage[]>(() => [
-    {
-      id: uid(),
-      role: "assistant",
-      content: brandName
-        ? `Listo. Voy a generar un brief para **"${brandName}"**. Arrastra logos/fotos de campaña aquí y cuéntame el objetivo.`
-        : "Hola. Soy tu **Agente Estratega**. Arrastra logos/fotos aquí y cuéntame el producto y a quién queremos venderle.",
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -77,6 +131,7 @@ const BriefCreator = ({ brandName }: Props) => {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [uploadedImageObjs, setUploadedImageObjs] = useState<UploadedImage[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const dragDepth = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -89,7 +144,136 @@ const BriefCreator = ({ brandName }: Props) => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
-  /* ── Upload file to backend ──────────────────────────── */
+  /* ── Bootstrap brief: hydrate or create ──────────────── */
+  useEffect(() => {
+    if (briefId && brief?.id === briefId) return;
+    if (!briefIdProp && !brandId) {
+      // Legacy standalone usage (Agent.tsx) — no persistence
+      setIsHydrating(false);
+      if (messages.length === 0) {
+        setMessages([
+          {
+            id: uid(),
+            role: "assistant",
+            content: brandName
+              ? `Listo. Voy a generar un brief para **"${brandName}"**. Arrastra logos/fotos y cuéntame el objetivo.`
+              : "Hola. Soy tu **Agente Estratega**. Arrastra logos/fotos aquí y cuéntame el producto y a quién queremos venderle.",
+          },
+        ]);
+      }
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      setIsHydrating(true);
+      try {
+        let target: BrandBrief | null = null;
+        if (briefIdProp) {
+          target = await getBrief(briefIdProp);
+          if (!target) throw new Error("No se encontró el brief");
+        } else if (brandId && currentAgencyId && user) {
+          target = await createBrief({
+            agencyId: currentAgencyId,
+            brandId,
+            kind,
+            userId: user.id,
+          });
+          onBriefCreated?.(target.id);
+        }
+
+        if (cancelled || !target) return;
+
+        // Hydrate states
+        setBrief(target);
+        setBriefId(target.id);
+        setSessionId(target.session_id ?? crypto.randomUUID());
+        const dbMsgs = fromDbMessages(target.chat_messages);
+        const imgs = Array.isArray(target.uploaded_images) ? target.uploaded_images : [];
+        const urls = imgs.map((i) => i.url);
+        setUploadedImages(urls);
+        setUploadedImageObjs(imgs);
+        if (urls.length > 0) setLogoUrl(urls[0]);
+        setPresentation(target.presentation ?? null);
+        setStep(target.status === "done" ? "done" : dbMsgs.length > 0 ? "interviewing" : "welcome");
+
+        // Fetch brand name for header
+        const { data: brandRow } = await supabase
+          .from("brands")
+          .select("name")
+          .eq("id", target.brand_id)
+          .maybeSingle();
+        const bName = (brandRow as any)?.name ?? brandName;
+        setResolvedBrandName(bName);
+
+        // Welcome message if chat empty
+        if (dbMsgs.length === 0) {
+          const kindLabel = target.kind === "strategic" ? "estratégico" : "de campaña";
+          setMessages([
+            {
+              id: uid(),
+              role: "assistant",
+              content: bName
+                ? `Listo. Vamos a crear un brief ${kindLabel} para **"${bName}"**. Arrastra logos/fotos y cuéntame el objetivo.`
+                : `Hola. Soy tu **Agente Estratega**. Voy a crear un brief ${kindLabel}. Arrastra logos/fotos aquí y cuéntame el producto.`,
+            },
+          ]);
+        } else {
+          setMessages(dbMsgs);
+        }
+      } catch (err: any) {
+        console.error("[BriefCreator] hydration error:", err);
+        toast({
+          title: "Error cargando brief",
+          description: err?.message || "Intenta de nuevo",
+          variant: "destructive",
+        });
+      } finally {
+        if (!cancelled) setIsHydrating(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [briefIdProp, brandId, currentAgencyId, user, kind]);
+
+  /* ── Auto-save debounced ─────────────────────────────── */
+  const persistBrief = useDebouncedCallback(async (patch: BriefPatch) => {
+    if (!briefId) return;
+    try {
+      setSaveStatus("saving");
+      await updateBrief(briefId, patch);
+      setSaveStatus("saved");
+      setLastSaved(new Date());
+    } catch (err) {
+      setSaveStatus("error");
+      console.error("[BriefCreator] save error:", err);
+    }
+  }, 2000);
+
+  // Save messages
+  useEffect(() => {
+    if (!briefId || isHydrating) return;
+    if (messages.length === 0) return;
+    persistBrief({ chat_messages: toDbMessages(messages) });
+  }, [messages, briefId, isHydrating, persistBrief]);
+
+  // Save uploaded images
+  useEffect(() => {
+    if (!briefId || isHydrating) return;
+    persistBrief({ uploaded_images: uploadedImageObjs });
+  }, [uploadedImageObjs, briefId, isHydrating, persistBrief]);
+
+  // Save presentation + status
+  useEffect(() => {
+    if (!briefId || isHydrating) return;
+    if (step === "done" && presentation) {
+      persistBrief({ status: "done", presentation });
+    }
+  }, [step, presentation, briefId, isHydrating, persistBrief]);
+
+  /* ── Upload file ─────────────────────────────────────── */
   const uploadFile = useCallback(async (file: File): Promise<string | null> => {
     try {
       const fd = new FormData();
@@ -107,13 +291,11 @@ const BriefCreator = ({ brandName }: Props) => {
     }
   }, []);
 
-  /* ── Add files from drag/drop or input ───────────────── */
   const addFiles = useCallback(
     async (files: FileList | File[]) => {
       const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
       if (!list.length) return;
 
-      // Show local previews
       const newAttachments: Attachment[] = list.map((file) => ({
         id: uid(),
         file,
@@ -121,12 +303,19 @@ const BriefCreator = ({ brandName }: Props) => {
       }));
       setAttachments((prev) => [...prev, ...newAttachments].slice(0, 10));
 
-      // Upload each to backend
       for (const file of list) {
         const serverUrl = await uploadFile(file);
         if (serverUrl) {
           if (!logoUrl) setLogoUrl(serverUrl);
           setUploadedImages((prev) => [...prev, serverUrl]);
+          setUploadedImageObjs((prev) => [
+            ...prev,
+            {
+              url: serverUrl,
+              filename: file.name,
+              uploaded_at: new Date().toISOString(),
+            },
+          ]);
 
           setMessages((prev) => [
             ...prev,
@@ -142,7 +331,7 @@ const BriefCreator = ({ brandName }: Props) => {
     [logoUrl, uploadFile],
   );
 
-  /* ── Drag & Drop handlers ────────────────────────────── */
+  /* ── Drag & Drop ─────────────────────────────────────── */
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -220,7 +409,6 @@ const BriefCreator = ({ brandName }: Props) => {
 
       const data = await res.json();
 
-      // Assistant reply
       setMessages((prev) => [
         ...prev,
         {
@@ -231,7 +419,6 @@ const BriefCreator = ({ brandName }: Props) => {
         },
       ]);
 
-      // Presentation
       if (
         data.status === "done" &&
         Array.isArray(data.presentation) &&
@@ -261,15 +448,28 @@ const BriefCreator = ({ brandName }: Props) => {
         method: "DELETE",
       });
     } catch {}
+
+    if (briefId) {
+      try {
+        await updateBrief(briefId, {
+          chat_messages: [],
+          uploaded_images: [],
+          presentation: null,
+          status: "interviewing",
+        });
+      } catch (err) {
+        console.error("[BriefCreator] reset error:", err);
+      }
+    }
     window.location.reload();
-  }, [sessionId]);
+  }, [sessionId, briefId]);
 
   /* ── Open editor ─────────────────────────────────────── */
   const handleOpenEditor = useCallback(() => {
     if (!presentation) return;
-    const id = `agent-${Date.now()}`;
+    const id = briefId ?? `agent-${Date.now()}`;
     const draft = {
-      docTitle: brandName ? `${brandName} — Brief` : "Brief Estratégico",
+      docTitle: resolvedBrandName ? `${resolvedBrandName} — Brief` : "Brief Estratégico",
       slidesElements: presentation.map((s) => s.elements),
       slideMeta: presentation.map((s) => ({
         id: s.id,
@@ -281,15 +481,76 @@ const BriefCreator = ({ brandName }: Props) => {
     };
     sessionStorage.setItem(`presentation_draft_${id}`, JSON.stringify(draft));
     navigate(`/editor/${id}`);
-  }, [presentation, brandName, navigate]);
+  }, [presentation, resolvedBrandName, navigate, briefId]);
 
-  /* ── Slide count label ───────────────────────────────── */
+  /* ── Open parrilla from brief ─────────────────────────── */
+  const handleCreateParrilla = useCallback(async () => {
+    if (!brief || !currentAgencyId || !user) return;
+    try {
+      const draft = await createDraft({
+        agencyId: currentAgencyId,
+        brandId: brief.brand_id,
+        userId: user.id,
+        title: `Parrilla — ${brief.title}`,
+        briefId: brief.id,
+        config: brief.extracted_config || {},
+      });
+      navigate(`/parrilla/nueva?draft_id=${draft.id}`);
+    } catch (err: any) {
+      toast({
+        title: "No se pudo crear la parrilla",
+        description: err?.message || "Intenta de nuevo",
+        variant: "destructive",
+      });
+    }
+  }, [brief, currentAgencyId, user, navigate]);
+
   const slideLabel = useMemo(() => {
     if (!presentation) return null;
     return `${presentation.length} slide${presentation.length !== 1 ? "s" : ""}`;
   }, [presentation]);
 
+  const saveIndicator = useMemo(() => {
+    if (!briefId) return null;
+    if (saveStatus === "saving") {
+      return (
+        <span className="flex items-center gap-1 text-[10px] text-amber-400">
+          <Loader2 size={10} className="animate-spin" /> Guardando…
+        </span>
+      );
+    }
+    if (saveStatus === "error") {
+      return (
+        <button
+          onClick={() => persistBrief.flush()}
+          className="flex items-center gap-1 text-[10px] text-destructive hover:underline"
+        >
+          <AlertCircle size={10} /> Error — reintentar
+        </button>
+      );
+    }
+    if (saveStatus === "saved" && lastSaved) {
+      const secs = Math.max(1, Math.floor((Date.now() - lastSaved.getTime()) / 1000));
+      return (
+        <span className="flex items-center gap-1 text-[10px] text-emerald-400">
+          <Check size={10} /> Guardado
+        </span>
+      );
+    }
+    return null;
+  }, [saveStatus, lastSaved, briefId, persistBrief]);
+
   /* ── Render ──────────────────────────────────────────── */
+  if (isHydrating) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="flex items-center gap-3 text-muted-foreground text-sm">
+          <Loader2 size={16} className="animate-spin" /> Cargando brief…
+        </div>
+      </div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -305,7 +566,6 @@ const BriefCreator = ({ brandName }: Props) => {
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        {/* Drag overlay */}
         <AnimatePresence>
           {isDragging && (
             <motion.div
@@ -327,7 +587,6 @@ const BriefCreator = ({ brandName }: Props) => {
           )}
         </AnimatePresence>
 
-        {/* Header */}
         <div className="p-5 border-b border-border/40 flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-primary/15 border border-primary/25 flex items-center justify-center">
             <Zap size={16} className="text-primary" />
@@ -335,10 +594,12 @@ const BriefCreator = ({ brandName }: Props) => {
           <div>
             <h3 className="text-sm font-semibold text-foreground">Agente Estratega</h3>
             <p className="text-[11px] text-muted-foreground">
-              {brandName ? `Contexto: ${brandName}` : "Powered by NexusAI"}
+              {resolvedBrandName ? `Contexto: ${resolvedBrandName}` : "Powered by NexusAI"}
+              {brief ? ` · Brief ${brief.kind === "strategic" ? "estratégico" : "de campaña"}` : ""}
             </p>
           </div>
           <div className="ml-auto flex items-center gap-3">
+            {saveIndicator}
             <button
               onClick={handleReset}
               className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
@@ -407,9 +668,20 @@ const BriefCreator = ({ brandName }: Props) => {
                     ) : null}
 
                     {msg.cta === "open-editor" && (
-                      <Button onClick={handleOpenEditor} className="w-full h-12 text-sm font-semibold">
-                        Abrir en el Editor Avanzado
-                      </Button>
+                      <div className="grid grid-cols-1 gap-2">
+                        <Button onClick={handleOpenEditor} className="w-full h-11 text-sm font-semibold">
+                          Abrir en el Editor Avanzado
+                        </Button>
+                        {brief && (
+                          <Button
+                            onClick={handleCreateParrilla}
+                            variant="secondary"
+                            className="w-full h-11 text-sm font-semibold gap-2"
+                          >
+                            <Wand2 size={14} /> Crear parrilla con este brief
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
@@ -417,7 +689,6 @@ const BriefCreator = ({ brandName }: Props) => {
             ))}
           </AnimatePresence>
 
-          {/* Typing indicator */}
           {isLoading && (
             <motion.div
               initial={{ opacity: 0 }}
@@ -435,7 +706,6 @@ const BriefCreator = ({ brandName }: Props) => {
           <div ref={chatEndRef} />
         </div>
 
-        {/* Attachments strip */}
         {attachments.length > 0 && (
           <div className="px-4 pb-2">
             <div className="flex items-center gap-2 overflow-x-auto py-2">
