@@ -39,6 +39,7 @@ import {
 import { createDraft } from "@/lib/draftService";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { apiCall, getAuthHeaders, API_URL } from "@/lib/apiClient";
 
 const BASE_URL = "https://representative-tier-customize-bonus.trycloudflare.com";
 
@@ -304,10 +305,18 @@ const BriefCreator = ({ brandName, briefId: briefIdProp, brandId, kind = "campai
     try {
       const fd = new FormData();
       fd.append("file", file);
+      const authHeaders = await getAuthHeaders();
       const res = await fetch(`${BASE_URL}/api/v1/agent/upload`, {
         method: "POST",
+        headers: authHeaders, // No Content-Type — browser sets it with boundary
         body: fd,
       });
+      if (res.status === 401) {
+        toast({ title: "Sesión expirada", description: "Vuelve a iniciar sesión", variant: "destructive" });
+        await supabase.auth.signOut();
+        window.location.href = "/login";
+        return null;
+      }
       if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
       const data = await res.json();
       return data.url as string;
@@ -414,9 +423,10 @@ const BriefCreator = ({ brandName, briefId: briefIdProp, brandId, kind = "campai
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 120_000);
 
+      const authHeaders = await getAuthHeaders();
       const res = await fetch(`${BASE_URL}/api/v1/agent/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({
           session_id: sessionId,
           message: text,
@@ -427,6 +437,13 @@ const BriefCreator = ({ brandName, briefId: briefIdProp, brandId, kind = "campai
       });
 
       clearTimeout(timeout);
+
+      if (res.status === 401) {
+        toast({ title: "Sesión expirada", description: "Vuelve a iniciar sesión", variant: "destructive" });
+        await supabase.auth.signOut();
+        window.location.href = "/login";
+        return;
+      }
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -470,8 +487,10 @@ const BriefCreator = ({ brandName, briefId: briefIdProp, brandId, kind = "campai
   /* ── Reset session ───────────────────────────────────── */
   const handleReset = useCallback(async () => {
     try {
+      const authHeaders = await getAuthHeaders();
       await fetch(`${BASE_URL}/api/v1/agent/session/${sessionId}`, {
         method: "DELETE",
+        headers: authHeaders,
       });
     } catch {}
 
