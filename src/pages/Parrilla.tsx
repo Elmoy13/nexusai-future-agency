@@ -1039,7 +1039,14 @@ const EditPostModal = ({ post, open, onClose, onSave, brand }: {
 /* ── Main Page ── */
 const Parrilla = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { currentAgencyId } = useAgency();
+  const { user } = useAuth();
+
+  const isNewParrilla = id === "nueva" || !id;
+  const queryDraftId = searchParams.get("draft_id");
+  const queryBrandId = searchParams.get("brand_id");
 
   const [activePlatform, setActivePlatform] = useState<string>("instagram");
   const [posts, setPosts] = useState<PostCard[]>([]);
@@ -1048,14 +1055,19 @@ const Parrilla = () => {
   const [generationProgress, setGenerationProgress] = useState<{ completed: number; total: number } | null>(null);
   const [isClientView, setIsClientView] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("kanban");
-  const isNewParrilla = id === "nueva" || !id;
-  const [brandAssets, setBrandAssets] = useState<string[]>(() => {
-    if (isNewParrilla) return [];
-    try {
-      const savedLogo = localStorage.getItem(getLogoStorageKey(id));
-      return savedLogo ? [savedLogo] : [];
-    } catch { return []; }
-  });
+
+  // Draft state
+  const [draftId, setDraftId] = useState<string | null>(queryDraftId);
+  const [brandId, setBrandId] = useState<string | null>(queryBrandId);
+  const [draftHydrated, setDraftHydrated] = useState<boolean>(!isNewParrilla);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+
+  // Logo: in-memory only (persisted to Supabase Storage when uploaded).
+  // We keep b64 for backend AI calls until the backend accepts logo URL directly.
+  const [currentLogoB64, setCurrentLogoB64] = useState<string | null>(null);
+  const [currentLogoUrl, setCurrentLogoUrl] = useState<string | null>(null);
+  const [brandAssets, setBrandAssets] = useState<string[]>([]);
   const [brandAssetBlobs, setBrandAssetBlobs] = useState<Blob[]>([]);
   const [productImages, setProductImages] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1068,7 +1080,7 @@ const Parrilla = () => {
   const [optionsPerPost, setOptionsPerPost] = useState(2);
 
   const [generatingStatus, setGeneratingStatus] = useState("");
-  const [brand, setBrand] = useState<BrandProfile>(() => isNewParrilla ? DEFAULT_BRAND : loadBrand(id));
+  const [brand, setBrand] = useState<BrandProfile>(DEFAULT_BRAND);
 
   // Chat state (real AI)
   const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
@@ -1078,23 +1090,13 @@ const Parrilla = () => {
   const [brandVision, setBrandVision] = useState<any>(null);
   const [productVision, setProductVision] = useState<any>(null);
   const [isAnalyzingProduct, setIsAnalyzingProduct] = useState(false);
-  const [brandName, setBrandName] = useState<string>(() => {
-    if (isNewParrilla) return "";
-    try { return localStorage.getItem(getBrandNameStorageKey(id)) || ""; } catch { return ""; }
-  });
+  const [brandName, setBrandName] = useState<string>("");
   const [editingPost, setEditingPost] = useState<PostCard | null>(null);
   const [previewIndex, setPreviewIndex] = useState(-1);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const parrillaGridRef = useRef<HTMLDivElement>(null);
   const [isAnalyzingBrand, setIsAnalyzingBrand] = useState(false);
-  const [brandDetected, setBrandDetected] = useState(() => {
-    if (isNewParrilla) return false;
-    try {
-      const hasLogo = !!localStorage.getItem(getLogoStorageKey(id));
-      const hasBrand = !!localStorage.getItem(getBrandStorageKey(id));
-      return hasLogo && hasBrand;
-    } catch { return false; }
-  });
+  const [brandDetected, setBrandDetected] = useState(false);
   const [includeLogoInImage, setIncludeLogoInImage] = useState(false);
   const [includeTextInImage, setIncludeTextInImage] = useState(false);
   const [language, setLanguage] = useState<"auto" | "es" | "en">("auto");
