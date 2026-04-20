@@ -81,7 +81,7 @@ const Dashboard = () => {
 
       const { data: bs } = await supabase
         .from("brands")
-        .select("id, name, brief, logo_url, created_at")
+        .select("id, name, brief, logo_url, primary_color, secondary_color, accent_colors, font_family, created_at")
         .eq("agency_id", currentAgencyId)
         .order("created_at", { ascending: false });
 
