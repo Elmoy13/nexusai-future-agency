@@ -26,6 +26,8 @@ import BriefsModule from "@/components/dashboard/BriefsModule";
 import ParrillasHub from "@/components/dashboard/ParrillasHub";
 import CommunityHub from "@/components/dashboard/CommunityHub";
 import InboxModule from "@/components/dashboard/InboxModule";
+import DraftsSection from "@/components/dashboard/DraftsSection";
+import { runLegacyLocalStorageMigration } from "@/lib/legacyMigration";
 
 interface Brand {
   id: string;
@@ -95,6 +97,10 @@ const Dashboard = () => {
 
   const firstName = (profile?.full_name || user?.email || "").split(" ")[0] || "👋";
 
+  // One-shot cleanup of legacy localStorage entries (logos en b64, etc.)
+  useEffect(() => {
+    runLegacyLocalStorageMigration();
+  }, []);
   useEffect(() => {
     if (!currentAgencyId) return;
     if (view !== "brands") return;
@@ -349,6 +355,8 @@ const Dashboard = () => {
                   </div>
                 )}
               </section>
+
+              <DraftsSection />
             </div>
           )}
 

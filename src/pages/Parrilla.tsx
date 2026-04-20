@@ -1,6 +1,11 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useDebouncedCallback } from "use-debounce";
+import { useAgency } from "@/contexts/AgencyContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { createDraft, getDraft, patchDraft, deleteDraft, type DraftRow } from "@/lib/draftService";
+import { uploadBrandLogo, base64ToBlob } from "@/lib/brandStorage";
 
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -82,10 +87,6 @@ interface BrandProfile {
   background_suggestion: string;
 }
 
-const getBrandStorageKey = (parrillaId?: string) => `brand_profile_${parrillaId || "default"}`;
-const getLogoStorageKey = (parrillaId?: string) => `brand_logo_${parrillaId || "default"}`;
-const getBrandNameStorageKey = (parrillaId?: string) => `brand_name_${parrillaId || "default"}`;
-
 const DEFAULT_BRAND: BrandProfile = {
   primary_color: "#FF6B35",
   secondary_color: "#004E89",
@@ -97,20 +98,8 @@ const DEFAULT_BRAND: BrandProfile = {
   background_suggestion: "dark",
 };
 
-function loadBrand(parrillaId?: string): BrandProfile {
-  try {
-    const saved = localStorage.getItem(getBrandStorageKey(parrillaId));
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return { ...DEFAULT_BRAND, ...parsed };
-    }
-  } catch {}
-  return DEFAULT_BRAND;
-}
-
-function saveBrand(b: BrandProfile, parrillaId?: string) {
-  localStorage.setItem(getBrandStorageKey(parrillaId), JSON.stringify(b));
-}
+// Save status indicator for the draft auto-save
+type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://steady-potential-drug-advances.trycloudflare.com";
 
@@ -1050,7 +1039,14 @@ const EditPostModal = ({ post, open, onClose, onSave, brand }: {
 /* ── Main Page ── */
 const Parrilla = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { currentAgencyId } = useAgency();
+  const { user } = useAuth();
+
+  const isNewParrilla = id === "nueva" || !id;
+  const queryDraftId = searchParams.get("draft_id");
+  const queryBrandId = searchParams.get("brand_id");
 
   const [activePlatform, setActivePlatform] = useState<string>("instagram");
   const [posts, setPosts] = useState<PostCard[]>([]);
@@ -1059,14 +1055,19 @@ const Parrilla = () => {
   const [generationProgress, setGenerationProgress] = useState<{ completed: number; total: number } | null>(null);
   const [isClientView, setIsClientView] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("kanban");
-  const isNewParrilla = id === "nueva" || !id;
-  const [brandAssets, setBrandAssets] = useState<string[]>(() => {
-    if (isNewParrilla) return [];
-    try {
-      const savedLogo = localStorage.getItem(getLogoStorageKey(id));
-      return savedLogo ? [savedLogo] : [];
-    } catch { return []; }
-  });
+
+  // Draft state
+  const [draftId, setDraftId] = useState<string | null>(queryDraftId);
+  const [brandId, setBrandId] = useState<string | null>(queryBrandId);
+  const [draftHydrated, setDraftHydrated] = useState<boolean>(!isNewParrilla);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+
+  // Logo: in-memory only (persisted to Supabase Storage when uploaded).
+  // We keep b64 for backend AI calls until the backend accepts logo URL directly.
+  const [currentLogoB64, setCurrentLogoB64] = useState<string | null>(null);
+  const [currentLogoUrl, setCurrentLogoUrl] = useState<string | null>(null);
+  const [brandAssets, setBrandAssets] = useState<string[]>([]);
   const [brandAssetBlobs, setBrandAssetBlobs] = useState<Blob[]>([]);
   const [productImages, setProductImages] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1079,7 +1080,7 @@ const Parrilla = () => {
   const [optionsPerPost, setOptionsPerPost] = useState(2);
 
   const [generatingStatus, setGeneratingStatus] = useState("");
-  const [brand, setBrand] = useState<BrandProfile>(() => isNewParrilla ? DEFAULT_BRAND : loadBrand(id));
+  const [brand, setBrand] = useState<BrandProfile>(DEFAULT_BRAND);
 
   // Chat state (real AI)
   const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
@@ -1089,23 +1090,13 @@ const Parrilla = () => {
   const [brandVision, setBrandVision] = useState<any>(null);
   const [productVision, setProductVision] = useState<any>(null);
   const [isAnalyzingProduct, setIsAnalyzingProduct] = useState(false);
-  const [brandName, setBrandName] = useState<string>(() => {
-    if (isNewParrilla) return "";
-    try { return localStorage.getItem(getBrandNameStorageKey(id)) || ""; } catch { return ""; }
-  });
+  const [brandName, setBrandName] = useState<string>("");
   const [editingPost, setEditingPost] = useState<PostCard | null>(null);
   const [previewIndex, setPreviewIndex] = useState(-1);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const parrillaGridRef = useRef<HTMLDivElement>(null);
   const [isAnalyzingBrand, setIsAnalyzingBrand] = useState(false);
-  const [brandDetected, setBrandDetected] = useState(() => {
-    if (isNewParrilla) return false;
-    try {
-      const hasLogo = !!localStorage.getItem(getLogoStorageKey(id));
-      const hasBrand = !!localStorage.getItem(getBrandStorageKey(id));
-      return hasLogo && hasBrand;
-    } catch { return false; }
-  });
+  const [brandDetected, setBrandDetected] = useState(false);
   const [includeLogoInImage, setIncludeLogoInImage] = useState(false);
   const [includeTextInImage, setIncludeTextInImage] = useState(false);
   const [language, setLanguage] = useState<"auto" | "es" | "en">("auto");
@@ -1153,7 +1144,151 @@ const Parrilla = () => {
     link.href = `https://fonts.googleapis.com/css2?family=${fontName}:wght@400;700;900&display=swap`;
   }, [brand.font_family]);
 
-  useEffect(() => { saveBrand(brand, id); }, [brand, id]);
+  // ───────── Draft hydration & auto-save (Figma-style) ─────────
+  // Hydrate from existing draft (?draft_id=) or create one (?brand_id=) on first mount.
+  useEffect(() => {
+    if (!isNewParrilla) return;
+    if (!currentAgencyId || !user) return;
+    if (draftHydrated) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        // Case A: ?draft_id → load existing
+        if (queryDraftId) {
+          const d = await getDraft(queryDraftId);
+          if (cancelled) return;
+          if (!d) {
+            toast({ title: "Borrador no encontrado", variant: "destructive" });
+            navigate("/dashboard");
+            return;
+          }
+          setDraftId(d.id);
+          setBrandId(d.brand_id);
+          const cfg = (d.config as any) || {};
+          if (cfg.brand) setBrand({ ...DEFAULT_BRAND, ...cfg.brand });
+          if (cfg.brandName) setBrandName(cfg.brandName);
+          if (cfg.brandVision) { setBrandVision(cfg.brandVision); setBrandDetected(true); }
+          if (cfg.productVision) setProductVision(cfg.productVision);
+          if (cfg.platforms) setPlatforms(cfg.platforms);
+          if (Array.isArray(cfg.selectedFormats)) setSelectedFormats(new Set(cfg.selectedFormats));
+          if (cfg.frequency) setFrequency(cfg.frequency);
+          if (cfg.objective) setObjective(cfg.objective);
+          if (typeof cfg.optionsPerPost === "number") setOptionsPerPost(cfg.optionsPerPost);
+          if (typeof cfg.includeLogoInImage === "boolean") setIncludeLogoInImage(cfg.includeLogoInImage);
+          if (typeof cfg.includeTextInImage === "boolean") setIncludeTextInImage(cfg.includeTextInImage);
+          if (cfg.language) setLanguage(cfg.language);
+          if (cfg.logoUrl) { setCurrentLogoUrl(cfg.logoUrl); setBrandAssets([cfg.logoUrl]); }
+          if (Array.isArray(d.chat_messages) && d.chat_messages.length > 0) setChatMessages(d.chat_messages as any);
+          setDraftHydrated(true);
+          return;
+        }
+
+        // Case B: ?brand_id → create new draft
+        if (queryBrandId) {
+          const created = await createDraft({
+            agencyId: currentAgencyId,
+            brandId: queryBrandId,
+            userId: user.id,
+          });
+          if (cancelled) return;
+          setDraftId(created.id);
+          setBrandId(queryBrandId);
+          // Load existing brand info to pre-fill
+          const { data: brandRow } = await supabase
+            .from("brands")
+            .select("name, logo_url, primary_color, secondary_color, accent_colors, font_family")
+            .eq("id", queryBrandId)
+            .maybeSingle();
+          if (brandRow && !cancelled) {
+            if (brandRow.name) setBrandName(brandRow.name);
+            if (brandRow.logo_url) {
+              setCurrentLogoUrl(brandRow.logo_url);
+              setBrandAssets([brandRow.logo_url]);
+              setBrandDetected(true);
+            }
+            if (brandRow.primary_color) {
+              setBrand((prev) => ({
+                ...prev,
+                primary_color: brandRow.primary_color || prev.primary_color,
+                secondary_color: brandRow.secondary_color || prev.secondary_color,
+                font_family: brandRow.font_family || prev.font_family,
+              }));
+            }
+          }
+          // Reflect draft_id in URL so refresh works
+          setSearchParams({ draft_id: created.id }, { replace: true });
+          setDraftHydrated(true);
+          return;
+        }
+
+        // Case C: no params → just allow user to pick brand later (legacy flow)
+        setDraftHydrated(true);
+      } catch (err: any) {
+        console.error("[parrilla] hydration error", err);
+        toast({ title: "Error cargando borrador", description: err?.message, variant: "destructive" });
+        setDraftHydrated(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isNewParrilla, currentAgencyId, user, queryDraftId, queryBrandId, draftHydrated, navigate, setSearchParams]);
+
+  // Debounced auto-save
+  const persistDraft = useDebouncedCallback(async () => {
+    if (!draftId) return;
+    setSaveStatus("saving");
+    try {
+      await patchDraft(draftId, {
+        title: brandName ? `${brandName} · Parrilla` : null,
+        chat_messages: chatMessages,
+        config: {
+          brand,
+          brandName,
+          brandVision,
+          productVision,
+          platforms,
+          selectedFormats: Array.from(selectedFormats),
+          frequency,
+          objective,
+          optionsPerPost,
+          includeLogoInImage,
+          includeTextInImage,
+          language,
+          logoUrl: currentLogoUrl,
+        },
+        last_step: hasGenerated ? "generated" : "configuring",
+      });
+      setSaveStatus("saved");
+      setLastSavedAt(new Date());
+    } catch (err) {
+      console.error("[parrilla] auto-save failed", err);
+      setSaveStatus("error");
+    }
+  }, 2000);
+
+  // Trigger save on any tracked change (after hydration)
+  useEffect(() => {
+    if (!draftHydrated || !draftId) return;
+    persistDraft();
+  }, [
+    draftHydrated, draftId, persistDraft,
+    chatMessages, brand, brandName, brandVision, productVision,
+    platforms, selectedFormats, frequency, objective, optionsPerPost,
+    includeLogoInImage, includeTextInImage, language, currentLogoUrl, hasGenerated,
+  ]);
+
+  const handleDiscardDraft = useCallback(async () => {
+    if (!draftId) { navigate("/dashboard"); return; }
+    if (!confirm("¿Descartar este borrador? Esta acción no se puede deshacer.")) return;
+    try {
+      await deleteDraft(draftId);
+      toast({ title: "Borrador descartado" });
+      navigate("/dashboard");
+    } catch (err: any) {
+      toast({ title: "Error al descartar", description: err?.message, variant: "destructive" });
+    }
+  }, [draftId, navigate]);
+
 
   // Send chat message to AI
   const sendChatMessage = useCallback(async (userMessage: string) => {
@@ -1278,7 +1413,6 @@ const Parrilla = () => {
         setBrandVision(data.vision_analysis);
         if (data.vision_analysis.brand_name_detected && !brandName) {
           setBrandName(data.vision_analysis.brand_name_detected);
-          try { localStorage.setItem(getBrandNameStorageKey(id), data.vision_analysis.brand_name_detected); } catch {}
         }
       }
       toast({ title: "✨ Marca analizada con IA visual", description: "Colores, tipografía y personalidad detectados." });
@@ -1324,13 +1458,35 @@ const Parrilla = () => {
     setBrandAssetBlobs((prev) => [...prev, file]);
     toast({ title: "✅ Logo cargado", description: "Analizando identidad de marca..." });
     const reader = new FileReader();
-    reader.onloadend = () => {
+    reader.onloadend = async () => {
       const b64 = reader.result as string;
-      try { localStorage.setItem(getLogoStorageKey(id), b64); } catch {}
+      setCurrentLogoB64(b64);
+
+      // Persist logo to Supabase Storage in background (only if we have a brand)
+      if (currentAgencyId && brandId) {
+        try {
+          const blob = await base64ToBlob(b64);
+          const { publicUrl } = await uploadBrandLogo({
+            file: blob,
+            agencyId: currentAgencyId,
+            brandId,
+            filename: file.name,
+          });
+          setCurrentLogoUrl(publicUrl);
+        } catch (err: any) {
+          console.error("[parrilla] logo upload failed", err);
+          toast({
+            title: "⚠️ El logo no se guardó en la nube",
+            description: err?.message || "Sigue cargado para esta sesión. Reintenta más tarde.",
+            variant: "destructive",
+          });
+        }
+      }
+
       analyzeBrand(b64);
     };
     reader.readAsDataURL(file);
-  }, [analyzeBrand]);
+  }, [analyzeBrand, currentAgencyId, brandId]);
 
   const handleProductImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -1421,9 +1577,8 @@ const Parrilla = () => {
       }
     }
 
-    // Get logo b64
-    let logoB64: string | undefined;
-    try { logoB64 = localStorage.getItem(getLogoStorageKey(id)) || undefined; } catch {}
+    // Get logo b64 (from in-memory state or blob)
+    let logoB64: string | undefined = currentLogoB64 || undefined;
     if (!logoB64 && brandAssetBlobs.length > 0) {
       logoB64 = await blobToBase64(brandAssetBlobs[0]);
     }
@@ -1644,8 +1799,7 @@ const Parrilla = () => {
   const handleRegenerateSingle = useCallback(async (post: PostCard) => {
     setPosts(prev => prev.map(p => p.id === post.id ? { ...p, isRendering: true, error: null } : p));
     try {
-      let logoB64: string | undefined;
-      try { logoB64 = localStorage.getItem(getLogoStorageKey(id)) || undefined; } catch {}
+      let logoB64: string | undefined = currentLogoB64 || undefined;
       if (!logoB64 && brandAssetBlobs.length > 0) logoB64 = await blobToBase64(brandAssetBlobs[0]);
       const newImage = await renderPost(post, logoB64);
       setPosts(prev => prev.map(p => p.id === post.id ? { ...p, image: newImage, isRendering: false, error: null } : p));
@@ -1767,6 +1921,29 @@ const Parrilla = () => {
               </div>
             </div>
             <div className="flex items-center gap-4">
+              {/* Auto-save indicator */}
+              {isNewParrilla && draftId && (
+                <div className="flex items-center gap-1.5 text-[11px] font-mono">
+                  {saveStatus === "saving" && (
+                    <span className="flex items-center gap-1 text-amber-400"><Loader2 size={11} className="animate-spin" /> Guardando…</span>
+                  )}
+                  {saveStatus === "saved" && lastSavedAt && (
+                    <span className="flex items-center gap-1 text-emerald-400"><Check size={11} /> Guardado</span>
+                  )}
+                  {saveStatus === "error" && (
+                    <span className="flex items-center gap-1 text-destructive">⚠️ Error al guardar</span>
+                  )}
+                  {saveStatus === "idle" && (
+                    <span className="text-muted-foreground/60">Borrador</span>
+                  )}
+                  <button
+                    onClick={handleDiscardDraft}
+                    className="ml-2 text-muted-foreground/60 hover:text-destructive bg-transparent border-none cursor-pointer text-[11px] underline-offset-2 hover:underline"
+                  >
+                    Descartar
+                  </button>
+                </div>
+              )}
               <Button
                 onClick={handleApproveAll}
                 disabled={posts.length === 0}
@@ -1801,10 +1978,7 @@ const Parrilla = () => {
                 <label className="text-[11px] font-bold text-foreground uppercase tracking-wider">Nombre de tu marca</label>
                 <Input
                   value={brandName}
-                  onChange={(e) => {
-                    setBrandName(e.target.value);
-                    try { localStorage.setItem(getBrandNameStorageKey(id), e.target.value); } catch {}
-                  }}
+                  onChange={(e) => setBrandName(e.target.value)}
                   placeholder="Ej: Bacachito Feliz"
                   className="bg-secondary/50 border-border h-9 text-sm"
                 />
@@ -1848,11 +2022,11 @@ const Parrilla = () => {
                           setBrandDetected(false);
                           setBrandVision(null);
                           setBrand(DEFAULT_BRAND);
-                          try {
-                            localStorage.removeItem(getLogoStorageKey(id));
-                            localStorage.removeItem(getBrandStorageKey(id));
-                          } catch {}
-                          toast({ title: "Logo eliminado" });
+                          setCurrentLogoB64(null);
+                          setCurrentLogoUrl(null);
+                          // Note: el logo en Supabase Storage se conserva como histórico.
+                          // Para borrarlo en serio, hay que sobrescribir desde la página de la marca.
+                          toast({ title: "Logo eliminado de esta sesión" });
                         }}
                         className="h-8 text-xs gap-1.5 bg-destructive/20 text-destructive hover:bg-destructive/30 border-destructive/30"
                       >

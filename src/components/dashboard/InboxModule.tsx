@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAgency } from "@/contexts/AgencyContext";
 
 const WEBHOOK_URL = "https://steady-potential-drug-advances.trycloudflare.com/api/webhook/chat";
 const STORAGE_KEY = "inbox_selected_brand_id";
@@ -31,7 +32,8 @@ interface Message {
 
 const InboxModule = () => {
   const navigate = useNavigate();
-  const { user, currentAgencyId } = useAuth();
+  const { user } = useAuth();
+  const { currentAgencyId } = useAgency();
 
   const [brands, setBrands] = useState<Brand[] | null>(null);
   const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
