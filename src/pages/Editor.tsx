@@ -9,6 +9,14 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { useHistory } from "@/hooks/useHistory";
+import { useEditorPersistence } from "@/hooks/useEditorPersistence";
+import {
+  getBrief,
+  isUuid,
+  type BrandBrief,
+  type EditorState,
+  type EditorSlideMeta,
+} from "@/lib/briefService";
 import {
   ArrowLeft, Save, FileDown, Check, Loader2,
   LayoutTemplate, Type, Image, Hexagon, Sparkles,
@@ -19,7 +27,7 @@ import {
   Smartphone, Monitor, Tablet, Globe, Linkedin, Youtube, Twitter, 
   RectangleHorizontal, Square, Copy, MoveLeft, MoveRight, PaintBucket,
   Shapes, Film, Circle, Triangle, Star, Zap, ChevronDown, Wand2, Braces, ClipboardCopy, ClipboardCheck,
-  Download, Upload,
+  Download, Upload, AlertTriangle, Home, Tv,
 } from "lucide-react";
 import { initialCampaigns } from "@/components/dashboard/briefs/campaignData";
 import type { SlideData, SlideElement } from "@/components/dashboard/briefs/campaignData";
@@ -2190,37 +2198,82 @@ const PresentationSlide = ({
   );
 };
 
+/* ── Indicador de auto-save ── */
+const SaveIndicator = ({
+  status,
+  lastSavedAt,
+  onRetry,
+}: {
+  status: "idle" | "saving" | "saved" | "error";
+  lastSavedAt: Date | null;
+  onRetry: () => void;
+}) => {
+  // tick para refrescar "hace Xs"
+  const [, force] = useState(0);
+  useEffect(() => {
+    const i = setInterval(() => force((n) => n + 1), 15000);
+    return () => clearInterval(i);
+  }, []);
+
+  if (status === "error") {
+    return (
+      <span className="text-[11px] flex items-center gap-1.5 px-2 py-1 rounded bg-red-500/10 text-red-600 border border-red-500/30">
+        <AlertTriangle size={12} /> Error al guardar
+        <button onClick={onRetry} className="underline ml-1 hover:text-red-700">Reintentar</button>
+      </span>
+    );
+  }
+  if (status === "saving") {
+    return (
+      <span className="text-[11px] text-amber-600 flex items-center gap-1.5">
+        <Loader2 size={12} className="animate-spin" /> Guardando…
+      </span>
+    );
+  }
+  if (status === "saved" && lastSavedAt) {
+    const ago = Math.floor((Date.now() - lastSavedAt.getTime()) / 1000);
+    const label =
+      ago < 5 ? "ahora" : ago < 60 ? `hace ${ago}s` : `hace ${Math.floor(ago / 60)}m`;
+    return (
+      <span className="text-[11px] text-emerald-600 flex items-center gap-1.5">
+        <Cloud size={12} /> Guardado {label}
+      </span>
+    );
+  }
+  return (
+    <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+      <Cloud size={12} /> Guardado automáticamente
+    </span>
+  );
+};
+
+type EditorMode = "loading" | "real" | "legacy" | "demo" | "not_found";
+type SlideMetaState = {
+  id: string;
+  type: "cover" | "content" | "art" | string;
+  image?: string;
+  backgroundColor: string;
+  transition: "none" | "fade" | "slide" | "zoom";
+};
+
 /* ── Main Editor Page ── */
 const Editor = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const campaign = initialCampaigns.find((c) => c.id === id) ?? initialCampaigns[0];
+  // ─── 1. Detección de modo + hidratación ──────────────────
+  const [mode, setMode] = useState<EditorMode>("loading");
+  const [briefDbId, setBriefDbId] = useState<string | null>(null);
 
-  const draftKey = id ? `presentation_draft_${id}` : null;
-  const draft = (() => {
-    if (!draftKey) return null as null | { slidesElements: SlideElement[][]; slideMeta: any[]; docTitle?: string };
-    try {
-      const raw = sessionStorage.getItem(draftKey);
-      if (!raw) return null;
-      return JSON.parse(raw);
-    } catch {
-      return null;
-    }
-  })();
+  // Estados principales (persistibles)
+  const [slidesElements, setSlidesElements] = useState<SlideElement[][]>([]);
+  const [slideMeta, setSlideMeta] = useState<SlideMetaState[]>([]);
+  const [docTitle, setDocTitle] = useState<string>("Sin título");
 
-  const [slidesElements, setSlidesElements] = useState<SlideElement[][]>(() =>
-    draft?.slidesElements ?? campaign.slides.map(slideToElements)
-  );
-  const [slideMeta, setSlideMeta] = useState(() =>
-    draft?.slideMeta ?? campaign.slides.map((s) => ({ id: s.id, type: s.type, image: s.type === "cover" ? s.image : undefined, backgroundColor: "#ffffff", transition: "fade" as "none" | "fade" | "slide" | "zoom" }))
-  );
+  // Estados volátiles (NO persistir)
   const [isBackgroundSelected, setIsBackgroundSelected] = useState(false);
-
   const [activeIdx, setActiveIdx] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [docTitle, setDocTitle] = useState(draft?.docTitle ?? campaign.title);
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [presenting, setPresenting] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -2231,10 +2284,148 @@ const Editor = () => {
   const [bgRemoveProcessing, setBgRemoveProcessing] = useState(false);
   const [showCodeModal, setShowCodeModal] = useState(false);
 
+  const hydratedRef = useRef(false);
+  const persistence = useEditorPersistence(briefDbId);
+
+  // ─── Lógica de carga inicial ─────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    if (!id) {
+      setMode("not_found");
+      return;
+    }
+
+    const hydrateFromCampaign = (campaign: typeof initialCampaigns[number]) => {
+      const els = campaign.slides.map(slideToElements);
+      const meta: SlideMetaState[] = campaign.slides.map((s) => ({
+        id: s.id,
+        type: s.type,
+        image: s.type === "cover" ? s.image : undefined,
+        backgroundColor: "#ffffff",
+        transition: "fade",
+      }));
+      setSlidesElements(els);
+      setSlideMeta(meta);
+      setDocTitle(campaign.title);
+    };
+
+    const hydrateFromEditorState = (s: EditorState) => {
+      setSlidesElements(s.slidesElements ?? []);
+      setSlideMeta(
+        (s.slideMeta ?? []).map((m) => ({
+          id: m.id,
+          type: m.type,
+          image: m.image,
+          backgroundColor: m.backgroundColor ?? "#ffffff",
+          transition: (m.transition ?? "fade") as SlideMetaState["transition"],
+        })),
+      );
+      setDocTitle(s.docTitle ?? "Sin título");
+    };
+
+    const hydrateFromPresentation = (brief: BrandBrief) => {
+      const pres: any[] = Array.isArray(brief.presentation) ? brief.presentation : [];
+      const els: SlideElement[][] = pres.map((s: any) => s.elements ?? []);
+      const meta: SlideMetaState[] = pres.map((s: any) => ({
+        id: s.id ?? `slide-${Math.random().toString(36).slice(2, 8)}`,
+        type: s.type ?? "content",
+        image: s.image,
+        backgroundColor: s.backgroundColor ?? "#ffffff",
+        transition: (s.transition ?? "fade") as SlideMetaState["transition"],
+      }));
+      setSlidesElements(els);
+      setSlideMeta(meta);
+      setDocTitle(brief.title ?? "Sin título");
+    };
+
+    (async () => {
+      // Caso A: UUID → brief real
+      if (isUuid(id)) {
+        try {
+          const brief = await getBrief(id);
+          if (cancelled) return;
+          if (!brief) {
+            setMode("not_found");
+            return;
+          }
+          if (brief.editor_state) {
+            hydrateFromEditorState(brief.editor_state as EditorState);
+          } else if (brief.presentation) {
+            // Opción B: hidratar desde presentation, sin escribir aún
+            hydrateFromPresentation(brief);
+          } else {
+            setSlidesElements([[]]);
+            setSlideMeta([{ id: "slide-1", type: "cover", backgroundColor: "#ffffff", transition: "fade" }]);
+            setDocTitle(brief.title ?? "Sin título");
+          }
+          setBriefDbId(brief.id);
+          setMode("real");
+          requestAnimationFrame(() => {
+            if (!cancelled) hydratedRef.current = true;
+          });
+        } catch (err) {
+          console.error("[Editor] error al cargar brief:", err);
+          setMode("not_found");
+        }
+        return;
+      }
+
+      // Caso B: id legacy "agent-xxx" → fallback sessionStorage
+      // TODO: Eliminar este fallback después de 2026-05-01
+      if (id.startsWith("agent-")) {
+        const raw = sessionStorage.getItem(`presentation_draft_${id}`);
+        if (!raw) {
+          setMode("not_found");
+          return;
+        }
+        try {
+          const parsed = JSON.parse(raw);
+          console.warn(
+            "[Editor] cargando draft legacy desde sessionStorage. " +
+              "Este modo NO persiste cambios. TODO: eliminar después de 2026-05-01.",
+          );
+          setSlidesElements(parsed.slidesElements ?? []);
+          setSlideMeta(parsed.slideMeta ?? []);
+          setDocTitle(parsed.docTitle ?? "Sin título");
+          setMode("legacy");
+        } catch {
+          setMode("not_found");
+        }
+        return;
+      }
+
+      // Caso C: matchea un campaign de demo
+      const campaign = initialCampaigns.find((c) => c.id === id);
+      if (campaign) {
+        hydrateFromCampaign(campaign);
+        setMode("demo");
+        return;
+      }
+
+      setMode("not_found");
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
   const history = useHistory(slidesElements[activeIdx] ?? []);
 
+  // Guard de igualdad: solo actualiza slidesElements si el contenido cambió.
   useEffect(() => {
-    setSlidesElements((prev) => prev.map((els, i) => (i === activeIdx ? history.state : els)));
+    setSlidesElements((prev) => {
+      const cur = prev[activeIdx];
+      if (cur === history.state) return prev;
+      if (cur && cur.length === history.state.length) {
+        let same = true;
+        for (let i = 0; i < cur.length; i++) {
+          if (cur[i] !== history.state[i]) { same = false; break; }
+        }
+        if (same) return prev;
+      }
+      return prev.map((els, i) => (i === activeIdx ? history.state : els));
+    });
   }, [history.state, activeIdx]);
 
   const prevActiveRef = useRef(activeIdx);
@@ -2246,6 +2437,24 @@ const Editor = () => {
       setEyedropperMode(false);
     }
   }, [activeIdx]);
+
+  // ─── Auto-save: snapshot completo en cada cambio (debounced 2s en el hook)
+  useEffect(() => {
+    if (!hydratedRef.current || mode !== "real" || !briefDbId) return;
+    const snapshot: EditorState = {
+      version: 1,
+      docTitle,
+      slidesElements,
+      slideMeta: slideMeta.map((m) => ({
+        id: m.id,
+        type: m.type,
+        image: m.image,
+        backgroundColor: m.backgroundColor,
+        transition: m.transition,
+      })) as EditorSlideMeta[],
+    };
+    persistence.persist(snapshot);
+  }, [slidesElements, slideMeta, docTitle, mode, briefDbId, persistence]);
 
   const currentElements = history.state;
 
@@ -2280,7 +2489,6 @@ const Editor = () => {
 
   const updateElement = (elId: string, patch: Partial<SlideElement>) => {
     history.set((prev) => prev.map((e) => (e.id === elId ? { ...e, ...patch } : e)));
-    setSaveState("idle");
   };
 
   const deleteElement = (elId: string) => {
@@ -2572,19 +2780,21 @@ const Editor = () => {
     return () => window.removeEventListener("keydown", handler);
   }, [presenting, selectedIds, currentElements, clipboard, history, eyedropperMode]);
 
-  /* ── Save ── */
+  /* ── Save manual: fuerza el flush del debounce de auto-save ── */
   const handleSave = async () => {
-    setSaveState("saving");
-    try {
-      await fetch("https://webhook.site/b80d309d-86be-445b-9bf5-4f678639f781", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "save_presentation", presentation_id: id ?? campaign.id, title: docTitle, slides: slidesElements, timestamp: new Date().toISOString(), status: "success" }),
+    if (mode !== "real") {
+      toast({
+        title: mode === "demo" ? "📺 Modo demo" : "Sin persistencia",
+        description: "Los cambios en este modo no se guardan en la base de datos.",
       });
-    } catch { /* CORS */ }
-    await new Promise((r) => setTimeout(r, 800));
-    setSaveState("saved");
-    toast({ title: "✅ Presentación guardada" });
-    setTimeout(() => setSaveState("idle"), 3000);
+      return;
+    }
+    try {
+      await persistence.flush();
+      toast({ title: "✅ Guardado" });
+    } catch {
+      toast({ title: "❌ No se pudo guardar", variant: "destructive" });
+    }
   };
 
   /* ── Real PDF Export ── */
@@ -2692,6 +2902,31 @@ const Editor = () => {
 
   const hasSelection = selectedIds.size > 0;
 
+  // ─── Pantallas de loading / not_found ───────────────────
+  if (mode === "loading") {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-background gap-3">
+        <Loader2 className="animate-spin text-primary" size={28} />
+        <p className="text-sm text-muted-foreground">Cargando presentación…</p>
+      </div>
+    );
+  }
+  if (mode === "not_found") {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-background gap-4 px-6">
+        <AlertTriangle className="text-amber-500" size={42} />
+        <h1 className="text-xl font-bold text-foreground">Presentación no encontrada</h1>
+        <p className="text-sm text-muted-foreground text-center max-w-md">
+          El identificador <code className="px-1.5 py-0.5 rounded bg-muted text-xs">{id}</code> no
+          existe o ya no está disponible.
+        </p>
+        <Button onClick={() => navigate("/dashboard")} variant="default" size="sm" className="gap-2">
+          <Home size={14} /> Volver al dashboard
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen w-screen flex flex-col bg-slate-100 overflow-hidden">
       {/* Presentation overlay */}
@@ -2721,9 +2956,13 @@ const Editor = () => {
           <CodeModal
             slidesElements={slidesElements}
             slideMeta={slideMeta}
-            onImport={(newElements, newMeta) => {
+            docTitle={docTitle}
+            onImport={(newElements, newMeta, newDocTitle) => {
               setSlidesElements(newElements);
               setSlideMeta(newMeta as typeof slideMeta);
+              if (typeof newDocTitle === "string" && newDocTitle.trim()) {
+                setDocTitle(newDocTitle);
+              }
               setActiveIdx(0);
               setSelectedIds(new Set());
               history.reset(newElements[0] ?? []);
@@ -2745,7 +2984,7 @@ const Editor = () => {
           </div>
           <input
             value={docTitle}
-            onChange={(e) => { setDocTitle(e.target.value); setSaveState("idle"); }}
+            onChange={(e) => setDocTitle(e.target.value)}
             className="text-sm font-bold text-foreground bg-transparent border-none outline-none focus:ring-0 w-64 truncate"
           />
           <div className="flex items-center gap-0.5 ml-2">
@@ -2755,22 +2994,33 @@ const Editor = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-            <Cloud size={12} className={saveState === "saved" ? "text-emerald-500" : "text-muted-foreground/50"} />
-            {saveState === "saving" ? "Sincronizando..." : saveState === "saved" ? "Guardado" : "Guardado automáticamente"}
-          </span>
+          {mode === "demo" && (
+            <span className="text-[11px] flex items-center gap-1.5 px-2 py-1 rounded bg-amber-500/10 text-amber-600 border border-amber-500/30">
+              <Tv size={12} /> Modo demo
+            </span>
+          )}
+          {mode === "legacy" && (
+            <span className="text-[11px] flex items-center gap-1.5 px-2 py-1 rounded bg-orange-500/10 text-orange-600 border border-orange-500/30">
+              <AlertTriangle size={12} /> Borrador local (no se guarda)
+            </span>
+          )}
+          {mode === "real" && (
+            <SaveIndicator
+              status={persistence.status}
+              lastSavedAt={persistence.lastSavedAt}
+              onRetry={persistence.retry}
+            />
+          )}
           <Button onClick={startPresenting} variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 border-border/40"><Play size={13} /> Presentar</Button>
           <Button onClick={handleExport} disabled={exporting} variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 border-border/40"><FileDown size={13} /> Exportar PDF</Button>
           <Button onClick={() => setShowCodeModal(true)} variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 border-border/40" title="Código Fuente (JSON)"><Braces size={13} /> Código</Button>
           <Button
             onClick={handleSave}
-            disabled={saveState === "saving"}
+            disabled={persistence.status === "saving" && mode === "real"}
             size="sm"
             className="h-8 px-4 text-xs gap-1.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold shadow-sm shadow-cyan-500/20"
           >
-            {saveState === "saving" ? (<><Loader2 size={13} className="animate-spin" /> Sincronizando...</>) :
-             saveState === "saved" ? (<><Check size={13} /> Guardado</>) :
-             (<><Save size={13} /> Guardar Cambios</>)}
+            <Save size={13} /> Guardar ahora
           </Button>
         </div>
       </div>
@@ -3232,12 +3482,14 @@ const ExportPdfOverlay = ({ progress, message, onClose }: { progress: number; me
 const CodeModal = ({
   slidesElements,
   slideMeta,
+  docTitle,
   onImport,
   onClose,
 }: {
   slidesElements: SlideElement[][];
   slideMeta: { id: string; type: string; image?: string; backgroundColor?: string; transition?: string }[];
-  onImport: (elements: SlideElement[][], meta: typeof slideMeta) => void;
+  docTitle: string;
+  onImport: (elements: SlideElement[][], meta: typeof slideMeta, docTitle?: string) => void;
   onClose: () => void;
 }) => {
   const [tab, setTab] = useState<"export" | "import">("export");
@@ -3246,13 +3498,18 @@ const CodeModal = ({
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Nuevo formato portable: { version, docTitle, slides: [...] }
   const exportPayload = useMemo(() => {
-    const data = slideMeta.map((m, i) => ({
-      ...m,
-      elements: slidesElements[i] ?? [],
-    }));
+    const data = {
+      version: 1,
+      docTitle,
+      slides: slideMeta.map((m, i) => ({
+        ...m,
+        elements: slidesElements[i] ?? [],
+      })),
+    };
     return JSON.stringify(data, null, 2);
-  }, [slidesElements, slideMeta]);
+  }, [slidesElements, slideMeta, docTitle]);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(exportPayload);
@@ -3286,26 +3543,37 @@ const CodeModal = ({
       toast({ title: "❌ Error de lectura", description: "No se pudo leer el archivo.", variant: "destructive" });
     };
     reader.readAsText(file);
-    // Reset input so re-uploading the same file triggers onChange
     e.target.value = "";
   };
 
   const processImport = (raw: string) => {
     try {
       const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        toast({ title: "❌ JSON inválido", description: "El JSON debe ser un arreglo con al menos una diapositiva.", variant: "destructive" });
+      // Aceptar ambos shapes: array (legacy) u objeto { docTitle, slides }
+      let slidesArr: any[];
+      let importedDocTitle: string | undefined;
+      if (Array.isArray(parsed)) {
+        slidesArr = parsed;
+      } else if (parsed && Array.isArray(parsed.slides)) {
+        slidesArr = parsed.slides;
+        importedDocTitle = typeof parsed.docTitle === "string" ? parsed.docTitle : undefined;
+      } else {
+        toast({ title: "❌ JSON inválido", description: "El JSON debe ser un arreglo o un objeto { docTitle, slides }.", variant: "destructive" });
         return;
       }
-      const newElements: SlideElement[][] = parsed.map((slide: any) => slide.elements ?? []);
-      const newMeta = parsed.map((slide: any) => ({
+      if (slidesArr.length === 0) {
+        toast({ title: "❌ JSON inválido", description: "Se requiere al menos una diapositiva.", variant: "destructive" });
+        return;
+      }
+      const newElements: SlideElement[][] = slidesArr.map((slide: any) => slide.elements ?? []);
+      const newMeta = slidesArr.map((slide: any) => ({
         id: slide.id ?? uid(),
         type: slide.type ?? "cover",
         image: slide.image,
         backgroundColor: slide.backgroundColor ?? "#ffffff",
         transition: (slide.transition ?? "fade") as "none" | "fade" | "slide" | "zoom",
       }));
-      onImport(newElements, newMeta);
+      onImport(newElements, newMeta, importedDocTitle);
       onClose();
     } catch {
       toast({ title: "❌ Error de parseo", description: "Asegúrate de que el formato JSON sea correcto.", variant: "destructive" });

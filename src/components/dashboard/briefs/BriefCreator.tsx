@@ -465,9 +465,30 @@ const BriefCreator = ({ brandName, briefId: briefIdProp, brandId, kind = "campai
   }, [sessionId, briefId]);
 
   /* ── Open editor ─────────────────────────────────────── */
-  const handleOpenEditor = useCallback(() => {
+  const handleOpenEditor = useCallback(async () => {
     if (!presentation) return;
-    const id = briefId ?? `agent-${Date.now()}`;
+
+    // Si tenemos briefId, persistimos `presentation` en DB antes de navegar
+    // para garantizar que el editor pueda hidratarse desde la fuente real.
+    if (briefId) {
+      try {
+        await updateBrief(briefId, { presentation });
+      } catch (err) {
+        console.error("[BriefCreator] no se pudo guardar presentation antes de abrir editor:", err);
+        toast({
+          title: "No se pudo abrir el editor",
+          description: "Hubo un problema guardando la presentación. Reintenta.",
+          variant: "destructive",
+        });
+        return;
+      }
+      navigate(`/editor/${briefId}`);
+      return;
+    }
+
+    // Fallback legacy (sin briefId): mantenemos sessionStorage temporalmente.
+    // TODO: Eliminar este fallback después de 2026-05-01.
+    const id = `agent-${Date.now()}`;
     const draft = {
       docTitle: resolvedBrandName ? `${resolvedBrandName} — Brief` : "Brief Estratégico",
       slidesElements: presentation.map((s) => s.elements),
