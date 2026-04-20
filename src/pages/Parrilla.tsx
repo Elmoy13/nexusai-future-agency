@@ -701,6 +701,8 @@ const Parrilla = () => {
   });
   const [includeLogoInImage, setIncludeLogoInImage] = useState(false);
   const [includeTextInImage, setIncludeTextInImage] = useState(false);
+  const [language, setLanguage] = useState<"auto" | "es" | "en">("auto");
+  const [detectedLanguage, setDetectedLanguage] = useState<"es" | "en" | null>(null);
 
   // Available formats based on selected platforms
   const availableFormats = useMemo(() => {
@@ -760,6 +762,7 @@ const Parrilla = () => {
           brand_context: brandVision,
           product_context: productVision,
           brand_colors: brand,
+          language,
         }),
       });
       if (!res.ok) throw new Error(`Error ${res.status}`);
@@ -771,7 +774,7 @@ const Parrilla = () => {
     } finally {
       setIsChatThinking(false);
     }
-  }, [chatMessages, brandVision, productVision, brand]);
+  }, [chatMessages, brandVision, productVision, brand, language]);
 
   // Trigger intro message when brand + product are both analyzed
   const introSentRef = useRef(false);
@@ -790,6 +793,7 @@ const Parrilla = () => {
               brand_context: brandVision,
               product_context: productVision,
               brand_colors: brand,
+              language,
             }),
           });
           if (!res.ok) throw new Error(`Error ${res.status}`);
@@ -821,6 +825,7 @@ const Parrilla = () => {
               brand_context: brandVision,
               product_context: null,
               brand_colors: brand,
+              language,
             }),
           });
           if (!res.ok) throw new Error(`Error ${res.status}`);
@@ -1056,6 +1061,7 @@ const Parrilla = () => {
       posts_config: postsConfig,
       include_logo_in_image: includeLogoInImage,
       include_text_in_image: includeTextInImage,
+      language,
     };
 
     const motivationalMessages = [
@@ -1115,6 +1121,11 @@ const Parrilla = () => {
         }
 
         const { job, posts: serverPosts } = await pollRes.json();
+
+        // Capture detected language from backend
+        if (job?.language && (job.language === "es" || job.language === "en")) {
+          setDetectedLanguage(job.language);
+        }
 
         // Update posts progressively
         setPosts(prevPosts => {
@@ -1185,7 +1196,7 @@ const Parrilla = () => {
       setIsGenerating(false);
       setGeneratingStatus("");
     }
-  }, [selectedFormats, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, chatMessages, brand, brandName, brandVision, productVision, id, productImages, includeLogoInImage, includeTextInImage]);
+  }, [selectedFormats, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, chatMessages, brand, brandName, brandVision, productVision, id, productImages, includeLogoInImage, includeTextInImage, language]);
 
   const hasUserChatMessage = chatMessages.some(m => m.role === "user");
   const canGenerate = brandDetected && productImages.length > 0 && selectedFormats.size > 0 && hasUserChatMessage;
@@ -1337,7 +1348,14 @@ const Parrilla = () => {
             <div className="flex items-center gap-4">
               <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")} className="text-muted-foreground hover:text-foreground"><ArrowLeft size={20} /></Button>
               <div>
-                <h1 className="text-lg font-bold text-foreground">Parrilla de Contenido</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-lg font-bold text-foreground">Parrilla de Contenido</h1>
+                  {detectedLanguage && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 transition-all">
+                      🌐 {detectedLanguage.toUpperCase()}
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">Lanzamiento Drone X10 · Aero Dynamics</p>
               </div>
             </div>
@@ -1560,6 +1578,38 @@ const Parrilla = () => {
                   )}
                 </motion.div>
               )}
+
+              {/* 🌐 Content Language */}
+              <div className="mb-4 space-y-2">
+                <p className="text-[11px] font-bold text-foreground uppercase tracking-wider">🌐 Idioma del contenido</p>
+                <Select value={language} onValueChange={(v) => setLanguage(v as "auto" | "es" | "en")}>
+                  <SelectTrigger className="bg-secondary/50 border-border h-9 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">🌐 Auto-detectar</SelectItem>
+                    <SelectItem value="es">🇪🇸 Español</SelectItem>
+                    <SelectItem value="en">🇺🇸 English</SelectItem>
+                  </SelectContent>
+                </Select>
+                {language === "auto" ? (
+                  detectedLanguage ? (
+                    <p className="text-[10px] text-emerald-400 font-medium px-1 transition-colors">
+                      Detectado: {detectedLanguage === "es" ? "Español 🇪🇸" : "English 🇺🇸"} ✓
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground px-1 leading-relaxed">
+                      Se detectará del chat y tu marca
+                    </p>
+                  )
+                ) : (
+                  <p className="text-[10px] text-muted-foreground px-1 leading-relaxed">
+                    {language === "es"
+                      ? "Forzado a Español — Nano Banano y los posts saldrán en este idioma"
+                      : "Forced to English — Nano Banano and posts will use this language"}
+                  </p>
+                )}
+              </div>
 
               {/* 📸 Product Photos */}
               <div className="mb-4 space-y-2.5">
