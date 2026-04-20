@@ -1064,6 +1064,8 @@ const Parrilla = () => {
   const [draftHydrated, setDraftHydrated] = useState<boolean>(!isNewParrilla);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [draftTitle, setDraftTitle] = useState<string>("");
+  const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false);
   const skipNextSaveRef = useRef<boolean>(true); // skip the auto-save triggered by hydrate
 
   // Logo: in-memory only (persisted to Supabase Storage when uploaded).
@@ -1189,6 +1191,7 @@ const Parrilla = () => {
           if (Array.isArray(d.selected_product_ids) && d.selected_product_ids.length > 0) {
             setSelectedProductIds(d.selected_product_ids);
           }
+          if (d.title) setDraftTitle(d.title);
           setDraftHydrated(true);
           return;
         }
@@ -1279,7 +1282,7 @@ const Parrilla = () => {
   // Snapshot of latest values for the auto-save (avoids re-creating the debounced fn)
   const draftSnapshotRef = useRef<{ get: () => DraftPatch }>({ get: () => ({}) as DraftPatch });
   draftSnapshotRef.current.get = () => ({
-    title: brandName ? `${brandName} · Parrilla` : null,
+    title: draftTitle || null,
     chat_messages: chatMessages,
     config: {
       brand,
