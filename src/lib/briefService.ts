@@ -214,29 +214,46 @@ export function persistEditorStateBeacon(
   briefId: string,
   editorState: EditorState,
 ): boolean {
-  if (typeof navigator === "undefined" || !navigator.sendBeacon) return false;
+  if (typeof fetch === "undefined") return false;
   try {
     const SUPABASE_URL = "https://klxdelvimqpjgbxuznyj.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_zccLNmYng5e8m6cVAE60nA_yxpNCEzM";
     const url = `${SUPABASE_URL}/rest/v1/brand_briefs?id=eq.${encodeURIComponent(briefId)}`;
     const now = new Date().toISOString();
-    // sendBeacon hace POST. Usamos PostgREST con header X-HTTP-Method-Override.
-    // Como sendBeacon no permite headers custom, recurrimos a fetch keepalive.
     const body = JSON.stringify({
       editor_state: editorState,
       editor_last_saved_at: now,
       updated_at: now,
     });
 
-    // fetch con keepalive es la única forma de mandar PATCH con headers
-    // durante beforeunload. Está soportado en todos los browsers modernos.
+    // Recuperar el JWT del usuario activo desde el storage de supabase-js
+    // (clave: sb-<project-ref>-auth-token). Si no existe usamos solo la anon key.
+    let bearer = SUPABASE_ANON_KEY;
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i) ?? "";
+        if (k.startsWith("sb-") && k.endsWith("-auth-token")) {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed?.access_token) {
+              bearer = parsed.access_token;
+              break;
+            }
+          }
+        }
+      }
+    } catch {}
+
+    // fetch con keepalive permite PATCH con headers custom incluso en
+    // beforeunload (sendBeacon no soporta headers custom).
     fetch(url, {
       method: "PATCH",
       keepalive: true,
       headers: {
         "Content-Type": "application/json",
         apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        Authorization: `Bearer ${bearer}`,
         Prefer: "return=minimal",
       },
       body,
