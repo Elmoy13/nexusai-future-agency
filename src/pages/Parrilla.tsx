@@ -6,6 +6,8 @@ import { useAgency } from "@/contexts/AgencyContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { createDraft, getDraft, patchDraft, deleteDraft, type DraftRow, type DraftPatch } from "@/lib/draftService";
 import { uploadBrandLogo, base64ToBlob } from "@/lib/brandStorage";
+import { listProducts, type BrandProduct } from "@/lib/productService";
+import ParrillaProductSelector from "@/components/dashboard/ParrillaProductSelector";
 
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -1071,6 +1073,9 @@ const Parrilla = () => {
   const [brandAssets, setBrandAssets] = useState<string[]>([]);
   const [brandAssetBlobs, setBrandAssetBlobs] = useState<Blob[]>([]);
   const [productImages, setProductImages] = useState<string[]>([]);
+  // NEW: persistent products from brand_products
+  const [brandProducts, setBrandProducts] = useState<BrandProduct[] | null>(null);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const productFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -1181,6 +1186,9 @@ const Parrilla = () => {
           if (cfg.language) setLanguage(cfg.language);
           if (cfg.logoUrl) { setCurrentLogoUrl(cfg.logoUrl); setBrandAssets([cfg.logoUrl]); }
           if (Array.isArray(d.chat_messages) && d.chat_messages.length > 0) setChatMessages(d.chat_messages as any);
+          if (Array.isArray(d.selected_product_ids) && d.selected_product_ids.length > 0) {
+            setSelectedProductIds(d.selected_product_ids);
+          }
           setDraftHydrated(true);
           return;
         }
@@ -1254,6 +1262,7 @@ const Parrilla = () => {
       language,
       logoUrl: currentLogoUrl,
     } as any,
+    selected_product_ids: selectedProductIds,
     last_step: hasGenerated ? "generated" : "configuring",
   });
 
@@ -1287,6 +1296,7 @@ const Parrilla = () => {
     chatMessages, brand, brandName, brandVision, productVision,
     platforms, selectedFormats, frequency, objective, optionsPerPost,
     includeLogoInImage, includeTextInImage, language, currentLogoUrl, hasGenerated,
+    selectedProductIds,
   ]);
 
   const handleDiscardDraft = useCallback(async () => {
@@ -1773,10 +1783,11 @@ const Parrilla = () => {
   }, [selectedFormats, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, chatMessages, brand, brandName, brandVision, productVision, id, productImages, includeLogoInImage, includeTextInImage, language]);
 
   const hasUserChatMessage = chatMessages.some(m => m.role === "user");
-  const canGenerate = brandDetected && productImages.length > 0 && selectedFormats.size > 0 && hasUserChatMessage;
+  const hasAnyProduct = productImages.length > 0 || selectedProductIds.length > 0;
+  const canGenerate = brandDetected && hasAnyProduct && selectedFormats.size > 0 && hasUserChatMessage;
   const getDisabledReason = () => {
     if (!brandDetected) return "Sube tu logo primero";
-    if (productImages.length === 0) return "Sube al menos una foto de tu producto";
+    if (!hasAnyProduct) return "Selecciona un producto de tu marca o sube una imagen temporal";
     if (!hasUserChatMessage) return "Conversa con Nano Banano sobre tu campaña";
     if (selectedFormats.size === 0) return "Selecciona al menos una plataforma y formato";
     return "";
