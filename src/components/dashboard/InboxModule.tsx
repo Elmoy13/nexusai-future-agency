@@ -23,7 +23,7 @@ import {
 } from "@/lib/inboxService";
 import { toast } from "sonner";
 
-const WEBHOOK_URL = "https://steady-potential-drug-advances.trycloudflare.com/api/webhook/chat";
+const WEBHOOK_URL = "https://representative-tier-customize-bonus.trycloudflare.com/api/webhook/chat";
 const STORAGE_KEY = "inbox_selected_brand_id";
 const REQUEST_TIMEOUT_MS = 10_000;
 

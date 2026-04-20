@@ -103,7 +103,7 @@ const DEFAULT_BRAND: BrandProfile = {
 // Save status indicator for the draft auto-save
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
-const API_URL = import.meta.env.VITE_API_URL || "https://steady-potential-drug-advances.trycloudflare.com";
+const API_URL = import.meta.env.VITE_API_URL || "https://representative-tier-customize-bonus.trycloudflare.com";
 
 function getDimensionsFromFormat(format: string): { w: number; h: number } {
   const f = ALL_FORMATS.find(f => f.id === format);
