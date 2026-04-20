@@ -1196,7 +1196,7 @@ const Parrilla = () => {
       setIsGenerating(false);
       setGeneratingStatus("");
     }
-  }, [selectedFormats, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, chatMessages, brand, brandName, brandVision, productVision, id, productImages, includeLogoInImage, includeTextInImage]);
+  }, [selectedFormats, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, chatMessages, brand, brandName, brandVision, productVision, id, productImages, includeLogoInImage, includeTextInImage, language]);
 
   const hasUserChatMessage = chatMessages.some(m => m.role === "user");
   const canGenerate = brandDetected && productImages.length > 0 && selectedFormats.size > 0 && hasUserChatMessage;
