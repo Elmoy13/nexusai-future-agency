@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ChevronDown, LogOut, Plus, Settings, Sparkles, ArrowRight, Loader2, Building2, Folder } from "lucide-react";
+import {
+  ChevronDown, LogOut, Plus, Settings, Sparkles, ArrowRight, Loader2,
+  Building2, Folder, LayoutDashboard, ClipboardList, CalendarRange,
+  MessageSquare, Inbox, ChevronLeft, ChevronRight, User
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -15,6 +19,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+
+import OverviewModule from "@/components/dashboard/OverviewModule";
+import BriefsModule from "@/components/dashboard/BriefsModule";
+import ParrillasHub from "@/components/dashboard/ParrillasHub";
+import CommunityHub from "@/components/dashboard/CommunityHub";
+import InboxModule from "@/components/dashboard/InboxModule";
 
 interface Brand {
   id: string;
@@ -36,6 +47,17 @@ interface Job {
   created_at: string;
   brand: { id: string; name: string } | null;
 }
+
+type View = "brands" | "overview" | "briefs" | "parrillas" | "community" | "inbox";
+
+const navItems: { id: View; label: string; icon: React.ElementType }[] = [
+  { id: "brands", label: "Marcas", icon: Building2 },
+  { id: "overview", label: "Vista General", icon: LayoutDashboard },
+  { id: "briefs", label: "Briefs & Estrategia", icon: ClipboardList },
+  { id: "parrillas", label: "Parrillas", icon: CalendarRange },
+  { id: "community", label: "Community & Social", icon: MessageSquare },
+  { id: "inbox", label: "Inbox", icon: Inbox },
+];
 
 const initialsOf = (name: string) =>
   name
@@ -60,6 +82,8 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { user, profile, memberships, currentAgencyId, setCurrentAgencyId, signOut } = useAuth();
 
+  const [view, setView] = useState<View>("brands");
+  const [collapsed, setCollapsed] = useState(false);
   const [brands, setBrands] = useState<Brand[] | null>(null);
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [showNewBrand, setShowNewBrand] = useState(false);
@@ -73,6 +97,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (!currentAgencyId) return;
+    if (view !== "brands") return;
     let cancelled = false;
 
     (async () => {
@@ -100,7 +125,7 @@ const Dashboard = () => {
     return () => {
       cancelled = true;
     };
-  }, [currentAgencyId]);
+  }, [currentAgencyId, view]);
 
   const handleLogout = async () => {
     await signOut();
@@ -108,147 +133,244 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Topbar */}
-      <header className="sticky top-0 z-30 glass-strong border-b border-border/30">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center gap-4">
-          <button onClick={() => navigate("/dashboard")} className="flex items-center gap-2 bg-transparent border-none cursor-pointer">
-            <span className="w-2 h-2 rounded-full bg-accent pulse-dot" />
-            <span className="font-bold tracking-tight text-foreground">NexusAI</span>
+    <div className="min-h-screen bg-background flex">
+      {/* Sidebar */}
+      <aside
+        className={cn(
+          "shrink-0 h-screen sticky top-0 glass-strong border-r border-border/30 flex flex-col py-6 transition-all duration-300 z-20",
+          collapsed ? "w-[72px] px-2" : "w-64 px-4"
+        )}
+      >
+        <div className={cn("flex items-center gap-2 mb-8", collapsed ? "justify-center px-0" : "px-3")}>
+          <span className="w-2.5 h-2.5 rounded-full bg-accent pulse-dot shrink-0" />
+          {!collapsed && (
+            <>
+              <span className="font-bold text-lg tracking-tight text-foreground">NexusAI</span>
+              <span className="ml-auto text-[10px] font-mono text-primary bg-primary/10 px-2 py-0.5 rounded-full">PRO</span>
+            </>
+          )}
+        </div>
+
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          aria-label={collapsed ? "Expandir menú" : "Colapsar menú"}
+          className="self-end -mr-1 mb-4 w-7 h-7 rounded-full bg-secondary/60 border border-border/30 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+        >
+          {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
+
+        <nav className="flex flex-col gap-1">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setView(item.id)}
+              className={cn(
+                "flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-200 border-none cursor-pointer",
+                collapsed ? "justify-center px-0 py-3" : "px-3 py-2.5",
+                view === item.id
+                  ? "bg-primary/10 text-primary glow-border"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/40 bg-transparent"
+              )}
+              title={collapsed ? item.label : undefined}
+            >
+              <item.icon size={18} className={cn("shrink-0", view === item.id && "icon-neon text-primary")} />
+              {!collapsed && item.label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="mt-auto space-y-3">
+          <button
+            onClick={() => navigate("/settings")}
+            className={cn(
+              "flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-200 border-none cursor-pointer text-muted-foreground hover:text-foreground hover:bg-secondary/40 bg-transparent w-full",
+              collapsed ? "justify-center px-0 py-3" : "px-3 py-2.5"
+            )}
+            title={collapsed ? "Configuración" : undefined}
+          >
+            <Settings size={18} className="shrink-0" />
+            {!collapsed && "Configuración"}
           </button>
 
-          {/* Agency switcher */}
-          {memberships.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary/40 hover:bg-secondary/70 border border-border/40 text-sm text-foreground transition">
-                <Building2 size={14} className="text-primary" />
-                <span className="font-medium truncate max-w-[180px]">{currentAgency?.name ?? "Selecciona agencia"}</span>
-                <ChevronDown size={12} className="text-muted-foreground" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64 bg-card border-border">
-                <DropdownMenuLabel>Tus agencias</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {memberships.map((m) => (
-                  <DropdownMenuItem
-                    key={m.agency_id}
-                    onClick={() => setCurrentAgencyId(m.agency_id)}
-                    className={m.agency_id === currentAgencyId ? "bg-primary/10 text-primary" : ""}
-                  >
-                    <Building2 size={14} className="mr-2 opacity-70" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{m.agency.name}</p>
-                      <p className="text-[10px] text-muted-foreground capitalize">{m.role}</p>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
-          <div className="ml-auto flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-full bg-secondary/40 hover:bg-secondary/70 border border-border/40 transition">
-                <Avatar className="w-7 h-7">
-                  <AvatarFallback className="bg-primary/15 text-primary text-xs font-bold">
-                    {initialsOf(profile?.full_name || user?.email || "U")}
-                  </AvatarFallback>
-                </Avatar>
-                <ChevronDown size={12} className="text-muted-foreground" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 bg-card border-border">
-                <DropdownMenuLabel>
-                  <p className="text-sm font-medium text-foreground">{profile?.full_name || "Sin nombre"}</p>
-                  <p className="text-[11px] text-muted-foreground font-normal truncate">{user?.email}</p>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate("/settings")}>
-                  <Settings size={14} className="mr-2" /> Configuración
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
-                  <LogOut size={14} className="mr-2" /> Cerrar sesión
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          <div className={cn("glass rounded-xl flex items-center gap-3", collapsed ? "p-2 justify-center" : "p-4")}>
+            <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+              <User size={16} className="text-primary" />
+            </div>
+            {!collapsed && (
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground truncate">
+                  {profile?.full_name || user?.email || "Usuario"}
+                </p>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-destructive transition-colors duration-200 bg-transparent border-none cursor-pointer mt-0.5"
+                >
+                  <LogOut size={11} />
+                  Cerrar sesión
+                </button>
+              </div>
+            )}
           </div>
         </div>
-      </header>
+      </aside>
 
-      {/* Content */}
-      <main className="max-w-7xl mx-auto px-6 py-10">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="mb-10"
-        >
-          <p className="text-sm text-muted-foreground">Hola, {firstName} 👋</p>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground mt-1">Tus marcas</h1>
-        </motion.div>
+      {/* Main column */}
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* Topbar */}
+        <header className="sticky top-0 z-30 glass-strong border-b border-border/30">
+          <div className="px-6 h-16 flex items-center gap-4">
+            {memberships.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary/40 hover:bg-secondary/70 border border-border/40 text-sm text-foreground transition">
+                  <Building2 size={14} className="text-primary" />
+                  <span className="font-medium truncate max-w-[180px]">{currentAgency?.name ?? "Selecciona agencia"}</span>
+                  <ChevronDown size={12} className="text-muted-foreground" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-64 bg-card border-border">
+                  <DropdownMenuLabel>Tus agencias</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {memberships.map((m) => (
+                    <DropdownMenuItem
+                      key={m.agency_id}
+                      onClick={() => setCurrentAgencyId(m.agency_id)}
+                      className={m.agency_id === currentAgencyId ? "bg-primary/10 text-primary" : ""}
+                    >
+                      <Building2 size={14} className="mr-2 opacity-70" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{m.agency.name}</p>
+                        <p className="text-[10px] text-muted-foreground capitalize">{m.role}</p>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
 
-        {/* Brands grid */}
-        <section className="mb-14">
-          {brands === null ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-44 rounded-2xl" />
-              ))}
+            <div className="ml-auto flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-full bg-secondary/40 hover:bg-secondary/70 border border-border/40 transition">
+                  <Avatar className="w-7 h-7">
+                    <AvatarFallback className="bg-primary/15 text-primary text-xs font-bold">
+                      {initialsOf(profile?.full_name || user?.email || "U")}
+                    </AvatarFallback>
+                  </Avatar>
+                  <ChevronDown size={12} className="text-muted-foreground" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 bg-card border-border">
+                  <DropdownMenuLabel>
+                    <p className="text-sm font-medium text-foreground">{profile?.full_name || "Sin nombre"}</p>
+                    <p className="text-[11px] text-muted-foreground font-normal truncate">{user?.email}</p>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate("/settings")}>
+                    <Settings size={14} className="mr-2" /> Configuración
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+                    <LogOut size={14} className="mr-2" /> Cerrar sesión
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-          ) : brands.length === 0 ? (
-            <EmptyBrands onCreate={() => setShowNewBrand(true)} />
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {brands.map((b) => (
-                <BrandCard key={b.id} brand={b} onClick={() => navigate(`/brand/${b.id}`)} />
-              ))}
-              <NewBrandCard onClick={() => setShowNewBrand(true)} />
-            </div>
-          )}
-        </section>
-
-        {/* Recent parrillas */}
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-foreground">Parrillas recientes</h2>
           </div>
+        </header>
 
-          {jobs === null ? (
-            <div className="space-y-2">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-14 rounded-xl" />
-              ))}
-            </div>
-          ) : jobs.length === 0 ? (
-            <div className="glass rounded-xl p-6 text-center text-sm text-muted-foreground">
-              Aún no has generado parrillas. Entra a una marca y dale a “Nueva parrilla”.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {jobs.map((j) => (
-                <button
-                  key={j.id}
-                  onClick={() => navigate(`/parrilla/${j.id}`)}
-                  className="w-full glass hover:bg-secondary/30 rounded-xl p-4 flex items-center gap-4 text-left border border-border/30 transition group"
-                >
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <Folder size={18} className="text-primary" />
+        {/* Views */}
+        <main className="flex-1 min-w-0">
+          {view === "brands" && (
+            <div className="max-w-7xl mx-auto px-6 py-10">
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4 }}
+                className="mb-10"
+              >
+                <p className="text-sm text-muted-foreground">Hola, {firstName} 👋</p>
+                <h1 className="text-3xl font-bold tracking-tight text-foreground mt-1">Tus marcas</h1>
+              </motion.div>
+
+              <section className="mb-14">
+                {brands === null ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <Skeleton key={i} className="h-44 rounded-2xl" />
+                    ))}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {j.campaign_description || "Parrilla sin nombre"}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {j.brand?.name ?? "Sin marca"} · {relativeTime(j.created_at)}
-                    </p>
+                ) : brands.length === 0 ? (
+                  <EmptyBrands onCreate={() => setShowNewBrand(true)} />
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {brands.map((b) => (
+                      <BrandCard key={b.id} brand={b} onClick={() => navigate(`/brand/${b.id}`)} />
+                    ))}
+                    <NewBrandCard onClick={() => setShowNewBrand(true)} />
                   </div>
-                  <StatusBadge status={j.status} />
-                  <ArrowRight size={16} className="text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition" />
-                </button>
-              ))}
+                )}
+              </section>
+
+              <section>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-foreground">Parrillas recientes</h2>
+                </div>
+
+                {jobs === null ? (
+                  <div className="space-y-2">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <Skeleton key={i} className="h-14 rounded-xl" />
+                    ))}
+                  </div>
+                ) : jobs.length === 0 ? (
+                  <div className="glass rounded-xl p-6 text-center text-sm text-muted-foreground">
+                    Aún no has generado parrillas. Entra a una marca y dale a "Nueva parrilla".
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {jobs.map((j) => (
+                      <button
+                        key={j.id}
+                        onClick={() => navigate(`/parrilla/${j.id}`)}
+                        className="w-full glass hover:bg-secondary/30 rounded-xl p-4 flex items-center gap-4 text-left border border-border/30 transition group"
+                      >
+                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                          <Folder size={18} className="text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {j.campaign_description || "Parrilla sin nombre"}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {j.brand?.name ?? "Sin marca"} · {relativeTime(j.created_at)}
+                          </p>
+                        </div>
+                        <StatusBadge status={j.status} />
+                        <ArrowRight size={16} className="text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
             </div>
           )}
-        </section>
-      </main>
+
+          {view === "overview" && (
+            <div className="p-6 md:p-10 max-w-7xl mx-auto">
+              <OverviewModule />
+            </div>
+          )}
+
+          {view === "briefs" && <BriefsModule />}
+
+          {view === "parrillas" && <ParrillasHub />}
+
+          {view === "community" && <CommunityHub />}
+
+          {view === "inbox" && (
+            <div className="p-6 md:p-10 max-w-7xl mx-auto">
+              <InboxModule />
+            </div>
+          )}
+        </main>
+      </div>
 
       {showNewBrand && (
         <NewBrandModal
