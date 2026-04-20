@@ -1,7 +1,27 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { SlideElement } from "@/components/dashboard/briefs/campaignData";
 
 export type BriefKind = "strategic" | "campaign";
 export type BriefStatus = "interviewing" | "done" | "archived";
+
+/**
+ * Snapshot completo del estado del editor que se persiste en
+ * `brand_briefs.editor_state` (JSONB). Es el estado COMPLETO, no incremental.
+ */
+export interface EditorSlideMeta {
+  id: string;
+  type: "cover" | "content" | "art" | string;
+  image?: string;
+  backgroundColor?: string;
+  transition?: "none" | "fade" | "slide" | "zoom";
+}
+
+export interface EditorState {
+  version: 1;
+  docTitle: string;
+  slidesElements: SlideElement[][];
+  slideMeta: EditorSlideMeta[];
+}
 
 export interface ChatMessage {
   role: "user" | "assistant" | "system";
@@ -32,6 +52,8 @@ export interface BrandBrief {
   status: BriefStatus;
   extracted_config: any | null;
   strategic_brief_id: string | null;
+  editor_state: EditorState | null;
+  editor_last_saved_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -44,7 +66,15 @@ export type BriefPatch = Partial<{
   presentation: any;
   status: BriefStatus;
   extracted_config: any;
+  editor_state: EditorState | null;
+  editor_last_saved_at: string | null;
 }>;
+
+/** UUID v4 regex — usado para distinguir IDs reales de IDs legacy `agent-xxx` */
+export const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const isUuid = (s: string | undefined | null): boolean =>
+  !!s && UUID_REGEX.test(s);
 
 // ─── CREATE ───
 export async function createBrief(params: {
