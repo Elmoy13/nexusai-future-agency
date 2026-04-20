@@ -1064,6 +1064,8 @@ const Parrilla = () => {
   const [draftHydrated, setDraftHydrated] = useState<boolean>(!isNewParrilla);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [draftTitle, setDraftTitle] = useState<string>("");
+  const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false);
   const skipNextSaveRef = useRef<boolean>(true); // skip the auto-save triggered by hydrate
 
   // Logo: in-memory only (persisted to Supabase Storage when uploaded).
@@ -1189,6 +1191,7 @@ const Parrilla = () => {
           if (Array.isArray(d.selected_product_ids) && d.selected_product_ids.length > 0) {
             setSelectedProductIds(d.selected_product_ids);
           }
+          if (d.title) setDraftTitle(d.title);
           setDraftHydrated(true);
           return;
         }
@@ -1279,7 +1282,7 @@ const Parrilla = () => {
   // Snapshot of latest values for the auto-save (avoids re-creating the debounced fn)
   const draftSnapshotRef = useRef<{ get: () => DraftPatch }>({ get: () => ({}) as DraftPatch });
   draftSnapshotRef.current.get = () => ({
-    title: brandName ? `${brandName} · Parrilla` : null,
+    title: draftTitle || null,
     chat_messages: chatMessages,
     config: {
       brand,
@@ -1330,7 +1333,7 @@ const Parrilla = () => {
     chatMessages, brand, brandName, brandVision, productVision,
     platforms, selectedFormats, frequency, objective, optionsPerPost,
     includeLogoInImage, includeTextInImage, language, currentLogoUrl, hasGenerated,
-    selectedProductIds,
+    selectedProductIds, draftTitle,
   ]);
 
   const handleDiscardDraft = useCallback(async () => {
@@ -1959,7 +1962,13 @@ const Parrilla = () => {
             <nav className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
               <button onClick={() => navigate("/dashboard")} className="flex items-center gap-1 hover:text-foreground transition-colors"><Home size={12} /> Directorio</button>
               <span>/</span>
-              <button className="flex items-center gap-1 hover:text-foreground transition-colors"><Hexagon size={12} /> Aero Dynamics</button>
+              <button
+                onClick={() => brandId && navigate(`/brand/${brandId}`)}
+                disabled={!brandId}
+                className="flex items-center gap-1 hover:text-foreground transition-colors disabled:opacity-60 disabled:cursor-default"
+              >
+                <Hexagon size={12} /> {brandName || "Marca"}
+              </button>
               <span>/</span>
               <span className="flex items-center gap-1 text-foreground font-medium"><CalendarDays size={12} /> Parrilla</span>
             </nav>
@@ -1976,7 +1985,32 @@ const Parrilla = () => {
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground">Lanzamiento Drone X10 · Aero Dynamics</p>
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  {isEditingTitle ? (
+                    <input
+                      autoFocus
+                      value={draftTitle}
+                      onChange={(e) => setDraftTitle(e.target.value)}
+                      onBlur={() => setIsEditingTitle(false)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { e.currentTarget.blur(); }
+                        if (e.key === "Escape") { setIsEditingTitle(false); }
+                      }}
+                      placeholder="Parrilla sin título"
+                      className="bg-transparent border-b border-primary/40 outline-none text-xs text-foreground px-0.5 min-w-[160px]"
+                    />
+                  ) : (
+                    <button
+                      onClick={() => setIsEditingTitle(true)}
+                      className="hover:text-foreground transition-colors text-left"
+                      title="Click para editar"
+                    >
+                      {draftTitle || "Parrilla sin título"}
+                    </button>
+                  )}
+                  <span>·</span>
+                  <span>{brandName || "Sin marca"}</span>
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-4">
