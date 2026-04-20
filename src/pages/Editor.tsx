@@ -3457,12 +3457,14 @@ const ExportPdfOverlay = ({ progress, message, onClose }: { progress: number; me
 const CodeModal = ({
   slidesElements,
   slideMeta,
+  docTitle,
   onImport,
   onClose,
 }: {
   slidesElements: SlideElement[][];
   slideMeta: { id: string; type: string; image?: string; backgroundColor?: string; transition?: string }[];
-  onImport: (elements: SlideElement[][], meta: typeof slideMeta) => void;
+  docTitle: string;
+  onImport: (elements: SlideElement[][], meta: typeof slideMeta, docTitle?: string) => void;
   onClose: () => void;
 }) => {
   const [tab, setTab] = useState<"export" | "import">("export");
@@ -3471,13 +3473,18 @@ const CodeModal = ({
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Nuevo formato portable: { version, docTitle, slides: [...] }
   const exportPayload = useMemo(() => {
-    const data = slideMeta.map((m, i) => ({
-      ...m,
-      elements: slidesElements[i] ?? [],
-    }));
+    const data = {
+      version: 1,
+      docTitle,
+      slides: slideMeta.map((m, i) => ({
+        ...m,
+        elements: slidesElements[i] ?? [],
+      })),
+    };
     return JSON.stringify(data, null, 2);
-  }, [slidesElements, slideMeta]);
+  }, [slidesElements, slideMeta, docTitle]);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(exportPayload);
@@ -3511,26 +3518,37 @@ const CodeModal = ({
       toast({ title: "❌ Error de lectura", description: "No se pudo leer el archivo.", variant: "destructive" });
     };
     reader.readAsText(file);
-    // Reset input so re-uploading the same file triggers onChange
     e.target.value = "";
   };
 
   const processImport = (raw: string) => {
     try {
       const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        toast({ title: "❌ JSON inválido", description: "El JSON debe ser un arreglo con al menos una diapositiva.", variant: "destructive" });
+      // Aceptar ambos shapes: array (legacy) u objeto { docTitle, slides }
+      let slidesArr: any[];
+      let importedDocTitle: string | undefined;
+      if (Array.isArray(parsed)) {
+        slidesArr = parsed;
+      } else if (parsed && Array.isArray(parsed.slides)) {
+        slidesArr = parsed.slides;
+        importedDocTitle = typeof parsed.docTitle === "string" ? parsed.docTitle : undefined;
+      } else {
+        toast({ title: "❌ JSON inválido", description: "El JSON debe ser un arreglo o un objeto { docTitle, slides }.", variant: "destructive" });
         return;
       }
-      const newElements: SlideElement[][] = parsed.map((slide: any) => slide.elements ?? []);
-      const newMeta = parsed.map((slide: any) => ({
+      if (slidesArr.length === 0) {
+        toast({ title: "❌ JSON inválido", description: "Se requiere al menos una diapositiva.", variant: "destructive" });
+        return;
+      }
+      const newElements: SlideElement[][] = slidesArr.map((slide: any) => slide.elements ?? []);
+      const newMeta = slidesArr.map((slide: any) => ({
         id: slide.id ?? uid(),
         type: slide.type ?? "cover",
         image: slide.image,
         backgroundColor: slide.backgroundColor ?? "#ffffff",
         transition: (slide.transition ?? "fade") as "none" | "fade" | "slide" | "zoom",
       }));
-      onImport(newElements, newMeta);
+      onImport(newElements, newMeta, importedDocTitle);
       onClose();
     } catch {
       toast({ title: "❌ Error de parseo", description: "Asegúrate de que el formato JSON sea correcto.", variant: "destructive" });
