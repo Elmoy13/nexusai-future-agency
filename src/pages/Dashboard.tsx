@@ -374,7 +374,7 @@ const NewBrandModal = ({
     const { data, error: err } = await supabase
       .from("brands")
       .insert({ name: name.trim(), brief: brief.trim() || null, agency_id: agencyId })
-      .select("id, name, brief, logo_url, created_at")
+      .select("id, name, brief, logo_url, primary_color, secondary_color, accent_colors, font_family, created_at")
       .single();
     setSaving(false);
     if (err) {
