@@ -1,6 +1,11 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useDebouncedCallback } from "use-debounce";
+import { useAgency } from "@/contexts/AgencyContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { createDraft, getDraft, patchDraft, deleteDraft, type DraftRow } from "@/lib/draftService";
+import { uploadBrandLogo, base64ToBlob } from "@/lib/brandStorage";
 
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -82,10 +87,6 @@ interface BrandProfile {
   background_suggestion: string;
 }
 
-const getBrandStorageKey = (parrillaId?: string) => `brand_profile_${parrillaId || "default"}`;
-const getLogoStorageKey = (parrillaId?: string) => `brand_logo_${parrillaId || "default"}`;
-const getBrandNameStorageKey = (parrillaId?: string) => `brand_name_${parrillaId || "default"}`;
-
 const DEFAULT_BRAND: BrandProfile = {
   primary_color: "#FF6B35",
   secondary_color: "#004E89",
@@ -97,20 +98,8 @@ const DEFAULT_BRAND: BrandProfile = {
   background_suggestion: "dark",
 };
 
-function loadBrand(parrillaId?: string): BrandProfile {
-  try {
-    const saved = localStorage.getItem(getBrandStorageKey(parrillaId));
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return { ...DEFAULT_BRAND, ...parsed };
-    }
-  } catch {}
-  return DEFAULT_BRAND;
-}
-
-function saveBrand(b: BrandProfile, parrillaId?: string) {
-  localStorage.setItem(getBrandStorageKey(parrillaId), JSON.stringify(b));
-}
+// Save status indicator for the draft auto-save
+type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 const API_URL = import.meta.env.VITE_API_URL || "https://steady-potential-drug-advances.trycloudflare.com";
 
