@@ -825,6 +825,7 @@ const Parrilla = () => {
               brand_context: brandVision,
               product_context: null,
               brand_colors: brand,
+              language,
             }),
           });
           if (!res.ok) throw new Error(`Error ${res.status}`);
