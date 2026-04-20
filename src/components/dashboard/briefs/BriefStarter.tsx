@@ -80,6 +80,17 @@ const BriefStarter = ({ onStart }: Props) => {
       });
       onStart(brief.id);
     } catch (err: any) {
+      // 23505 = unique_violation (índice parcial: un solo strategic por marca)
+      const isUnique = err?.code === "23505" || /duplicate|unique/i.test(err?.message || "");
+      if (isUnique && kind === "strategic") {
+        // Race condition: alguien creó uno mientras tanto. Recargamos y abrimos diálogo.
+        const existing = await getStrategicBrief(brandId);
+        if (existing) {
+          setExistingStrategicId(existing.id);
+          setConfirmOpen(true);
+          return;
+        }
+      }
       toast({
         title: "No se pudo crear el brief",
         description: err?.message || "Intenta de nuevo",
