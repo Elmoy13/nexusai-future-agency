@@ -1197,6 +1197,14 @@ const Parrilla = () => {
             setSelectedProductIds(d.selected_product_ids);
           }
           if (d.title) setDraftTitle(d.title);
+          if (d.brief_id) {
+            const { data: briefRow } = await supabase
+              .from("brand_briefs")
+              .select("id, title")
+              .eq("id", d.brief_id)
+              .maybeSingle();
+            if (briefRow && !cancelled) setBriefInfo(briefRow as any);
+          }
           setDraftHydrated(true);
           return;
         }
