@@ -1062,6 +1062,7 @@ const Parrilla = () => {
   const [draftHydrated, setDraftHydrated] = useState<boolean>(!isNewParrilla);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const skipNextSaveRef = useRef<boolean>(true); // skip the auto-save triggered by hydrate
 
   // Logo: in-memory only (persisted to Supabase Storage when uploaded).
   // We keep b64 for backend AI calls until the backend accepts logo URL directly.
