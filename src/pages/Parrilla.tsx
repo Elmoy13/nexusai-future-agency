@@ -1921,6 +1921,29 @@ const Parrilla = () => {
               </div>
             </div>
             <div className="flex items-center gap-4">
+              {/* Auto-save indicator */}
+              {isNewParrilla && draftId && (
+                <div className="flex items-center gap-1.5 text-[11px] font-mono">
+                  {saveStatus === "saving" && (
+                    <span className="flex items-center gap-1 text-amber-400"><Loader2 size={11} className="animate-spin" /> Guardando…</span>
+                  )}
+                  {saveStatus === "saved" && lastSavedAt && (
+                    <span className="flex items-center gap-1 text-emerald-400"><Check size={11} /> Guardado</span>
+                  )}
+                  {saveStatus === "error" && (
+                    <span className="flex items-center gap-1 text-destructive">⚠️ Error al guardar</span>
+                  )}
+                  {saveStatus === "idle" && (
+                    <span className="text-muted-foreground/60">Borrador</span>
+                  )}
+                  <button
+                    onClick={handleDiscardDraft}
+                    className="ml-2 text-muted-foreground/60 hover:text-destructive bg-transparent border-none cursor-pointer text-[11px] underline-offset-2 hover:underline"
+                  >
+                    Descartar
+                  </button>
+                </div>
+              )}
               <Button
                 onClick={handleApproveAll}
                 disabled={posts.length === 0}
