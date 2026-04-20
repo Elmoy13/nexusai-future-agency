@@ -569,7 +569,7 @@ const BriefCreator = ({ brandName, briefId: briefIdProp, brandId, kind = "campai
     if (saveStatus === "error") {
       return (
         <button
-          onClick={() => persistBrief.flush()}
+          onClick={() => flushPersist.flush()}
           className="flex items-center gap-1 text-[10px] text-destructive hover:underline"
         >
           <AlertCircle size={10} /> Error — reintentar
@@ -585,7 +585,7 @@ const BriefCreator = ({ brandName, briefId: briefIdProp, brandId, kind = "campai
       );
     }
     return null;
-  }, [saveStatus, lastSaved, briefId, persistBrief]);
+  }, [saveStatus, lastSaved, briefId, flushPersist]);
 
   /* ── Render ──────────────────────────────────────────── */
   if (isHydrating) {
