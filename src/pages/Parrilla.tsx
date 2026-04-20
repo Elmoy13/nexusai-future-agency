@@ -2249,9 +2249,38 @@ const Parrilla = () => {
                 )}
               </div>
 
-              {/* 📸 Product Photos */}
+              {/* 📦 Persistent Brand Products (NEW) */}
+              <ParrillaProductSelector
+                brandId={brandId}
+                agencyId={currentAgencyId}
+                brandProducts={brandProducts}
+                selectedProductIds={selectedProductIds}
+                onToggle={(pid) => {
+                  setSelectedProductIds((prev) =>
+                    prev.includes(pid) ? prev.filter((x) => x !== pid) : [...prev, pid]
+                  );
+                }}
+                onProductCreated={(product) => {
+                  setBrandProducts((prev) => (prev ? [...prev, product] : [product]));
+                  setSelectedProductIds((prev) =>
+                    prev.includes(product.id) ? prev : [...prev, product.id]
+                  );
+                }}
+              />
+
+              {/* Separator: legacy temporary uploads */}
+              <div className="my-4 flex items-center gap-2">
+                <div className="flex-1 h-px bg-border/60" />
+                <span className="text-[9px] uppercase tracking-wider text-muted-foreground/70 font-mono">
+                  o sube imágenes temporales
+                </span>
+                <div className="flex-1 h-px bg-border/60" />
+              </div>
+
+              {/* 📸 Product Photos (LEGACY — temporary, not persisted) */}
               <div className="mb-4 space-y-2.5">
-                <p className="text-[11px] font-bold text-foreground uppercase tracking-wider">📸 Fotos del Producto</p>
+                <p className="text-[11px] font-bold text-foreground uppercase tracking-wider">📸 Imágenes temporales</p>
+                <p className="text-[10px] text-muted-foreground -mt-1.5">No se guardan, solo para esta parrilla.</p>
                 {productImages.length === 0 ? (
                   <button onClick={() => productFileInputRef.current?.click()}
                     className="w-full py-6 rounded-xl border-2 border-dashed border-border hover:border-primary bg-secondary/50 hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-2 group"
