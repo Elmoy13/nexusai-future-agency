@@ -774,7 +774,7 @@ const Parrilla = () => {
     } finally {
       setIsChatThinking(false);
     }
-  }, [chatMessages, brandVision, productVision, brand]);
+  }, [chatMessages, brandVision, productVision, brand, language]);
 
   // Trigger intro message when brand + product are both analyzed
   const introSentRef = useRef(false);
