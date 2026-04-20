@@ -111,9 +111,24 @@ const Brand = () => {
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-bold text-foreground tracking-tight">{brand.name}</h1>
-            <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-              {brand.brief || "Sin brief. Edita la marca para añadir contexto."}
-            </p>
+            {(() => {
+              const strategicCount = briefs.filter((b) => b.kind === "strategic").length;
+              const campaignCount = briefs.filter((b) => b.kind === "campaign").length;
+              if (briefs.length > 0) {
+                return (
+                  <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+                    {strategicCount > 0 ? "✓ Brief estratégico listo" : "Sin brief estratégico"}
+                    {" · "}
+                    {campaignCount} brief{campaignCount === 1 ? "" : "s"} de campaña
+                  </p>
+                );
+              }
+              return (
+                <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+                  {brand.brief || "Sin brief. Edita la marca para añadir contexto."}
+                </p>
+              );
+            })()}
             {(swatches.length > 0 || brand.font_family) && (
               <div className="flex items-center gap-4 mt-3 flex-wrap">
                 {swatches.length > 0 && (
