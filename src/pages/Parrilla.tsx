@@ -1049,6 +1049,11 @@ const Parrilla = () => {
   const isNewParrilla = id === "nueva" || !id;
   const queryDraftId = searchParams.get("draft_id");
   const queryBrandId = searchParams.get("brand_id");
+  // When :id is a real UUID (not "nueva") and no ?draft_id is present,
+  // we treat it as a job_id and load existing generated posts (read-only-ish view).
+  const candidateJobId = !isNewParrilla && !queryDraftId ? id ?? null : null;
+  const [viewJobId, setViewJobId] = useState<string | null>(candidateJobId);
+  const [isLoadingJob, setIsLoadingJob] = useState<boolean>(!!candidateJobId);
 
   const [activePlatform, setActivePlatform] = useState<string>("instagram");
   const [posts, setPosts] = useState<PostCard[]>([]);
