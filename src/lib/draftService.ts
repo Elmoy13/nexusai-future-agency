@@ -11,6 +11,7 @@ export interface DraftRow {
   config: unknown;
   selected_product_ids: string[] | null;
   last_step: string | null;
+  brief_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -24,6 +25,8 @@ export async function createDraft(params: {
   brandId: string;
   userId: string;
   title?: string;
+  briefId?: string | null;
+  config?: Record<string, unknown>;
 }): Promise<DraftRow> {
   const { data, error } = await supabase
     .from("parrilla_drafts")
@@ -34,9 +37,10 @@ export async function createDraft(params: {
       title: params.title ?? null,
       status: "draft",
       chat_messages: [],
-      config: {},
+      config: params.config ?? {},
       selected_product_ids: [],
       last_step: "init",
+      brief_id: params.briefId ?? null,
     })
     .select("*")
     .single();
