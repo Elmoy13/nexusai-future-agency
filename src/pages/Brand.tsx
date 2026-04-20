@@ -13,19 +13,27 @@ interface Job {
   created_at: string;
 }
 
+interface BriefRow {
+  id: string;
+  kind: "strategic" | "campaign";
+  status: string;
+  title: string | null;
+}
+
 const Brand = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
   const [brand, setBrand] = useState<EditableBrand | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [briefs, setBriefs] = useState<BriefRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
 
   const fetchBrand = async () => {
     if (!id) return;
     setLoading(true);
-    const [{ data: b }, { data: js }] = await Promise.all([
+    const [{ data: b }, { data: js }, { data: bs }] = await Promise.all([
       supabase
         .from("brands")
         .select(
@@ -38,9 +46,14 @@ const Brand = () => {
         .select("id, campaign_description, status, created_at")
         .eq("brand_id", id)
         .order("created_at", { ascending: false }),
+      supabase
+        .from("brand_briefs")
+        .select("id, kind, status, title")
+        .eq("brand_id", id),
     ]);
     setBrand((b as EditableBrand | null) ?? null);
     setJobs((js as Job[]) ?? []);
+    setBriefs((bs as BriefRow[]) ?? []);
     setLoading(false);
   };
 
@@ -98,9 +111,24 @@ const Brand = () => {
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-bold text-foreground tracking-tight">{brand.name}</h1>
-            <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-              {brand.brief || "Sin brief. Edita la marca para añadir contexto."}
-            </p>
+            {(() => {
+              const strategicCount = briefs.filter((b) => b.kind === "strategic").length;
+              const campaignCount = briefs.filter((b) => b.kind === "campaign").length;
+              if (briefs.length > 0) {
+                return (
+                  <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+                    {strategicCount > 0 ? "✓ Brief estratégico listo" : "Sin brief estratégico"}
+                    {" · "}
+                    {campaignCount} brief{campaignCount === 1 ? "" : "s"} de campaña
+                  </p>
+                );
+              }
+              return (
+                <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+                  {brand.brief || "Sin brief. Edita la marca para añadir contexto."}
+                </p>
+              );
+            })()}
             {(swatches.length > 0 || brand.font_family) && (
               <div className="flex items-center gap-4 mt-3 flex-wrap">
                 {swatches.length > 0 && (

@@ -40,6 +40,7 @@ interface Brand {
   font_family: string | null;
   created_at: string;
   posts_count?: number;
+  brand_briefs?: { id: string; kind: "strategic" | "campaign"; status: string }[];
 }
 
 interface Job {
@@ -112,7 +113,9 @@ const Dashboard = () => {
 
       const { data: bs } = await supabase
         .from("brands")
-        .select("id, name, brief, logo_url, primary_color, secondary_color, accent_colors, font_family, created_at")
+        .select(
+          "id, name, brief, logo_url, primary_color, secondary_color, accent_colors, font_family, created_at, brand_briefs(id, kind, status)"
+        )
         .eq("agency_id", currentAgencyId)
         .order("created_at", { ascending: false });
 
@@ -431,9 +434,24 @@ const BrandCard = ({ brand, onClick }: { brand: Brand; onClick: () => void }) =>
         )}
       </div>
       <p className="text-base font-semibold text-foreground truncate group-hover:text-primary transition">{brand.name}</p>
-      <p className="text-xs text-muted-foreground mt-1 line-clamp-2 min-h-[2rem]">
-        {brand.brief || "Sin brief"}
-      </p>
+      {(() => {
+        const briefs = brand.brand_briefs ?? [];
+        const hasStrategic = briefs.some((b) => b.kind === "strategic");
+        const campaignCount = briefs.filter((b) => b.kind === "campaign").length;
+        if (briefs.length > 0) {
+          return (
+            <p className="text-xs text-muted-foreground mt-1 line-clamp-2 min-h-[2rem]">
+              {hasStrategic ? "✓ Estratégico" : "Sin estratégico"}
+              {campaignCount > 0 ? ` · ${campaignCount} campaña${campaignCount === 1 ? "" : "s"}` : ""}
+            </p>
+          );
+        }
+        return (
+          <p className="text-xs text-muted-foreground mt-1 line-clamp-2 min-h-[2rem]">
+            {brand.brief || "Sin brief"}
+          </p>
+        );
+      })()}
       {swatches.length > 0 && (
         <div className="flex items-center gap-1 mt-3">
           {swatches.map((c, i) => (

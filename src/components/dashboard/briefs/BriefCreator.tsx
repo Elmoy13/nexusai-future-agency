@@ -239,39 +239,65 @@ const BriefCreator = ({ brandName, briefId: briefIdProp, brandId, kind = "campai
   }, [briefIdProp, brandId, currentAgencyId, user, kind]);
 
   /* ── Auto-save debounced ─────────────────────────────── */
-  const persistBrief = useDebouncedCallback(async (patch: BriefPatch) => {
+  // Acumulamos el patch pendiente entre llamadas para que múltiples useEffects
+  // (mensajes, imágenes, presentación) no se pisen entre sí. El debounce
+  // dispara una única escritura con el patch combinado.
+  const pendingPatchRef = useRef<BriefPatch>({});
+
+  const flushPersist = useDebouncedCallback(async () => {
     if (!briefId) return;
+    const patch = pendingPatchRef.current;
+    pendingPatchRef.current = {};
+    if (Object.keys(patch).length === 0) {
+      setSaveStatus("saved");
+      return;
+    }
     try {
-      setSaveStatus("saving");
       await updateBrief(briefId, patch);
       setSaveStatus("saved");
       setLastSaved(new Date());
-    } catch (err) {
+    } catch (err: any) {
       setSaveStatus("error");
       console.error("[BriefCreator] save error:", err);
+      toast({
+        title: "Error al guardar",
+        description: err?.message || "Reintenta en unos segundos",
+        variant: "destructive",
+      });
     }
   }, 2000);
+
+  const queuePersist = useCallback(
+    (patch: BriefPatch) => {
+      if (!briefId) return;
+      pendingPatchRef.current = { ...pendingPatchRef.current, ...patch };
+      // Mostrar "Guardando…" inmediatamente al encolar (no después del debounce)
+      setSaveStatus("saving");
+      flushPersist();
+    },
+    [briefId, flushPersist],
+  );
 
   // Save messages
   useEffect(() => {
     if (!briefId || isHydrating) return;
     if (messages.length === 0) return;
-    persistBrief({ chat_messages: toDbMessages(messages) });
-  }, [messages, briefId, isHydrating, persistBrief]);
+    queuePersist({ chat_messages: toDbMessages(messages) });
+  }, [messages, briefId, isHydrating, queuePersist]);
 
   // Save uploaded images
   useEffect(() => {
     if (!briefId || isHydrating) return;
-    persistBrief({ uploaded_images: uploadedImageObjs });
-  }, [uploadedImageObjs, briefId, isHydrating, persistBrief]);
+    queuePersist({ uploaded_images: uploadedImageObjs });
+  }, [uploadedImageObjs, briefId, isHydrating, queuePersist]);
 
   // Save presentation + status
   useEffect(() => {
     if (!briefId || isHydrating) return;
     if (step === "done" && presentation) {
-      persistBrief({ status: "done", presentation });
+      queuePersist({ status: "done", presentation });
     }
-  }, [step, presentation, briefId, isHydrating, persistBrief]);
+  }, [step, presentation, briefId, isHydrating, queuePersist]);
 
   /* ── Upload file ─────────────────────────────────────── */
   const uploadFile = useCallback(async (file: File): Promise<string | null> => {
@@ -543,7 +569,7 @@ const BriefCreator = ({ brandName, briefId: briefIdProp, brandId, kind = "campai
     if (saveStatus === "error") {
       return (
         <button
-          onClick={() => persistBrief.flush()}
+          onClick={() => flushPersist.flush()}
           className="flex items-center gap-1 text-[10px] text-destructive hover:underline"
         >
           <AlertCircle size={10} /> Error — reintentar
@@ -559,7 +585,7 @@ const BriefCreator = ({ brandName, briefId: briefIdProp, brandId, kind = "campai
       );
     }
     return null;
-  }, [saveStatus, lastSaved, briefId, persistBrief]);
+  }, [saveStatus, lastSaved, briefId, flushPersist]);
 
   /* ── Render ──────────────────────────────────────────── */
   if (isHydrating) {
