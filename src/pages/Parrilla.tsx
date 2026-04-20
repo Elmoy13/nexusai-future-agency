@@ -701,6 +701,8 @@ const Parrilla = () => {
   });
   const [includeLogoInImage, setIncludeLogoInImage] = useState(false);
   const [includeTextInImage, setIncludeTextInImage] = useState(false);
+  const [language, setLanguage] = useState<"auto" | "es" | "en">("auto");
+  const [detectedLanguage, setDetectedLanguage] = useState<"es" | "en" | null>(null);
 
   // Available formats based on selected platforms
   const availableFormats = useMemo(() => {
