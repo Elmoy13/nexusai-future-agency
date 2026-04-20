@@ -1144,7 +1144,7 @@ const Parrilla = () => {
     link.href = `https://fonts.googleapis.com/css2?family=${fontName}:wght@400;700;900&display=swap`;
   }, [brand.font_family]);
 
-  useEffect(() => { saveBrand(brand, id); }, [brand, id]);
+  // brand profile no longer persisted to localStorage; lives in draft.config via auto-save below.
 
   // Send chat message to AI
   const sendChatMessage = useCallback(async (userMessage: string) => {
@@ -1269,7 +1269,6 @@ const Parrilla = () => {
         setBrandVision(data.vision_analysis);
         if (data.vision_analysis.brand_name_detected && !brandName) {
           setBrandName(data.vision_analysis.brand_name_detected);
-          try { localStorage.setItem(getBrandNameStorageKey(id), data.vision_analysis.brand_name_detected); } catch {}
         }
       }
       toast({ title: "✨ Marca analizada con IA visual", description: "Colores, tipografía y personalidad detectados." });
@@ -1315,13 +1314,35 @@ const Parrilla = () => {
     setBrandAssetBlobs((prev) => [...prev, file]);
     toast({ title: "✅ Logo cargado", description: "Analizando identidad de marca..." });
     const reader = new FileReader();
-    reader.onloadend = () => {
+    reader.onloadend = async () => {
       const b64 = reader.result as string;
-      try { localStorage.setItem(getLogoStorageKey(id), b64); } catch {}
+      setCurrentLogoB64(b64);
+
+      // Persist logo to Supabase Storage in background (only if we have a brand)
+      if (currentAgencyId && brandId) {
+        try {
+          const blob = await base64ToBlob(b64);
+          const { publicUrl } = await uploadBrandLogo({
+            file: blob,
+            agencyId: currentAgencyId,
+            brandId,
+            filename: file.name,
+          });
+          setCurrentLogoUrl(publicUrl);
+        } catch (err: any) {
+          console.error("[parrilla] logo upload failed", err);
+          toast({
+            title: "⚠️ El logo no se guardó en la nube",
+            description: err?.message || "Sigue cargado para esta sesión. Reintenta más tarde.",
+            variant: "destructive",
+          });
+        }
+      }
+
       analyzeBrand(b64);
     };
     reader.readAsDataURL(file);
-  }, [analyzeBrand]);
+  }, [analyzeBrand, currentAgencyId, brandId]);
 
   const handleProductImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -1412,9 +1433,8 @@ const Parrilla = () => {
       }
     }
 
-    // Get logo b64
-    let logoB64: string | undefined;
-    try { logoB64 = localStorage.getItem(getLogoStorageKey(id)) || undefined; } catch {}
+    // Get logo b64 (from in-memory state or blob)
+    let logoB64: string | undefined = currentLogoB64 || undefined;
     if (!logoB64 && brandAssetBlobs.length > 0) {
       logoB64 = await blobToBase64(brandAssetBlobs[0]);
     }
@@ -1635,8 +1655,7 @@ const Parrilla = () => {
   const handleRegenerateSingle = useCallback(async (post: PostCard) => {
     setPosts(prev => prev.map(p => p.id === post.id ? { ...p, isRendering: true, error: null } : p));
     try {
-      let logoB64: string | undefined;
-      try { logoB64 = localStorage.getItem(getLogoStorageKey(id)) || undefined; } catch {}
+      let logoB64: string | undefined = currentLogoB64 || undefined;
       if (!logoB64 && brandAssetBlobs.length > 0) logoB64 = await blobToBase64(brandAssetBlobs[0]);
       const newImage = await renderPost(post, logoB64);
       setPosts(prev => prev.map(p => p.id === post.id ? { ...p, image: newImage, isRendering: false, error: null } : p));
@@ -1792,10 +1811,7 @@ const Parrilla = () => {
                 <label className="text-[11px] font-bold text-foreground uppercase tracking-wider">Nombre de tu marca</label>
                 <Input
                   value={brandName}
-                  onChange={(e) => {
-                    setBrandName(e.target.value);
-                    try { localStorage.setItem(getBrandNameStorageKey(id), e.target.value); } catch {}
-                  }}
+                  onChange={(e) => setBrandName(e.target.value)}
                   placeholder="Ej: Bacachito Feliz"
                   className="bg-secondary/50 border-border h-9 text-sm"
                 />
@@ -1839,11 +1855,11 @@ const Parrilla = () => {
                           setBrandDetected(false);
                           setBrandVision(null);
                           setBrand(DEFAULT_BRAND);
-                          try {
-                            localStorage.removeItem(getLogoStorageKey(id));
-                            localStorage.removeItem(getBrandStorageKey(id));
-                          } catch {}
-                          toast({ title: "Logo eliminado" });
+                          setCurrentLogoB64(null);
+                          setCurrentLogoUrl(null);
+                          // Note: el logo en Supabase Storage se conserva como histórico.
+                          // Para borrarlo en serio, hay que sobrescribir desde la página de la marca.
+                          toast({ title: "Logo eliminado de esta sesión" });
                         }}
                         className="h-8 text-xs gap-1.5 bg-destructive/20 text-destructive hover:bg-destructive/30 border-destructive/30"
                       >
