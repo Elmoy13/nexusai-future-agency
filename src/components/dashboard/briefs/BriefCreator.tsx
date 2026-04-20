@@ -312,7 +312,7 @@ const BriefCreator = ({ brandName, briefId: briefIdProp, brandId, kind = "campai
         body: fd,
       });
       if (res.status === 401) {
-        toast.error("Sesión expirada, vuelve a iniciar sesión");
+        toast({ title: "Sesión expirada", description: "Vuelve a iniciar sesión", variant: "destructive" });
         await supabase.auth.signOut();
         window.location.href = "/login";
         return null;
@@ -439,7 +439,7 @@ const BriefCreator = ({ brandName, briefId: briefIdProp, brandId, kind = "campai
       clearTimeout(timeout);
 
       if (res.status === 401) {
-        toast.error("Sesión expirada, vuelve a iniciar sesión");
+        toast({ title: "Sesión expirada", description: "Vuelve a iniciar sesión", variant: "destructive" });
         await supabase.auth.signOut();
         window.location.href = "/login";
         return;
