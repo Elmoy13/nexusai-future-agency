@@ -165,15 +165,15 @@ const ProductsSection = ({ brandId }: Props) => {
   );
 };
 
-interface AddDialogProps {
+export interface AddProductDialogProps {
   open: boolean;
   onClose: () => void;
   brandId: string;
   agencyId: string | null;
-  onCreated: () => void;
+  onCreated: (product?: BrandProduct) => void;
 }
 
-const AddProductDialog = ({ open, onClose, brandId, agencyId, onCreated }: AddDialogProps) => {
+export const AddProductDialog = ({ open, onClose, brandId, agencyId, onCreated }: AddProductDialogProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
   const [preview, setPreview] = useState<string | null>(null);
@@ -212,7 +212,7 @@ const AddProductDialog = ({ open, onClose, brandId, agencyId, onCreated }: AddDi
       toast.success("Producto subido");
       // Fire-and-forget analysis
       analyzeProduct(created.id).catch(() => undefined);
-      onCreated();
+      onCreated(created);
       onClose();
     } catch (err: any) {
       toast.error("Error al subir", { description: err?.message });

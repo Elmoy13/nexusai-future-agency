@@ -6,6 +6,8 @@ import { useAgency } from "@/contexts/AgencyContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { createDraft, getDraft, patchDraft, deleteDraft, type DraftRow, type DraftPatch } from "@/lib/draftService";
 import { uploadBrandLogo, base64ToBlob } from "@/lib/brandStorage";
+import { listProducts, type BrandProduct } from "@/lib/productService";
+import ParrillaProductSelector from "@/components/dashboard/ParrillaProductSelector";
 
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -1071,6 +1073,9 @@ const Parrilla = () => {
   const [brandAssets, setBrandAssets] = useState<string[]>([]);
   const [brandAssetBlobs, setBrandAssetBlobs] = useState<Blob[]>([]);
   const [productImages, setProductImages] = useState<string[]>([]);
+  // NEW: persistent products from brand_products
+  const [brandProducts, setBrandProducts] = useState<BrandProduct[] | null>(null);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const productFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -1181,6 +1186,9 @@ const Parrilla = () => {
           if (cfg.language) setLanguage(cfg.language);
           if (cfg.logoUrl) { setCurrentLogoUrl(cfg.logoUrl); setBrandAssets([cfg.logoUrl]); }
           if (Array.isArray(d.chat_messages) && d.chat_messages.length > 0) setChatMessages(d.chat_messages as any);
+          if (Array.isArray(d.selected_product_ids) && d.selected_product_ids.length > 0) {
+            setSelectedProductIds(d.selected_product_ids);
+          }
           setDraftHydrated(true);
           return;
         }
@@ -1234,6 +1242,40 @@ const Parrilla = () => {
     return () => { cancelled = true; };
   }, [isNewParrilla, currentAgencyId, user, queryDraftId, queryBrandId, draftHydrated, navigate, setSearchParams]);
 
+  // Fetch persistent brand products whenever brandId changes
+  useEffect(() => {
+    if (!brandId) { setBrandProducts(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await listProducts(brandId);
+        if (!cancelled) setBrandProducts(list);
+      } catch (err) {
+        console.error("[parrilla] listProducts failed", err);
+        if (!cancelled) setBrandProducts([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [brandId]);
+
+  // Auto-select primary product when brandProducts arrive AND draft has no selection yet.
+  // Only runs once after hydration to respect user's explicit empty selection on existing drafts.
+  const autoSelectAppliedRef = useRef(false);
+  useEffect(() => {
+    if (!draftHydrated) return;
+    if (autoSelectAppliedRef.current) return;
+    if (!brandProducts || brandProducts.length === 0) return;
+    if (selectedProductIds.length > 0) {
+      autoSelectAppliedRef.current = true;
+      return;
+    }
+    const primary = brandProducts.find((p) => p.is_primary) ?? brandProducts[0];
+    if (primary) {
+      setSelectedProductIds([primary.id]);
+      autoSelectAppliedRef.current = true;
+    }
+  }, [brandProducts, draftHydrated, selectedProductIds.length]);
+
   // Snapshot of latest values for the auto-save (avoids re-creating the debounced fn)
   const draftSnapshotRef = useRef<{ get: () => DraftPatch }>({ get: () => ({}) as DraftPatch });
   draftSnapshotRef.current.get = () => ({
@@ -1254,6 +1296,7 @@ const Parrilla = () => {
       language,
       logoUrl: currentLogoUrl,
     } as any,
+    selected_product_ids: selectedProductIds,
     last_step: hasGenerated ? "generated" : "configuring",
   });
 
@@ -1287,6 +1330,7 @@ const Parrilla = () => {
     chatMessages, brand, brandName, brandVision, productVision,
     platforms, selectedFormats, frequency, objective, optionsPerPost,
     includeLogoInImage, includeTextInImage, language, currentLogoUrl, hasGenerated,
+    selectedProductIds,
   ]);
 
   const handleDiscardDraft = useCallback(async () => {
@@ -1632,6 +1676,8 @@ const Parrilla = () => {
       brand_vision: brandVision || null,
       product_vision: productVision || null,
       product_images: productImages,
+      selected_product_ids: selectedProductIds,
+      draft_id: draftId,
       posts_config: postsConfig,
       include_logo_in_image: includeLogoInImage,
       include_text_in_image: includeTextInImage,
@@ -1773,10 +1819,11 @@ const Parrilla = () => {
   }, [selectedFormats, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, chatMessages, brand, brandName, brandVision, productVision, id, productImages, includeLogoInImage, includeTextInImage, language]);
 
   const hasUserChatMessage = chatMessages.some(m => m.role === "user");
-  const canGenerate = brandDetected && productImages.length > 0 && selectedFormats.size > 0 && hasUserChatMessage;
+  const hasAnyProduct = productImages.length > 0 || selectedProductIds.length > 0;
+  const canGenerate = brandDetected && hasAnyProduct && selectedFormats.size > 0 && hasUserChatMessage;
   const getDisabledReason = () => {
     if (!brandDetected) return "Sube tu logo primero";
-    if (productImages.length === 0) return "Sube al menos una foto de tu producto";
+    if (!hasAnyProduct) return "Selecciona un producto de tu marca o sube una imagen temporal";
     if (!hasUserChatMessage) return "Conversa con Nano Banano sobre tu campaña";
     if (selectedFormats.size === 0) return "Selecciona al menos una plataforma y formato";
     return "";
@@ -2204,9 +2251,38 @@ const Parrilla = () => {
                 )}
               </div>
 
-              {/* 📸 Product Photos */}
+              {/* 📦 Persistent Brand Products (NEW) */}
+              <ParrillaProductSelector
+                brandId={brandId}
+                agencyId={currentAgencyId}
+                brandProducts={brandProducts}
+                selectedProductIds={selectedProductIds}
+                onToggle={(pid) => {
+                  setSelectedProductIds((prev) =>
+                    prev.includes(pid) ? prev.filter((x) => x !== pid) : [...prev, pid]
+                  );
+                }}
+                onProductCreated={(product) => {
+                  setBrandProducts((prev) => (prev ? [...prev, product] : [product]));
+                  setSelectedProductIds((prev) =>
+                    prev.includes(product.id) ? prev : [...prev, product.id]
+                  );
+                }}
+              />
+
+              {/* Separator: legacy temporary uploads */}
+              <div className="my-4 flex items-center gap-2">
+                <div className="flex-1 h-px bg-border/60" />
+                <span className="text-[9px] uppercase tracking-wider text-muted-foreground/70 font-mono">
+                  o sube imágenes temporales
+                </span>
+                <div className="flex-1 h-px bg-border/60" />
+              </div>
+
+              {/* 📸 Product Photos (LEGACY — temporary, not persisted) */}
               <div className="mb-4 space-y-2.5">
-                <p className="text-[11px] font-bold text-foreground uppercase tracking-wider">📸 Fotos del Producto</p>
+                <p className="text-[11px] font-bold text-foreground uppercase tracking-wider">📸 Imágenes temporales</p>
+                <p className="text-[10px] text-muted-foreground -mt-1.5">No se guardan, solo para esta parrilla.</p>
                 {productImages.length === 0 ? (
                   <button onClick={() => productFileInputRef.current?.click()}
                     className="w-full py-6 rounded-xl border-2 border-dashed border-border hover:border-primary bg-secondary/50 hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-2 group"
