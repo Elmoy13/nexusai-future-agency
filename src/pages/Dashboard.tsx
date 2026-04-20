@@ -355,6 +355,8 @@ const Dashboard = () => {
                   </div>
                 )}
               </section>
+
+              <DraftsSection />
             </div>
           )}
 
