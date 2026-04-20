@@ -2198,37 +2198,33 @@ const PresentationSlide = ({
   );
 };
 
+type EditorMode = "loading" | "real" | "legacy" | "demo" | "not_found";
+type SlideMetaState = {
+  id: string;
+  type: "cover" | "content" | "art" | string;
+  image?: string;
+  backgroundColor: string;
+  transition: "none" | "fade" | "slide" | "zoom";
+};
+
 /* ── Main Editor Page ── */
 const Editor = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const campaign = initialCampaigns.find((c) => c.id === id) ?? initialCampaigns[0];
+  // ─── 1. Detección de modo + hidratación ──────────────────
+  const [mode, setMode] = useState<EditorMode>("loading");
+  const [briefDbId, setBriefDbId] = useState<string | null>(null);
 
-  const draftKey = id ? `presentation_draft_${id}` : null;
-  const draft = (() => {
-    if (!draftKey) return null as null | { slidesElements: SlideElement[][]; slideMeta: any[]; docTitle?: string };
-    try {
-      const raw = sessionStorage.getItem(draftKey);
-      if (!raw) return null;
-      return JSON.parse(raw);
-    } catch {
-      return null;
-    }
-  })();
+  // Estados principales (persistibles)
+  const [slidesElements, setSlidesElements] = useState<SlideElement[][]>([]);
+  const [slideMeta, setSlideMeta] = useState<SlideMetaState[]>([]);
+  const [docTitle, setDocTitle] = useState<string>("Sin título");
 
-  const [slidesElements, setSlidesElements] = useState<SlideElement[][]>(() =>
-    draft?.slidesElements ?? campaign.slides.map(slideToElements)
-  );
-  const [slideMeta, setSlideMeta] = useState(() =>
-    draft?.slideMeta ?? campaign.slides.map((s) => ({ id: s.id, type: s.type, image: s.type === "cover" ? s.image : undefined, backgroundColor: "#ffffff", transition: "fade" as "none" | "fade" | "slide" | "zoom" }))
-  );
+  // Estados volátiles (NO persistir)
   const [isBackgroundSelected, setIsBackgroundSelected] = useState(false);
-
   const [activeIdx, setActiveIdx] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [docTitle, setDocTitle] = useState(draft?.docTitle ?? campaign.title);
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [presenting, setPresenting] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -2239,10 +2235,148 @@ const Editor = () => {
   const [bgRemoveProcessing, setBgRemoveProcessing] = useState(false);
   const [showCodeModal, setShowCodeModal] = useState(false);
 
+  const hydratedRef = useRef(false);
+  const persistence = useEditorPersistence(briefDbId);
+
+  // ─── Lógica de carga inicial ─────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    if (!id) {
+      setMode("not_found");
+      return;
+    }
+
+    const hydrateFromCampaign = (campaign: typeof initialCampaigns[number]) => {
+      const els = campaign.slides.map(slideToElements);
+      const meta: SlideMetaState[] = campaign.slides.map((s) => ({
+        id: s.id,
+        type: s.type,
+        image: s.type === "cover" ? s.image : undefined,
+        backgroundColor: "#ffffff",
+        transition: "fade",
+      }));
+      setSlidesElements(els);
+      setSlideMeta(meta);
+      setDocTitle(campaign.title);
+    };
+
+    const hydrateFromEditorState = (s: EditorState) => {
+      setSlidesElements(s.slidesElements ?? []);
+      setSlideMeta(
+        (s.slideMeta ?? []).map((m) => ({
+          id: m.id,
+          type: m.type,
+          image: m.image,
+          backgroundColor: m.backgroundColor ?? "#ffffff",
+          transition: (m.transition ?? "fade") as SlideMetaState["transition"],
+        })),
+      );
+      setDocTitle(s.docTitle ?? "Sin título");
+    };
+
+    const hydrateFromPresentation = (brief: BrandBrief) => {
+      const pres: any[] = Array.isArray(brief.presentation) ? brief.presentation : [];
+      const els: SlideElement[][] = pres.map((s: any) => s.elements ?? []);
+      const meta: SlideMetaState[] = pres.map((s: any) => ({
+        id: s.id ?? `slide-${Math.random().toString(36).slice(2, 8)}`,
+        type: s.type ?? "content",
+        image: s.image,
+        backgroundColor: s.backgroundColor ?? "#ffffff",
+        transition: (s.transition ?? "fade") as SlideMetaState["transition"],
+      }));
+      setSlidesElements(els);
+      setSlideMeta(meta);
+      setDocTitle(brief.title ?? "Sin título");
+    };
+
+    (async () => {
+      // Caso A: UUID → brief real
+      if (isUuid(id)) {
+        try {
+          const brief = await getBrief(id);
+          if (cancelled) return;
+          if (!brief) {
+            setMode("not_found");
+            return;
+          }
+          if (brief.editor_state) {
+            hydrateFromEditorState(brief.editor_state as EditorState);
+          } else if (brief.presentation) {
+            // Opción B: hidratar desde presentation, sin escribir aún
+            hydrateFromPresentation(brief);
+          } else {
+            setSlidesElements([[]]);
+            setSlideMeta([{ id: "slide-1", type: "cover", backgroundColor: "#ffffff", transition: "fade" }]);
+            setDocTitle(brief.title ?? "Sin título");
+          }
+          setBriefDbId(brief.id);
+          setMode("real");
+          requestAnimationFrame(() => {
+            if (!cancelled) hydratedRef.current = true;
+          });
+        } catch (err) {
+          console.error("[Editor] error al cargar brief:", err);
+          setMode("not_found");
+        }
+        return;
+      }
+
+      // Caso B: id legacy "agent-xxx" → fallback sessionStorage
+      // TODO: Eliminar este fallback después de 2026-05-01
+      if (id.startsWith("agent-")) {
+        const raw = sessionStorage.getItem(`presentation_draft_${id}`);
+        if (!raw) {
+          setMode("not_found");
+          return;
+        }
+        try {
+          const parsed = JSON.parse(raw);
+          console.warn(
+            "[Editor] cargando draft legacy desde sessionStorage. " +
+              "Este modo NO persiste cambios. TODO: eliminar después de 2026-05-01.",
+          );
+          setSlidesElements(parsed.slidesElements ?? []);
+          setSlideMeta(parsed.slideMeta ?? []);
+          setDocTitle(parsed.docTitle ?? "Sin título");
+          setMode("legacy");
+        } catch {
+          setMode("not_found");
+        }
+        return;
+      }
+
+      // Caso C: matchea un campaign de demo
+      const campaign = initialCampaigns.find((c) => c.id === id);
+      if (campaign) {
+        hydrateFromCampaign(campaign);
+        setMode("demo");
+        return;
+      }
+
+      setMode("not_found");
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
   const history = useHistory(slidesElements[activeIdx] ?? []);
 
+  // Guard de igualdad: solo actualiza slidesElements si el contenido cambió.
   useEffect(() => {
-    setSlidesElements((prev) => prev.map((els, i) => (i === activeIdx ? history.state : els)));
+    setSlidesElements((prev) => {
+      const cur = prev[activeIdx];
+      if (cur === history.state) return prev;
+      if (cur && cur.length === history.state.length) {
+        let same = true;
+        for (let i = 0; i < cur.length; i++) {
+          if (cur[i] !== history.state[i]) { same = false; break; }
+        }
+        if (same) return prev;
+      }
+      return prev.map((els, i) => (i === activeIdx ? history.state : els));
+    });
   }, [history.state, activeIdx]);
 
   const prevActiveRef = useRef(activeIdx);
@@ -2254,6 +2388,24 @@ const Editor = () => {
       setEyedropperMode(false);
     }
   }, [activeIdx]);
+
+  // ─── Auto-save: snapshot completo en cada cambio (debounced 2s en el hook)
+  useEffect(() => {
+    if (!hydratedRef.current || mode !== "real" || !briefDbId) return;
+    const snapshot: EditorState = {
+      version: 1,
+      docTitle,
+      slidesElements,
+      slideMeta: slideMeta.map((m) => ({
+        id: m.id,
+        type: m.type,
+        image: m.image,
+        backgroundColor: m.backgroundColor,
+        transition: m.transition,
+      })) as EditorSlideMeta[],
+    };
+    persistence.persist(snapshot);
+  }, [slidesElements, slideMeta, docTitle, mode, briefDbId, persistence]);
 
   const currentElements = history.state;
 
