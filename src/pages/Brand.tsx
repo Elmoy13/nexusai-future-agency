@@ -9,6 +9,10 @@ interface Brand {
   name: string;
   brief: string | null;
   logo_url: string | null;
+  primary_color: string | null;
+  secondary_color: string | null;
+  accent_colors: string[] | null;
+  font_family: string | null;
 }
 
 interface Job {
