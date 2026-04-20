@@ -1061,6 +1061,7 @@ const Parrilla = () => {
       posts_config: postsConfig,
       include_logo_in_image: includeLogoInImage,
       include_text_in_image: includeTextInImage,
+      language,
     };
 
     const motivationalMessages = [
