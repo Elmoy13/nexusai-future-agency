@@ -1348,7 +1348,14 @@ const Parrilla = () => {
             <div className="flex items-center gap-4">
               <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")} className="text-muted-foreground hover:text-foreground"><ArrowLeft size={20} /></Button>
               <div>
-                <h1 className="text-lg font-bold text-foreground">Parrilla de Contenido</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-lg font-bold text-foreground">Parrilla de Contenido</h1>
+                  {detectedLanguage && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 transition-all">
+                      🌐 {detectedLanguage.toUpperCase()}
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">Lanzamiento Drone X10 · Aero Dynamics</p>
               </div>
             </div>
