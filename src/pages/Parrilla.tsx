@@ -1242,6 +1242,40 @@ const Parrilla = () => {
     return () => { cancelled = true; };
   }, [isNewParrilla, currentAgencyId, user, queryDraftId, queryBrandId, draftHydrated, navigate, setSearchParams]);
 
+  // Fetch persistent brand products whenever brandId changes
+  useEffect(() => {
+    if (!brandId) { setBrandProducts(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await listProducts(brandId);
+        if (!cancelled) setBrandProducts(list);
+      } catch (err) {
+        console.error("[parrilla] listProducts failed", err);
+        if (!cancelled) setBrandProducts([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [brandId]);
+
+  // Auto-select primary product when brandProducts arrive AND draft has no selection yet.
+  // Only runs once after hydration to respect user's explicit empty selection on existing drafts.
+  const autoSelectAppliedRef = useRef(false);
+  useEffect(() => {
+    if (!draftHydrated) return;
+    if (autoSelectAppliedRef.current) return;
+    if (!brandProducts || brandProducts.length === 0) return;
+    if (selectedProductIds.length > 0) {
+      autoSelectAppliedRef.current = true;
+      return;
+    }
+    const primary = brandProducts.find((p) => p.is_primary) ?? brandProducts[0];
+    if (primary) {
+      setSelectedProductIds([primary.id]);
+      autoSelectAppliedRef.current = true;
+    }
+  }, [brandProducts, draftHydrated, selectedProductIds.length]);
+
   // Snapshot of latest values for the auto-save (avoids re-creating the debounced fn)
   const draftSnapshotRef = useRef<{ get: () => DraftPatch }>({ get: () => ({}) as DraftPatch });
   draftSnapshotRef.current.get = () => ({
