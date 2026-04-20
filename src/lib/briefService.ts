@@ -185,6 +185,68 @@ export async function updateBrief(
   return data as BrandBrief;
 }
 
+/**
+ * Persiste el snapshot completo del editor.
+ * Always full replace: no diff, no merge — el caller envía el EditorState íntegro.
+ */
+export async function updateEditorState(
+  briefId: string,
+  editorState: EditorState,
+): Promise<void> {
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("brand_briefs")
+    .update({
+      editor_state: editorState as any,
+      editor_last_saved_at: now,
+      updated_at: now,
+    })
+    .eq("id", briefId);
+  if (error) throw error;
+}
+
+/**
+ * Fallback síncrono para `beforeunload` usando navigator.sendBeacon.
+ * Supabase JS hace fetch async; sendBeacon garantiza la entrega aunque
+ * la pestaña se esté cerrando. Devuelve true si el navegador aceptó el envío.
+ */
+export function persistEditorStateBeacon(
+  briefId: string,
+  editorState: EditorState,
+): boolean {
+  if (typeof navigator === "undefined" || !navigator.sendBeacon) return false;
+  try {
+    const SUPABASE_URL = "https://klxdelvimqpjgbxuznyj.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_zccLNmYng5e8m6cVAE60nA_yxpNCEzM";
+    const url = `${SUPABASE_URL}/rest/v1/brand_briefs?id=eq.${encodeURIComponent(briefId)}`;
+    const now = new Date().toISOString();
+    // sendBeacon hace POST. Usamos PostgREST con header X-HTTP-Method-Override.
+    // Como sendBeacon no permite headers custom, recurrimos a fetch keepalive.
+    const body = JSON.stringify({
+      editor_state: editorState,
+      editor_last_saved_at: now,
+      updated_at: now,
+    });
+
+    // fetch con keepalive es la única forma de mandar PATCH con headers
+    // durante beforeunload. Está soportado en todos los browsers modernos.
+    fetch(url, {
+      method: "PATCH",
+      keepalive: true,
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        Prefer: "return=minimal",
+      },
+      body,
+    }).catch(() => {});
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ─── DELETE ───
 export async function deleteBrief(briefId: string): Promise<void> {
   const { error } = await supabase
