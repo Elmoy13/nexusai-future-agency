@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useDebouncedCallback } from "use-debounce";
 import { useAgency } from "@/contexts/AgencyContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { createDraft, getDraft, patchDraft, deleteDraft, type DraftRow } from "@/lib/draftService";
+import { createDraft, getDraft, patchDraft, deleteDraft, type DraftRow, type DraftPatch } from "@/lib/draftService";
 import { uploadBrandLogo, base64ToBlob } from "@/lib/brandStorage";
 
 import { motion, AnimatePresence } from "framer-motion";
