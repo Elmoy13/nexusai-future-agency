@@ -35,7 +35,7 @@ const EarlyAccessModal = ({ open, onClose }: EarlyAccessModalProps) => {
     const result = schema.safeParse({ empresa, email });
     if (!result.success) {
       const fieldErrors: { empresa?: string; email?: string } = {};
-      result.error.errors.forEach((e) => {
+      result.error.issues.forEach((e) => {
         const key = e.path[0] as "empresa" | "email";
         fieldErrors[key] = e.message;
       });
