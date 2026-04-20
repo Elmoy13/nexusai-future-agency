@@ -2198,6 +2198,55 @@ const PresentationSlide = ({
   );
 };
 
+/* ── Indicador de auto-save ── */
+const SaveIndicator = ({
+  status,
+  lastSavedAt,
+  onRetry,
+}: {
+  status: "idle" | "saving" | "saved" | "error";
+  lastSavedAt: Date | null;
+  onRetry: () => void;
+}) => {
+  // tick para refrescar "hace Xs"
+  const [, force] = useState(0);
+  useEffect(() => {
+    const i = setInterval(() => force((n) => n + 1), 15000);
+    return () => clearInterval(i);
+  }, []);
+
+  if (status === "error") {
+    return (
+      <span className="text-[11px] flex items-center gap-1.5 px-2 py-1 rounded bg-red-500/10 text-red-600 border border-red-500/30">
+        <AlertTriangle size={12} /> Error al guardar
+        <button onClick={onRetry} className="underline ml-1 hover:text-red-700">Reintentar</button>
+      </span>
+    );
+  }
+  if (status === "saving") {
+    return (
+      <span className="text-[11px] text-amber-600 flex items-center gap-1.5">
+        <Loader2 size={12} className="animate-spin" /> Guardando…
+      </span>
+    );
+  }
+  if (status === "saved" && lastSavedAt) {
+    const ago = Math.floor((Date.now() - lastSavedAt.getTime()) / 1000);
+    const label =
+      ago < 5 ? "ahora" : ago < 60 ? `hace ${ago}s` : `hace ${Math.floor(ago / 60)}m`;
+    return (
+      <span className="text-[11px] text-emerald-600 flex items-center gap-1.5">
+        <Cloud size={12} /> Guardado {label}
+      </span>
+    );
+  }
+  return (
+    <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+      <Cloud size={12} /> Guardado automáticamente
+    </span>
+  );
+};
+
 type EditorMode = "loading" | "real" | "legacy" | "demo" | "not_found";
 type SlideMetaState = {
   id: string;
@@ -2882,9 +2931,13 @@ const Editor = () => {
           <CodeModal
             slidesElements={slidesElements}
             slideMeta={slideMeta}
-            onImport={(newElements, newMeta) => {
+            docTitle={docTitle}
+            onImport={(newElements, newMeta, newDocTitle) => {
               setSlidesElements(newElements);
               setSlideMeta(newMeta as typeof slideMeta);
+              if (typeof newDocTitle === "string" && newDocTitle.trim()) {
+                setDocTitle(newDocTitle);
+              }
               setActiveIdx(0);
               setSelectedIds(new Set());
               history.reset(newElements[0] ?? []);
