@@ -1049,6 +1049,11 @@ const Parrilla = () => {
   const isNewParrilla = id === "nueva" || !id;
   const queryDraftId = searchParams.get("draft_id");
   const queryBrandId = searchParams.get("brand_id");
+  // When :id is a real UUID (not "nueva") and no ?draft_id is present,
+  // we treat it as a job_id and load existing generated posts (read-only-ish view).
+  const candidateJobId = !isNewParrilla && !queryDraftId ? id ?? null : null;
+  const [viewJobId, setViewJobId] = useState<string | null>(candidateJobId);
+  const [isLoadingJob, setIsLoadingJob] = useState<boolean>(!!candidateJobId);
 
   const [activePlatform, setActivePlatform] = useState<string>("instagram");
   const [posts, setPosts] = useState<PostCard[]>([]);
@@ -1244,6 +1249,133 @@ const Parrilla = () => {
     })();
     return () => { cancelled = true; };
   }, [isNewParrilla, currentAgencyId, user, queryDraftId, queryBrandId, draftHydrated, navigate, setSearchParams]);
+
+  // ───────── View existing job (Case B): :id is a generation_jobs.id ─────────
+  // Loads the brand and the already-generated posts in read mode.
+  useEffect(() => {
+    if (!viewJobId) return;
+    if (!currentAgencyId) return;
+    let cancelled = false;
+    (async () => {
+      setIsLoadingJob(true);
+      try {
+        // 1) Try to load the job
+        const { data: job, error: jobErr } = await supabase
+          .from("generation_jobs")
+          .select("id, brand_id, brand_name, campaign_description, language, status, created_at")
+          .eq("id", viewJobId)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        if (jobErr || !job) {
+          // Not a job → maybe the user pasted a draft_id in the path. Try draft fallback.
+          const draft = await getDraft(viewJobId);
+          if (cancelled) return;
+          if (draft) {
+            setViewJobId(null);
+            navigate(`/parrilla/nueva?draft_id=${draft.id}`, { replace: true });
+            return;
+          }
+          toast({ title: "Parrilla no encontrada", variant: "destructive" });
+          navigate("/dashboard");
+          return;
+        }
+
+        // 2) Load the brand row (for header + products + colors)
+        if (job.brand_id) {
+          setBrandId(job.brand_id);
+          const { data: brandRow } = await supabase
+            .from("brands")
+            .select("name, logo_url, primary_color, secondary_color, accent_colors, font_family")
+            .eq("id", job.brand_id)
+            .maybeSingle();
+          if (cancelled) return;
+          if (brandRow?.name) setBrandName(brandRow.name);
+          else if (job.brand_name) setBrandName(job.brand_name);
+          if (brandRow?.logo_url) {
+            setCurrentLogoUrl(brandRow.logo_url);
+            setBrandAssets([brandRow.logo_url]);
+            setBrandDetected(true);
+          }
+          if (brandRow?.primary_color) {
+            setBrand((prev) => ({
+              ...prev,
+              primary_color: brandRow.primary_color || prev.primary_color,
+              secondary_color: brandRow.secondary_color || prev.secondary_color,
+              font_family: brandRow.font_family || prev.font_family,
+            }));
+          }
+        } else if (job.brand_name) {
+          setBrandName(job.brand_name);
+        }
+
+        // 3) Derive a title from the campaign description (first line, truncated)
+        if (job.campaign_description) {
+          const firstLine = job.campaign_description.split("\n")[0]?.trim() || "";
+          if (firstLine) setDraftTitle(firstLine.slice(0, 80));
+        }
+        if (job.language === "es" || job.language === "en") {
+          setDetectedLanguage(job.language as "es" | "en");
+        }
+
+        // 4) Load generated posts in order
+        const { data: gp, error: gpErr } = await supabase
+          .from("generated_posts")
+          .select("id, platform, format, headline, body, cta, image_prompt, rendered_image_url, status, index, video_url, video_status")
+          .eq("job_id", viewJobId)
+          .order("index", { ascending: true });
+
+        if (cancelled) return;
+        if (gpErr) {
+          console.error("[parrilla] load generated_posts failed", gpErr);
+          toast({ title: "Error cargando posts", description: gpErr.message, variant: "destructive" });
+          return;
+        }
+
+        const loaded: PostCard[] = (gp ?? [])
+          .filter((sp: any) => sp.rendered_image_url)
+          .map((sp: any, idx: number) => ({
+            id: sp.id || `post-${viewJobId}-${idx}`,
+            platform: (sp.platform || "instagram") as Platform,
+            format: sp.format || "instagram_feed",
+            status: "draft" as PostStatus,
+            calendarDay: ((sp.index ?? idx) * 2) + 1,
+            image: sp.rendered_image_url,
+            headline: sp.headline || "",
+            body: sp.body || "",
+            cta: sp.cta || "",
+            imagePrompt: sp.image_prompt || "",
+            isRendering: false,
+            error: null,
+            video_url: sp.video_url || undefined,
+            video_status: sp.video_status || undefined,
+          }));
+
+        // Reflect generated platforms in toggles so the tab UI shows data
+        const platformsPresent = new Set(loaded.map((p) => p.platform));
+        if (platformsPresent.size > 0) {
+          setPlatforms({
+            instagram: platformsPresent.has("instagram" as Platform),
+            tiktok: platformsPresent.has("tiktok" as Platform),
+            linkedin: platformsPresent.has("linkedin" as Platform),
+            twitter: platformsPresent.has("twitter" as Platform),
+          });
+          const first = Array.from(platformsPresent)[0] as string;
+          setActivePlatform(first);
+        }
+
+        setPosts(loaded);
+        setHasGenerated(loaded.length > 0);
+      } catch (err: any) {
+        console.error("[parrilla] view-job load error", err);
+        toast({ title: "Error cargando parrilla", description: err?.message, variant: "destructive" });
+      } finally {
+        if (!cancelled) setIsLoadingJob(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [viewJobId, currentAgencyId, navigate]);
 
   // Fetch persistent brand products whenever brandId changes
   useEffect(() => {
