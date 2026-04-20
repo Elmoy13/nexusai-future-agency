@@ -5,7 +5,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeAccentProvider } from "@/contexts/ThemeAccentContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AgencyProvider } from "@/contexts/AgencyContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
+
+const Protected = ({ children }: { children: React.ReactNode }) => (
+  <ProtectedRoute>
+    <AgencyProvider>{children}</AgencyProvider>
+  </ProtectedRoute>
+);
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -41,13 +48,13 @@ const App = () => (
               <Route path="/auth/callback" element={<AuthCallback />} />
 
               {/* Protected */}
-              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/brand/:id" element={<ProtectedRoute><Brand /></ProtectedRoute>} />
-              <Route path="/agente/nueva-marca" element={<ProtectedRoute><Agent /></ProtectedRoute>} />
-              <Route path="/parrilla/:id" element={<ProtectedRoute><Parrilla /></ProtectedRoute>} />
-              <Route path="/community/:id" element={<ProtectedRoute><Community /></ProtectedRoute>} />
-              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-              <Route path="/editor/:id" element={<ProtectedRoute><Editor /></ProtectedRoute>} />
+              <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
+              <Route path="/brand/:id" element={<Protected><Brand /></Protected>} />
+              <Route path="/agente/nueva-marca" element={<Protected><Agent /></Protected>} />
+              <Route path="/parrilla/:id" element={<Protected><Parrilla /></Protected>} />
+              <Route path="/community/:id" element={<Protected><Community /></Protected>} />
+              <Route path="/settings" element={<Protected><Settings /></Protected>} />
+              <Route path="/editor/:id" element={<Protected><Editor /></Protected>} />
 
               <Route path="*" element={<NotFound />} />
             </Routes>

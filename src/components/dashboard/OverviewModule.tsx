@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAgency } from "@/contexts/AgencyContext";
 
 interface Metrics {
   activeJobs: number;
@@ -77,7 +77,7 @@ const jobToActivity = (job: RecentJob): ActivityEntry => {
 
 const OverviewModule = () => {
   const navigate = useNavigate();
-  const { currentAgencyId } = useAuth();
+  const { currentAgencyId } = useAgency();
 
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[] | null>(null);

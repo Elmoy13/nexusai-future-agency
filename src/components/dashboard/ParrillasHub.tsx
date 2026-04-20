@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAgency } from "@/contexts/AgencyContext";
 import { toast } from "@/hooks/use-toast";
 
 const TikTokIcon = ({ size = 12 }: { size?: number }) => (
@@ -65,7 +65,7 @@ const PlatformIcon = ({ platform }: { platform: string }) => {
 
 const ParrillasHub = () => {
   const navigate = useNavigate();
-  const { currentAgencyId } = useAuth();
+  const { currentAgencyId } = useAgency();
 
   const [brands, setBrands] = useState<BrandRow[] | null>(null);
   const [platformsByJob, setPlatformsByJob] = useState<Record<string, string[]>>({});
