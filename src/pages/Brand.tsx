@@ -13,19 +13,27 @@ interface Job {
   created_at: string;
 }
 
+interface BriefRow {
+  id: string;
+  kind: "strategic" | "campaign";
+  status: string;
+  title: string | null;
+}
+
 const Brand = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
   const [brand, setBrand] = useState<EditableBrand | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [briefs, setBriefs] = useState<BriefRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
 
   const fetchBrand = async () => {
     if (!id) return;
     setLoading(true);
-    const [{ data: b }, { data: js }] = await Promise.all([
+    const [{ data: b }, { data: js }, { data: bs }] = await Promise.all([
       supabase
         .from("brands")
         .select(
@@ -38,9 +46,14 @@ const Brand = () => {
         .select("id, campaign_description, status, created_at")
         .eq("brand_id", id)
         .order("created_at", { ascending: false }),
+      supabase
+        .from("brand_briefs")
+        .select("id, kind, status, title")
+        .eq("brand_id", id),
     ]);
     setBrand((b as EditableBrand | null) ?? null);
     setJobs((js as Job[]) ?? []);
+    setBriefs((bs as BriefRow[]) ?? []);
     setLoading(false);
   };
 
