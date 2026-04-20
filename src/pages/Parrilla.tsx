@@ -1122,6 +1122,11 @@ const Parrilla = () => {
 
         const { job, posts: serverPosts } = await pollRes.json();
 
+        // Capture detected language from backend
+        if (job?.language && (job.language === "es" || job.language === "en")) {
+          setDetectedLanguage(job.language);
+        }
+
         // Update posts progressively
         setPosts(prevPosts => {
           const updated = [...prevPosts];
