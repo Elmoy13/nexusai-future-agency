@@ -1071,6 +1071,7 @@ const Parrilla = () => {
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [draftTitle, setDraftTitle] = useState<string>("");
   const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false);
+  const [briefInfo, setBriefInfo] = useState<{ id: string; title: string } | null>(null);
   const skipNextSaveRef = useRef<boolean>(true); // skip the auto-save triggered by hydrate
 
   // Logo: in-memory only (persisted to Supabase Storage when uploaded).
@@ -2151,6 +2152,15 @@ const Parrilla = () => {
                   <span>·</span>
                   <span>{brandName || "Sin marca"}</span>
                 </p>
+                {briefInfo && (
+                  <button
+                    onClick={() => navigate(`/agente?briefId=${briefInfo.id}`)}
+                    className="mt-1 inline-flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 transition-colors"
+                    title="Abrir brief"
+                  >
+                    <BriefIcon size={10} /> Basado en brief: {briefInfo.title}
+                  </button>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-4">
