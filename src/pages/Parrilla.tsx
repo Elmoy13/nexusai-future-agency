@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useDebouncedCallback } from "use-debounce";
 import { useAgency } from "@/contexts/AgencyContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { createDraft, getDraft, patchDraft, deleteDraft, type DraftRow } from "@/lib/draftService";
+import { createDraft, getDraft, patchDraft, deleteDraft, type DraftRow, type DraftPatch } from "@/lib/draftService";
 import { uploadBrandLogo, base64ToBlob } from "@/lib/brandStorage";
 
 import { motion, AnimatePresence } from "framer-motion";
@@ -1062,6 +1062,7 @@ const Parrilla = () => {
   const [draftHydrated, setDraftHydrated] = useState<boolean>(!isNewParrilla);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const skipNextSaveRef = useRef<boolean>(true); // skip the auto-save triggered by hydrate
 
   // Logo: in-memory only (persisted to Supabase Storage when uploaded).
   // We keep b64 for backend AI calls until the backend accepts logo URL directly.
@@ -1233,31 +1234,36 @@ const Parrilla = () => {
     return () => { cancelled = true; };
   }, [isNewParrilla, currentAgencyId, user, queryDraftId, queryBrandId, draftHydrated, navigate, setSearchParams]);
 
-  // Debounced auto-save
+  // Snapshot of latest values for the auto-save (avoids re-creating the debounced fn)
+  const draftSnapshotRef = useRef<{ get: () => DraftPatch }>({ get: () => ({}) as DraftPatch });
+  draftSnapshotRef.current.get = () => ({
+    title: brandName ? `${brandName} · Parrilla` : null,
+    chat_messages: chatMessages,
+    config: {
+      brand,
+      brandName,
+      brandVision,
+      productVision,
+      platforms,
+      selectedFormats: Array.from(selectedFormats),
+      frequency,
+      objective,
+      optionsPerPost,
+      includeLogoInImage,
+      includeTextInImage,
+      language,
+      logoUrl: currentLogoUrl,
+    } as any,
+    last_step: hasGenerated ? "generated" : "configuring",
+  });
+
+  // Stable debounced save (does not recreate on every state change)
   const persistDraft = useDebouncedCallback(async () => {
-    if (!draftId) return;
+    const id = draftId;
+    if (!id) return;
     setSaveStatus("saving");
     try {
-      await patchDraft(draftId, {
-        title: brandName ? `${brandName} · Parrilla` : null,
-        chat_messages: chatMessages,
-        config: {
-          brand,
-          brandName,
-          brandVision,
-          productVision,
-          platforms,
-          selectedFormats: Array.from(selectedFormats),
-          frequency,
-          objective,
-          optionsPerPost,
-          includeLogoInImage,
-          includeTextInImage,
-          language,
-          logoUrl: currentLogoUrl,
-        },
-        last_step: hasGenerated ? "generated" : "configuring",
-      });
+      await patchDraft(id, draftSnapshotRef.current.get());
       setSaveStatus("saved");
       setLastSavedAt(new Date());
     } catch (err) {
@@ -1266,12 +1272,18 @@ const Parrilla = () => {
     }
   }, 2000);
 
-  // Trigger save on any tracked change (after hydration)
+  // Trigger save on any tracked change (after hydration). Skip the very first run
+  // post-hydration to avoid an unnecessary PATCH right after we just loaded.
   useEffect(() => {
     if (!draftHydrated || !draftId) return;
+    if (skipNextSaveRef.current) {
+      skipNextSaveRef.current = false;
+      return;
+    }
     persistDraft();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    draftHydrated, draftId, persistDraft,
+    draftHydrated, draftId,
     chatMessages, brand, brandName, brandVision, productVision,
     platforms, selectedFormats, frequency, objective, optionsPerPost,
     includeLogoInImage, includeTextInImage, language, currentLogoUrl, hasGenerated,
