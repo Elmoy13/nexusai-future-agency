@@ -700,6 +700,7 @@ const Parrilla = () => {
     } catch { return false; }
   });
   const [includeLogoInImage, setIncludeLogoInImage] = useState(false);
+  const [includeTextInImage, setIncludeTextInImage] = useState(false);
 
   // Available formats based on selected platforms
   const availableFormats = useMemo(() => {
@@ -1054,6 +1055,7 @@ const Parrilla = () => {
       product_images: productImages,
       posts_config: postsConfig,
       include_logo_in_image: includeLogoInImage,
+      include_text_in_image: includeTextInImage,
     };
 
     const motivationalMessages = [
@@ -1183,7 +1185,7 @@ const Parrilla = () => {
       setIsGenerating(false);
       setGeneratingStatus("");
     }
-  }, [selectedFormats, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, chatMessages, brand, brandName, brandVision, productVision, id, productImages, includeLogoInImage]);
+  }, [selectedFormats, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, chatMessages, brand, brandName, brandVision, productVision, id, productImages, includeLogoInImage, includeTextInImage]);
 
   const hasUserChatMessage = chatMessages.some(m => m.role === "user");
   const canGenerate = brandDetected && productImages.length > 0 && selectedFormats.size > 0 && hasUserChatMessage;
@@ -1443,6 +1445,17 @@ const Parrilla = () => {
                     {includeLogoInImage
                       ? "La IA integrará tu logo dentro de la escena (tarda un poco más)"
                       : "El logo aparecerá como marca de agua en la esquina"}
+                  </p>
+                  <div className="flex items-center justify-between gap-2 px-1 pt-1">
+                    <label htmlFor="text-integrate" className="text-[11px] font-medium text-foreground cursor-pointer">
+                      📝 Incluir texto en la imagen
+                    </label>
+                    <Switch id="text-integrate" checked={includeTextInImage} onCheckedChange={setIncludeTextInImage} />
+                  </div>
+                  <p className="text-[10px] px-1 leading-relaxed" style={{ color: includeTextInImage ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))' }}>
+                    {includeTextInImage
+                      ? "La IA agregará el headline y CTA directamente en la imagen con tipografía profesional"
+                      : "El headline y CTA aparecerán solo en el caption"}
                   </p>
                 </div>
               )}
