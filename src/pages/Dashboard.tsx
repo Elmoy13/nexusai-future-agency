@@ -21,6 +21,10 @@ interface Brand {
   name: string;
   brief: string | null;
   logo_url: string | null;
+  primary_color: string | null;
+  secondary_color: string | null;
+  accent_colors: string[] | null;
+  font_family: string | null;
   created_at: string;
   posts_count?: number;
 }
@@ -77,7 +81,7 @@ const Dashboard = () => {
 
       const { data: bs } = await supabase
         .from("brands")
-        .select("id, name, brief, logo_url, created_at")
+        .select("id, name, brief, logo_url, primary_color, secondary_color, accent_colors, font_family, created_at")
         .eq("agency_id", currentAgencyId)
         .order("created_at", { ascending: false });
 
@@ -276,25 +280,45 @@ const StatusBadge = ({ status }: { status: string }) => {
   );
 };
 
-const BrandCard = ({ brand, onClick }: { brand: Brand; onClick: () => void }) => (
-  <motion.button
-    whileHover={{ y: -2 }}
-    onClick={onClick}
-    className="glass rounded-2xl p-5 text-left border border-border/30 hover:border-primary/40 transition group bg-transparent cursor-pointer"
-  >
-    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent/10 border border-border/30 flex items-center justify-center mb-4 overflow-hidden">
-      {brand.logo_url ? (
-        <img src={brand.logo_url} alt={brand.name} className="w-full h-full object-cover" />
-      ) : (
-        <span className="text-sm font-bold text-primary">{initialsOf(brand.name)}</span>
+const BrandCard = ({ brand, onClick }: { brand: Brand; onClick: () => void }) => {
+  const swatches = [
+    brand.primary_color,
+    brand.secondary_color,
+    ...(Array.isArray(brand.accent_colors) ? brand.accent_colors : []),
+  ].filter(Boolean).slice(0, 5) as string[];
+
+  return (
+    <motion.button
+      whileHover={{ y: -2 }}
+      onClick={onClick}
+      className="glass rounded-2xl p-5 text-left border border-border/30 hover:border-primary/40 transition group bg-transparent cursor-pointer"
+    >
+      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent/10 border border-border/30 flex items-center justify-center mb-4 overflow-hidden">
+        {brand.logo_url ? (
+          <img src={brand.logo_url} alt={brand.name} className="w-full h-full object-cover" />
+        ) : (
+          <span className="text-sm font-bold text-primary">{initialsOf(brand.name)}</span>
+        )}
+      </div>
+      <p className="text-base font-semibold text-foreground truncate group-hover:text-primary transition">{brand.name}</p>
+      <p className="text-xs text-muted-foreground mt-1 line-clamp-2 min-h-[2rem]">
+        {brand.brief || "Sin brief"}
+      </p>
+      {swatches.length > 0 && (
+        <div className="flex items-center gap-1 mt-3">
+          {swatches.map((c, i) => (
+            <span
+              key={`${c}-${i}`}
+              className="w-4 h-4 rounded-full border border-border/40 shadow-sm"
+              style={{ backgroundColor: c }}
+              title={c}
+            />
+          ))}
+        </div>
       )}
-    </div>
-    <p className="text-base font-semibold text-foreground truncate group-hover:text-primary transition">{brand.name}</p>
-    <p className="text-xs text-muted-foreground mt-1 line-clamp-2 min-h-[2rem]">
-      {brand.brief || "Sin brief"}
-    </p>
-  </motion.button>
-);
+    </motion.button>
+  );
+};
 
 const NewBrandCard = ({ onClick }: { onClick: () => void }) => (
   <button
@@ -350,7 +374,7 @@ const NewBrandModal = ({
     const { data, error: err } = await supabase
       .from("brands")
       .insert({ name: name.trim(), brief: brief.trim() || null, agency_id: agencyId })
-      .select("id, name, brief, logo_url, created_at")
+      .select("id, name, brief, logo_url, primary_color, secondary_color, accent_colors, font_family, created_at")
       .single();
     setSaving(false);
     if (err) {

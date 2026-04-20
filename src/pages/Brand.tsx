@@ -9,6 +9,10 @@ interface Brand {
   name: string;
   brief: string | null;
   logo_url: string | null;
+  primary_color: string | null;
+  secondary_color: string | null;
+  accent_colors: string[] | null;
+  font_family: string | null;
 }
 
 interface Job {
@@ -31,7 +35,7 @@ const Brand = () => {
     (async () => {
       setLoading(true);
       const [{ data: b }, { data: js }] = await Promise.all([
-        supabase.from("brands").select("id, name, brief, logo_url").eq("id", id).maybeSingle(),
+        supabase.from("brands").select("id, name, brief, logo_url, primary_color, secondary_color, accent_colors, font_family").eq("id", id).maybeSingle(),
         supabase
           .from("generation_jobs")
           .select("id, campaign_description, status, created_at")
@@ -91,6 +95,38 @@ const Brand = () => {
             <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
               {brand.brief || "Sin brief. Edita la marca para añadir contexto."}
             </p>
+            {(() => {
+              const swatches = [
+                brand.primary_color,
+                brand.secondary_color,
+                ...(Array.isArray(brand.accent_colors) ? brand.accent_colors : []),
+              ].filter(Boolean) as string[];
+              if (swatches.length === 0 && !brand.font_family) return null;
+              return (
+                <div className="flex items-center gap-4 mt-3 flex-wrap">
+                  {swatches.length > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      {swatches.map((c, i) => (
+                        <span
+                          key={`${c}-${i}`}
+                          className="w-5 h-5 rounded-full border border-border/40 shadow-sm"
+                          style={{ backgroundColor: c }}
+                          title={c}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {brand.font_family && (
+                    <span
+                      className="text-xs text-muted-foreground font-mono px-2 py-1 rounded-md bg-secondary/40 border border-border/30"
+                      style={{ fontFamily: brand.font_family }}
+                    >
+                      Aa · {brand.font_family}
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
           </div>
           <button
             onClick={() => navigate(`/parrilla/nueva?brand=${brand.id}`)}
