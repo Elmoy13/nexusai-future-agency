@@ -14,6 +14,14 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAgency } from "@/contexts/AgencyContext";
+import {
+  getOrCreateInboxChannel,
+  getOrCreateConversation,
+  loadMessages,
+  insertMessage,
+  type InboxMessage,
+} from "@/lib/inboxService";
+import { toast } from "sonner";
 
 const WEBHOOK_URL = "https://steady-potential-drug-advances.trycloudflare.com/api/webhook/chat";
 const STORAGE_KEY = "inbox_selected_brand_id";
@@ -25,11 +33,6 @@ interface Brand {
   logo_url: string | null;
 }
 
-interface Message {
-  role: "user" | "agent";
-  text: string;
-}
-
 const InboxModule = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -37,8 +40,10 @@ const InboxModule = () => {
 
   const [brands, setBrands] = useState<Brand[] | null>(null);
   const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<InboxMessage[]>([]);
   const [input, setInput] = useState("");
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [webhookDown, setWebhookDown] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -63,12 +68,46 @@ const InboxModule = () => {
         setSelectedBrandId(valid ? stored : list[0].id);
       } else {
         setSelectedBrandId(null);
+        setConversationId(null);
+        setMessages([]);
       }
-      // Reset chat al cambiar de agencia
-      setMessages([]);
       setWebhookDown(false);
     })();
   }, [currentAgencyId]);
+
+  // Load or create conversation when brand changes
+  useEffect(() => {
+    if (!selectedBrandId || !currentAgencyId || !user) return;
+
+    let cancelled = false;
+    (async () => {
+      setLoadingHistory(true);
+      setMessages([]);
+      setConversationId(null);
+      try {
+        const channelId = await getOrCreateInboxChannel(currentAgencyId);
+        const convId = await getOrCreateConversation({
+          userId: user.id,
+          brandId: selectedBrandId,
+          channelId,
+          agencyId: currentAgencyId,
+        });
+        if (cancelled) return;
+        setConversationId(convId);
+        const history = await loadMessages(convId);
+        if (cancelled) return;
+        setMessages(history);
+      } catch (err: any) {
+        console.error("[inbox] load conversation failed", err);
+        if (!cancelled) toast.error("Error al cargar conversación", { description: err?.message });
+      } finally {
+        if (!cancelled) setLoadingHistory(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedBrandId, currentAgencyId, user]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -77,16 +116,26 @@ const InboxModule = () => {
   const handleSelectBrand = (id: string) => {
     setSelectedBrandId(id);
     localStorage.setItem(STORAGE_KEY, id);
-    setMessages([]);
     setWebhookDown(false);
   };
 
   const handleSend = async () => {
     const text = input.trim();
-    if (!text || !selectedBrandId || !user) return;
+    if (!text || !selectedBrandId || !user || !conversationId) return;
 
-    setMessages((prev) => [...prev, { role: "user", text }]);
     setInput("");
+
+    // 1. Persist user message immediately (won't be lost even if webhook fails)
+    let userMsg: InboxMessage;
+    try {
+      userMsg = await insertMessage(conversationId, "user", text);
+      setMessages((prev) => [...prev, userMsg]);
+    } catch (err: any) {
+      toast.error("No se pudo guardar el mensaje", { description: err?.message });
+      setInput(text);
+      return;
+    }
+
     setIsTyping(true);
 
     const ctrl = new AbortController();
@@ -107,24 +156,20 @@ const InboxModule = () => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const reply = data.response || data.reply || data.message || JSON.stringify(data);
-      setMessages((prev) => [...prev, { role: "agent", text: reply }]);
+
+      const agentMsg = await insertMessage(conversationId, "agent", reply);
+      setMessages((prev) => [...prev, agentMsg]);
       setWebhookDown(false);
-    } catch {
+    } catch (err) {
+      console.warn("[inbox] webhook failed", err);
       setWebhookDown(true);
-      setMessages((prev) => [
-        ...prev,
-        { role: "agent", text: "⚠️ El agente está desconectado en este momento. Intenta más tarde." },
-      ]);
     } finally {
       clearTimeout(timeout);
       setIsTyping(false);
     }
   };
 
-  const handleRetry = () => {
-    setWebhookDown(false);
-    setMessages((prev) => prev.filter((m) => !m.text.startsWith("⚠️")));
-  };
+  const handleRetry = () => setWebhookDown(false);
 
   const selectedBrand = brands?.find((b) => b.id === selectedBrandId) ?? null;
 
@@ -223,7 +268,7 @@ const InboxModule = () => {
         <div className="glass rounded-xl px-4 py-3 flex items-center gap-3 border border-destructive/30 bg-destructive/5">
           <AlertTriangle size={16} className="text-destructive shrink-0" />
           <p className="text-xs text-muted-foreground flex-1">
-            El agente está desconectado en este momento.
+            El agente está desconectado. Tus mensajes se guardan, pero no recibirás respuesta hasta que vuelva.
           </p>
           <Button onClick={handleRetry} variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
             <RefreshCw size={12} /> Reintentar
@@ -234,7 +279,14 @@ const InboxModule = () => {
       <div className="glass-strong rounded-2xl flex flex-col flex-1 min-h-[460px] overflow-hidden">
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4">
-          {messages.length === 0 && (
+          {loadingHistory && (
+            <div className="text-center text-muted-foreground/60 pt-20">
+              <Loader2 size={20} className="mx-auto animate-spin mb-2" />
+              <p className="text-xs">Cargando historial...</p>
+            </div>
+          )}
+
+          {!loadingHistory && messages.length === 0 && (
             <div className="text-center text-muted-foreground/40 pt-20">
               <Bot size={48} className="mx-auto mb-4 opacity-30" />
               <p className="text-sm">Envía un mensaje para iniciar la conversación con el agente IA.</p>
@@ -242,26 +294,26 @@ const InboxModule = () => {
           )}
 
           <AnimatePresence>
-            {messages.map((msg, i) => (
+            {messages.map((msg) => (
               <motion.div
-                key={i}
+                key={msg.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
                   className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                    msg.role === "user"
+                    msg.sender === "user"
                       ? "bg-muted/30 border border-border/30 text-foreground"
                       : "bg-primary/10 border border-primary/20 text-foreground glow-border"
                   }`}
                 >
-                  {msg.role === "agent" && (
+                  {msg.sender === "agent" && (
                     <span className="text-[10px] font-mono text-cyan-glow bg-cyan-glow/10 px-2 py-0.5 rounded-full mb-2 inline-block">
                       IA Autónoma
                     </span>
                   )}
-                  <p className={msg.role === "agent" ? "mt-1" : ""}>{msg.text}</p>
+                  <p className={msg.sender === "agent" ? "mt-1" : ""}>{msg.content}</p>
                 </div>
               </motion.div>
             ))}
@@ -281,13 +333,19 @@ const InboxModule = () => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-            placeholder={selectedBrandId ? "Escribe un mensaje..." : "Selecciona una marca primero"}
-            disabled={!selectedBrandId}
+            placeholder={
+              !selectedBrandId
+                ? "Selecciona una marca primero"
+                : !conversationId
+                ? "Cargando..."
+                : "Escribe un mensaje..."
+            }
+            disabled={!selectedBrandId || !conversationId || isTyping}
             className="flex-1 bg-muted/20 border border-border/30 rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/50 disabled:opacity-50"
           />
           <button
             onClick={handleSend}
-            disabled={isTyping || !input.trim() || !selectedBrandId}
+            disabled={isTyping || !input.trim() || !selectedBrandId || !conversationId}
             className="bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 rounded-xl px-4 py-2.5 transition-all duration-200 hover:glow-cyan disabled:opacity-40"
           >
             <Send size={16} />
