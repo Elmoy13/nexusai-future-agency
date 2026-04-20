@@ -1144,7 +1144,151 @@ const Parrilla = () => {
     link.href = `https://fonts.googleapis.com/css2?family=${fontName}:wght@400;700;900&display=swap`;
   }, [brand.font_family]);
 
-  // brand profile no longer persisted to localStorage; lives in draft.config via auto-save below.
+  // ───────── Draft hydration & auto-save (Figma-style) ─────────
+  // Hydrate from existing draft (?draft_id=) or create one (?brand_id=) on first mount.
+  useEffect(() => {
+    if (!isNewParrilla) return;
+    if (!currentAgencyId || !user) return;
+    if (draftHydrated) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        // Case A: ?draft_id → load existing
+        if (queryDraftId) {
+          const d = await getDraft(queryDraftId);
+          if (cancelled) return;
+          if (!d) {
+            toast({ title: "Borrador no encontrado", variant: "destructive" });
+            navigate("/dashboard");
+            return;
+          }
+          setDraftId(d.id);
+          setBrandId(d.brand_id);
+          const cfg = (d.config as any) || {};
+          if (cfg.brand) setBrand({ ...DEFAULT_BRAND, ...cfg.brand });
+          if (cfg.brandName) setBrandName(cfg.brandName);
+          if (cfg.brandVision) { setBrandVision(cfg.brandVision); setBrandDetected(true); }
+          if (cfg.productVision) setProductVision(cfg.productVision);
+          if (cfg.platforms) setPlatforms(cfg.platforms);
+          if (Array.isArray(cfg.selectedFormats)) setSelectedFormats(new Set(cfg.selectedFormats));
+          if (cfg.frequency) setFrequency(cfg.frequency);
+          if (cfg.objective) setObjective(cfg.objective);
+          if (typeof cfg.optionsPerPost === "number") setOptionsPerPost(cfg.optionsPerPost);
+          if (typeof cfg.includeLogoInImage === "boolean") setIncludeLogoInImage(cfg.includeLogoInImage);
+          if (typeof cfg.includeTextInImage === "boolean") setIncludeTextInImage(cfg.includeTextInImage);
+          if (cfg.language) setLanguage(cfg.language);
+          if (cfg.logoUrl) { setCurrentLogoUrl(cfg.logoUrl); setBrandAssets([cfg.logoUrl]); }
+          if (Array.isArray(d.chat_messages) && d.chat_messages.length > 0) setChatMessages(d.chat_messages as any);
+          setDraftHydrated(true);
+          return;
+        }
+
+        // Case B: ?brand_id → create new draft
+        if (queryBrandId) {
+          const created = await createDraft({
+            agencyId: currentAgencyId,
+            brandId: queryBrandId,
+            userId: user.id,
+          });
+          if (cancelled) return;
+          setDraftId(created.id);
+          setBrandId(queryBrandId);
+          // Load existing brand info to pre-fill
+          const { data: brandRow } = await supabase
+            .from("brands")
+            .select("name, logo_url, primary_color, secondary_color, accent_colors, font_family")
+            .eq("id", queryBrandId)
+            .maybeSingle();
+          if (brandRow && !cancelled) {
+            if (brandRow.name) setBrandName(brandRow.name);
+            if (brandRow.logo_url) {
+              setCurrentLogoUrl(brandRow.logo_url);
+              setBrandAssets([brandRow.logo_url]);
+              setBrandDetected(true);
+            }
+            if (brandRow.primary_color) {
+              setBrand((prev) => ({
+                ...prev,
+                primary_color: brandRow.primary_color || prev.primary_color,
+                secondary_color: brandRow.secondary_color || prev.secondary_color,
+                font_family: brandRow.font_family || prev.font_family,
+              }));
+            }
+          }
+          // Reflect draft_id in URL so refresh works
+          setSearchParams({ draft_id: created.id }, { replace: true });
+          setDraftHydrated(true);
+          return;
+        }
+
+        // Case C: no params → just allow user to pick brand later (legacy flow)
+        setDraftHydrated(true);
+      } catch (err: any) {
+        console.error("[parrilla] hydration error", err);
+        toast({ title: "Error cargando borrador", description: err?.message, variant: "destructive" });
+        setDraftHydrated(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isNewParrilla, currentAgencyId, user, queryDraftId, queryBrandId, draftHydrated, navigate, setSearchParams]);
+
+  // Debounced auto-save
+  const persistDraft = useDebouncedCallback(async () => {
+    if (!draftId) return;
+    setSaveStatus("saving");
+    try {
+      await patchDraft(draftId, {
+        title: brandName ? `${brandName} · Parrilla` : null,
+        chat_messages: chatMessages,
+        config: {
+          brand,
+          brandName,
+          brandVision,
+          productVision,
+          platforms,
+          selectedFormats: Array.from(selectedFormats),
+          frequency,
+          objective,
+          optionsPerPost,
+          includeLogoInImage,
+          includeTextInImage,
+          language,
+          logoUrl: currentLogoUrl,
+        },
+        last_step: hasGenerated ? "generated" : "configuring",
+      });
+      setSaveStatus("saved");
+      setLastSavedAt(new Date());
+    } catch (err) {
+      console.error("[parrilla] auto-save failed", err);
+      setSaveStatus("error");
+    }
+  }, 2000);
+
+  // Trigger save on any tracked change (after hydration)
+  useEffect(() => {
+    if (!draftHydrated || !draftId) return;
+    persistDraft();
+  }, [
+    draftHydrated, draftId, persistDraft,
+    chatMessages, brand, brandName, brandVision, productVision,
+    platforms, selectedFormats, frequency, objective, optionsPerPost,
+    includeLogoInImage, includeTextInImage, language, currentLogoUrl, hasGenerated,
+  ]);
+
+  const handleDiscardDraft = useCallback(async () => {
+    if (!draftId) { navigate("/dashboard"); return; }
+    if (!confirm("¿Descartar este borrador? Esta acción no se puede deshacer.")) return;
+    try {
+      await deleteDraft(draftId);
+      toast({ title: "Borrador descartado" });
+      navigate("/dashboard");
+    } catch (err: any) {
+      toast({ title: "Error al descartar", description: err?.message, variant: "destructive" });
+    }
+  }, [draftId, navigate]);
+
 
   // Send chat message to AI
   const sendChatMessage = useCallback(async (userMessage: string) => {
