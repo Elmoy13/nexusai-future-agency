@@ -212,7 +212,7 @@ export const AddProductDialog = ({ open, onClose, brandId, agencyId, onCreated }
       toast.success("Producto subido");
       // Fire-and-forget analysis
       analyzeProduct(created.id).catch(() => undefined);
-      onCreated();
+      onCreated(created);
       onClose();
     } catch (err: any) {
       toast.error("Error al subir", { description: err?.message });
