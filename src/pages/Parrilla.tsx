@@ -1967,7 +1967,7 @@ const Parrilla = () => {
                 disabled={!brandId}
                 className="flex items-center gap-1 hover:text-foreground transition-colors disabled:opacity-60 disabled:cursor-default"
               >
-                <Hexagon size={12} /> {brandName || brand.name || "Marca"}
+                <Hexagon size={12} /> {brandName || "Marca"}
               </button>
               <span>/</span>
               <span className="flex items-center gap-1 text-foreground font-medium"><CalendarDays size={12} /> Parrilla</span>
@@ -2009,7 +2009,7 @@ const Parrilla = () => {
                     </button>
                   )}
                   <span>·</span>
-                  <span>{brandName || brand.name || "Sin marca"}</span>
+                  <span>{brandName || "Sin marca"}</span>
                 </p>
               </div>
             </div>
