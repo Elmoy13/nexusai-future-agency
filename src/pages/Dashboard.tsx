@@ -40,6 +40,7 @@ interface Brand {
   font_family: string | null;
   created_at: string;
   posts_count?: number;
+  brand_briefs?: { id: string; kind: "strategic" | "campaign"; status: string }[];
 }
 
 interface Job {
