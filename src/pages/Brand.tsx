@@ -66,6 +66,7 @@ const Brand = () => {
         .select("id, kind, status, title, created_at, updated_at")
         .eq("brand_id", id)
         .order("updated_at", { ascending: false }),
+    ]);
     setBrand((b as EditableBrand | null) ?? null);
     setJobs((js as Job[]) ?? []);
     setBriefs((bs as BriefRow[]) ?? []);
