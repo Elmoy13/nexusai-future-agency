@@ -183,6 +183,86 @@ const Brand = () => {
           </div>
         </div>
 
+        {/* ── Brief Estratégico ── */}
+        {(() => {
+          const strategicBrief = briefs.find((b) => b.kind === "strategic");
+          return (
+            <section className="mb-10">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-foreground">Brief Estratégico</h2>
+                {!strategicBrief && (
+                  <Button
+                    size="sm"
+                    onClick={() => navigate(`/agente/nueva-marca?brandId=${brand.id}&kind=strategic`)}
+                    className="gap-1.5"
+                  >
+                    <Sparkles size={14} /> Crear brief
+                  </Button>
+                )}
+              </div>
+
+              {strategicBrief ? (
+                <Card className="p-5 bg-card/60 border-border/40">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                        <h3 className="font-medium text-foreground">
+                          {strategicBrief.status === "done"
+                            ? "Brief estratégico listo"
+                            : "Brief estratégico en progreso"}
+                        </h3>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Actualizado hace{" "}
+                        {formatDistanceToNow(new Date(strategicBrief.updated_at), { locale: es })}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2 shrink-0">
+                      {strategicBrief.status === "done" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/editor/${strategicBrief.id}`)}
+                          className="gap-1.5"
+                        >
+                          <Presentation size={14} /> Ver presentación
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/agente/nueva-marca?briefId=${strategicBrief.id}`)}
+                        className="gap-1.5"
+                      >
+                        <MessageSquare size={14} />
+                        {strategicBrief.status === "done" ? "Ver chat" : "Continuar"}
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ) : (
+                <Card className="p-8 border-dashed border-border/50 bg-card/30">
+                  <div className="flex flex-col items-center text-center">
+                    <FileQuestion className="w-10 h-10 text-muted-foreground mb-3" />
+                    <h3 className="font-medium text-foreground mb-1">Sin brief estratégico aún</h3>
+                    <p className="text-sm text-muted-foreground mb-4 max-w-md">
+                      Crea el brief que define la estrategia de marca y úsalo como base
+                      para todas las campañas.
+                    </p>
+                    <Button
+                      onClick={() => navigate(`/agente/nueva-marca?brandId=${brand.id}&kind=strategic`)}
+                      className="gap-1.5"
+                    >
+                      <Sparkles size={14} /> Crear brief estratégico
+                    </Button>
+                  </div>
+                </Card>
+              )}
+            </section>
+          );
+        })()}
+
         <ProductsSection brandId={brand.id} />
 
         <section className="mt-10">
