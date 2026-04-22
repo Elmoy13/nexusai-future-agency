@@ -1,8 +1,21 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Sparkles, Folder, Loader2, Pencil } from "lucide-react";
+import {
+  ArrowLeft,
+  Sparkles,
+  Folder,
+  Loader2,
+  Pencil,
+  CheckCircle2,
+  Presentation,
+  MessageSquare,
+  FileQuestion,
+} from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { es } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import ProductsSection from "@/components/dashboard/ProductsSection";
 import EditBrandModal, { type EditableBrand } from "@/components/dashboard/EditBrandModal";
 
@@ -18,6 +31,8 @@ interface BriefRow {
   kind: "strategic" | "campaign";
   status: string;
   title: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 const Brand = () => {
