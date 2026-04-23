@@ -1,12 +1,13 @@
 import { useState, useMemo } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import {
-  ChevronDown, LogOut, Settings, Building2,
+  ChevronDown, LogOut, Settings, Building2, Tag,
   Hexagon, ClipboardList, CalendarRange,
   MessageCircle, Plug, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { PRODUCT } from "@/config/product";
 import { useAuth } from "@/contexts/AuthContext";
+import { useActiveBrand } from "@/contexts/ActiveBrandContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -45,6 +46,7 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, profile, memberships, currentAgencyId, setCurrentAgencyId, signOut } = useAuth();
+  const { brand: activeBrand, brands, setBrand } = useActiveBrand();
   const [collapsed, setCollapsed] = useState(false);
 
   const currentAgency = useMemo(
@@ -183,6 +185,31 @@ export default function DashboardLayout() {
                         <p className="text-sm font-medium">{m.agency.name}</p>
                         <p className="text-[10px] text-muted-foreground capitalize">{m.role}</p>
                       </div>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {/* Brand selector */}
+            {brands.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary/40 hover:bg-secondary/70 border border-border/40 text-sm text-foreground transition">
+                  <Tag size={14} className="text-primary" />
+                  <span className="font-medium truncate max-w-[180px]">{activeBrand?.name ?? "Selecciona marca"}</span>
+                  <ChevronDown size={12} className="text-muted-foreground" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-64 bg-card border-border">
+                  <DropdownMenuLabel>Marcas</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {brands.map((b) => (
+                    <DropdownMenuItem
+                      key={b.id}
+                      onClick={() => setBrand(b.id)}
+                      className={b.id === activeBrand?.id ? "bg-primary/10 text-primary" : ""}
+                    >
+                      <Tag size={14} className="mr-2 opacity-70" />
+                      <span className="text-sm font-medium">{b.name}</span>
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>

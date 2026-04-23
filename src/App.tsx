@@ -6,12 +6,15 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeAccentProvider } from "@/contexts/ThemeAccentContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AgencyProvider } from "@/contexts/AgencyContext";
+import { ActiveBrandProvider } from "@/contexts/ActiveBrandContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import DashboardLayout from "@/components/DashboardLayout";
 
 const Protected = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute>
-    <AgencyProvider>{children}</AgencyProvider>
+    <AgencyProvider>
+      <ActiveBrandProvider>{children}</ActiveBrandProvider>
+    </AgencyProvider>
   </ProtectedRoute>
 );
 import Index from "./pages/Index";

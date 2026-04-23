@@ -1,7 +1,6 @@
 import { apiCall } from "./apiClient";
 import type {
   Channel,
-  ChannelBrandAssignment,
   ConnectChannelRequest,
   ConnectChannelResponse,
 } from "@/types/channels";
@@ -38,13 +37,17 @@ export async function connectChannel(
 }
 
 /**
- * Lista todos los canales conectados de una agencia.
+ * Lista los canales conectados de una agencia, filtrados por marca.
  */
 export async function listChannelsByAgency(
   agencyId: string,
+  brandId?: string,
 ): Promise<Channel[]> {
+  const params = new URLSearchParams();
+  if (brandId) params.set("brand_id", brandId);
+  const qs = params.toString() ? `?${params.toString()}` : "";
   return apiCall<Channel[]>(
-    `/api/v1/channels/by-agency/${encodeURIComponent(agencyId)}`,
+    `/api/v1/channels/by-agency/${encodeURIComponent(agencyId)}${qs}`,
   );
 }
 
@@ -79,28 +82,4 @@ export interface PlatformOption {
  */
 export async function listPlatforms(): Promise<PlatformOption[]> {
   return apiCall<PlatformOption[]>("/api/v1/channels/platforms");
-}
-
-/**
- * Obtiene las asignaciones de marcas de un canal.
- */
-export async function getChannelBrands(
-  channelId: string,
-): Promise<ChannelBrandAssignment[]> {
-  return apiCall<ChannelBrandAssignment[]>(
-    `/api/v1/channels/${encodeURIComponent(channelId)}/brands`,
-  );
-}
-
-/**
- * Reemplaza las asignaciones de marcas de un canal.
- */
-export async function updateChannelBrands(
-  channelId: string,
-  assignments: Omit<ChannelBrandAssignment, "brand_name">[],
-): Promise<ChannelBrandAssignment[]> {
-  return apiCall<ChannelBrandAssignment[]>(
-    `/api/v1/channels/${encodeURIComponent(channelId)}/brands`,
-    { method: "PUT", body: { assignments } },
-  );
 }

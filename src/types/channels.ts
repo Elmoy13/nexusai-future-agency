@@ -1,23 +1,13 @@
 export interface Channel {
   id: string;
+  agency_id: string;
+  brand_id: string;
+  brand: { id: string; name: string };
   platform: "facebook" | "instagram" | "whatsapp";
   page_id: string;
   page_name: string | null;
+  is_active: boolean;
   created_at: string | null;
-  brands: ChannelBrandInfo[];
-  brand_assignments?: ChannelBrandAssignment[];
-}
-
-export interface ChannelBrandInfo {
-  brand_id: string;
-  is_primary: boolean;
-}
-
-export interface ChannelBrandAssignment {
-  brand_id: string;
-  brand_name: string;
-  trigger_keywords: string[];
-  is_default: boolean;
 }
 
 export interface AvailablePage {

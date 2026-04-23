@@ -7,6 +7,7 @@ interface ConnectFacebookButtonProps {
   agencyId: string;
   brandId: string;
   brandName?: string;
+  label?: string;
   onConnectStart?: () => void;
   onConnectCancel?: () => void;
   className?: string;
@@ -24,6 +25,7 @@ export function ConnectFacebookButton({
   agencyId,
   brandId,
   brandName,
+  label,
   onConnectStart,
   onConnectCancel,
   className = "",
@@ -35,9 +37,7 @@ export function ConnectFacebookButton({
     onConnectStart?.();
 
     if (brandName) {
-      toast.info(`Conectando Facebook para la marca ${brandName}`, {
-        description: "Puedes cambiar esta asignación después.",
-      });
+      toast.info(`Conectando Facebook para la marca ${brandName}`);
     }
 
     try {
@@ -87,7 +87,7 @@ export function ConnectFacebookButton({
       ) : (
         <Facebook className="w-5 h-5" />
       )}
-      {loading ? "Conectando..." : "Conectar Facebook"}
+      {loading ? "Conectando..." : label || "Conectar Facebook"}
     </button>
   );
 }

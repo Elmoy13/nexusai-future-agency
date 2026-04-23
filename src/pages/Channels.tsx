@@ -1,4 +1,367 @@
 import { useEffect, useState, useCallback } from "react";
+import { motion } from "framer-motion";
+import {
+  Zap, Check, Bell, Loader2, ArrowDown,
+  MessageCircle, Facebook, Instagram, Phone, Mail,
+  Globe, Send, Video, MessageSquare, Plug, Tag, X,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useAgency } from "@/contexts/AgencyContext";
+import { useActiveBrand } from "@/contexts/ActiveBrandContext";
+import {
+  listChannelsByAgency,
+  deleteChannel,
+  listPlatforms,
+  type PlatformOption,
+} from "@/lib/channelService";
+import { ConnectFacebookButton } from "@/components/channels/ConnectFacebookButton";
+import type { Channel } from "@/types/channels";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+
+const NOTIFY_STORAGE_KEY = "notify_channels";
+
+const FALLBACK_PLATFORMS: PlatformOption[] = [
+  { id: "facebook_messenger", display_name: "Facebook Messenger", category: "social", status: "active", icon_name: "Facebook", brand_color: "#1877F2", description: "Responde mensajes de tus páginas de Facebook con IA", order: 1 },
+  { id: "instagram_dms", display_name: "Instagram DMs", category: "social", status: "coming_soon", icon_name: "Instagram", brand_color: "#E1306C", description: "Gestiona mensajes directos de Instagram automáticamente", order: 2 },
+  { id: "whatsapp_business", display_name: "WhatsApp Business", category: "messaging", status: "coming_soon", icon_name: "Phone", brand_color: "#25D366", description: "Atiende clientes por WhatsApp Business API", order: 3 },
+  { id: "telegram", display_name: "Telegram", category: "messaging", status: "coming_soon", icon_name: "Send", brand_color: "#0088cc", description: "Conecta tu bot de Telegram para atención automática", order: 4 },
+  { id: "tiktok", display_name: "TikTok Messages", category: "social", status: "coming_soon", icon_name: "Video", brand_color: "#000000", description: "Responde comentarios y mensajes de TikTok", order: 5 },
+  { id: "web_chat", display_name: "Web Chat", category: "web", status: "coming_soon", icon_name: "Globe", brand_color: "#6366f1", description: "Widget de chat para tu sitio web con IA integrada", order: 6 },
+  { id: "email", display_name: "Email", category: "traditional", status: "coming_soon", icon_name: "Mail", brand_color: "#EA4335", description: "Gestiona correos entrantes con respuestas inteligentes", order: 7 },
+  { id: "google_business", display_name: "Google Business Messages", category: "web", status: "coming_soon", icon_name: "MessageSquare", brand_color: "#4285F4", description: "Responde mensajes desde Google Maps y Search", order: 8 },
+  { id: "sms", display_name: "SMS / MMS", category: "traditional", status: "coming_soon", icon_name: "MessageCircle", brand_color: "#8B5CF6", description: "Envía y recibe mensajes de texto con clientes", order: 9 },
+];
+
+function getPlatformIcon(iconName: string, size = 24) {
+  const iconMap: Record<string, React.ElementType> = {
+    Facebook, Instagram, Phone, Send, Video, Globe, Mail, MessageSquare, MessageCircle,
+  };
+  const Icon = iconMap[iconName] ?? Plug;
+  return <Icon size={size} />;
+}
+
+function matchPlatform(platforms: PlatformOption[], channelPlatform: string) {
+  return platforms.find(
+    (p) =>
+      (p.id === "facebook_messenger" && channelPlatform === "facebook") ||
+      (p.id === "instagram_dms" && channelPlatform === "instagram") ||
+      (p.id === "whatsapp_business" && channelPlatform === "whatsapp"),
+  );
+}
+
+export default function Channels() {
+  const { currentAgencyId } = useAgency();
+  const { brand } = useActiveBrand();
+
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [platforms, setPlatforms] = useState<PlatformOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [disconnecting, setDisconnecting] = useState<string | null>(null);
+  const [notified, setNotified] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(NOTIFY_STORAGE_KEY) || "[]"); } catch { return []; }
+  });
+
+  const loadData = useCallback(async () => {
+    if (!currentAgencyId || !brand) return;
+    setLoading(true);
+
+    const [channelsResult, platformsResult] = await Promise.allSettled([
+      listChannelsByAgency(currentAgencyId, brand.id),
+      listPlatforms(),
+    ]);
+
+    setChannels(channelsResult.status === "fulfilled" ? channelsResult.value : []);
+    setPlatforms(platformsResult.status === "fulfilled" ? platformsResult.value : FALLBACK_PLATFORMS);
+    setLoading(false);
+  }, [currentAgencyId, brand]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  // Listen for popup postMessage after OAuth completes
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === "channel-connected") {
+        loadData();
+        toast.success("¡Canal conectado exitosamente!");
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [loadData]);
+
+  const connectedPlatformKeys = new Set(channels.map((c) => c.platform));
+
+  const handleNotify = (platformId: string, displayName: string) => {
+    const updated = [...new Set([...notified, platformId])];
+    setNotified(updated);
+    localStorage.setItem(NOTIFY_STORAGE_KEY, JSON.stringify(updated));
+    toast.success(`Te avisaremos cuando ${displayName} esté disponible 🚀`);
+  };
+
+  const handleDisconnect = async (channel: Channel) => {
+    if (!currentAgencyId) return;
+    setDisconnecting(channel.id);
+    try {
+      await deleteChannel(channel.id, currentAgencyId);
+      toast.success("Canal desconectado");
+      loadData();
+    } catch (err) {
+      toast.error("Error desconectando canal", {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      setDisconnecting(null);
+    }
+  };
+
+  const statusBadge = (status: PlatformOption["status"]) => {
+    switch (status) {
+      case "active":
+        return <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/25 text-[10px]">Disponible</Badge>;
+      case "beta":
+        return <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/25 text-[10px]">Beta</Badge>;
+      case "coming_soon":
+        return <Badge className="bg-muted text-muted-foreground border-border/40 text-[10px]">Próximamente</Badge>;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full overflow-auto">
+      <div className="max-w-6xl mx-auto px-6 py-10">
+        {/* Header */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 rounded-xl bg-primary/15 border border-primary/25 flex items-center justify-center">
+              <Zap size={20} className="text-primary" />
+            </div>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+              Canales de{" "}
+              {brand && (
+                <Badge variant="secondary" className="text-base ml-1 gap-1.5 align-middle">
+                  <Tag size={12} />
+                  {brand.name}
+                </Badge>
+              )}
+            </h1>
+          </div>
+          <p className="text-muted-foreground text-sm mt-1">
+            Conecta las plataformas donde quieres responder mensajes con IA.
+          </p>
+        </motion.div>
+
+        {/* Section A — Connected channels */}
+        <section className="mb-12">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">
+            Canales conectados
+          </h2>
+
+          {channels.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-2xl border-2 border-dashed border-border/40 p-12 text-center"
+            >
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <Plug size={28} className="text-primary/60" />
+              </div>
+              <p className="text-sm font-medium text-foreground mb-1">
+                Aún no tienes canales conectados para esta marca
+              </p>
+              <p className="text-xs text-muted-foreground mb-4">
+                Conecta tu primer canal abajo y empieza a responder con IA
+              </p>
+              <ArrowDown size={20} className="mx-auto text-muted-foreground/40 animate-bounce" />
+            </motion.div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {channels.map((channel) => {
+                const mp = matchPlatform(platforms, channel.platform);
+                return (
+                  <motion.div
+                    key={channel.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="relative bg-card rounded-xl border border-emerald-500/30 p-5 hover:border-emerald-500/50 transition flex flex-col"
+                  >
+                    <div className="absolute top-3 right-3">
+                      <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/25 text-[10px]">
+                        Activo
+                      </Badge>
+                    </div>
+                    <div
+                      className="w-12 h-12 rounded-xl flex items-center justify-center mb-3 text-white"
+                      style={{ backgroundColor: mp?.brand_color || "#1877F2" }}
+                    >
+                      {getPlatformIcon(mp?.icon_name || "Plug", 22)}
+                    </div>
+                    <p className="font-semibold text-foreground text-sm">
+                      {mp?.display_name || channel.platform}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {channel.page_name || channel.platform}
+                    </p>
+
+                    {/* Brand info */}
+                    <div className="mt-3 flex-1">
+                      <p className="text-[10px] text-muted-foreground font-medium mb-1">
+                        Conectado a
+                      </p>
+                      <Badge variant="secondary" className="text-[10px] gap-1">
+                        <Tag size={9} />
+                        {channel.brand?.name ?? brand?.name}
+                      </Badge>
+                    </div>
+
+                    {/* Disconnect */}
+                    <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/20">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-[11px] gap-1.5 text-destructive hover:text-destructive"
+                        disabled={disconnecting === channel.id}
+                        onClick={() => handleDisconnect(channel)}
+                      >
+                        {disconnecting === channel.id ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <X size={12} />
+                        )}
+                        Desconectar
+                      </Button>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* Section B — Available platforms */}
+        <section>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">
+            Disponibles
+          </h2>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {platforms
+              .sort((a, b) => a.order - b.order)
+              .map((platform) => {
+                const platformKey =
+                  platform.id === "facebook_messenger" ? "facebook" :
+                  platform.id === "instagram_dms" ? "instagram" :
+                  platform.id === "whatsapp_business" ? "whatsapp" : null;
+
+                const connected = platformKey ? connectedPlatformKeys.has(platformKey) : false;
+                const isComingSoon = platform.status === "coming_soon";
+                const isNotified = notified.includes(platform.id);
+
+                return (
+                  <motion.div
+                    key={platform.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    whileHover={!isComingSoon ? { y: -2 } : undefined}
+                    className={cn(
+                      "relative bg-card rounded-xl border p-5 transition-all duration-200",
+                      isComingSoon
+                        ? "opacity-60 cursor-default border-border/20"
+                        : connected
+                        ? "border-emerald-500/30"
+                        : "border-border/30 hover:border-[var(--brand-color)] cursor-pointer",
+                    )}
+                    style={
+                      !isComingSoon && !connected
+                        ? ({ "--brand-color": `${platform.brand_color}60` } as React.CSSProperties)
+                        : undefined
+                    }
+                  >
+                    {connected && (
+                      <div className="absolute top-3 right-3">
+                        <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                          <Check size={14} className="text-emerald-400" />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-start gap-4 mb-4">
+                      <div
+                        className={cn(
+                          "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 text-white",
+                          isComingSoon && "opacity-50",
+                        )}
+                        style={{ backgroundColor: platform.brand_color }}
+                      >
+                        {getPlatformIcon(platform.icon_name, 22)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <p className="font-semibold text-foreground text-sm truncate">
+                            {platform.display_name}
+                          </p>
+                        </div>
+                        {statusBadge(platform.status)}
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground mb-4 line-clamp-2">
+                      {platform.description}
+                    </p>
+
+                    {/* Action */}
+                    {platform.status === "active" && !connected && brand && currentAgencyId && (
+                      <ConnectFacebookButton
+                        agencyId={currentAgencyId}
+                        brandId={brand.id}
+                        brandName={brand.name}
+                        className="w-full justify-center text-xs font-semibold"
+                        label={`Conectar para ${brand.name}`}
+                      />
+                    )}
+                    {platform.status === "active" && !connected && !brand && (
+                      <Button disabled variant="outline" className="w-full text-xs">
+                        Selecciona una marca primero
+                      </Button>
+                    )}
+                    {platform.status === "active" && connected && (
+                      <Button disabled variant="outline" className="w-full text-xs">
+                        <Check size={14} className="mr-1.5" /> Conectado
+                      </Button>
+                    )}
+                    {isComingSoon && (
+                      <Button
+                        variant="outline"
+                        className="w-full text-xs"
+                        disabled={isNotified}
+                        onClick={() => handleNotify(platform.id, platform.display_name)}
+                      >
+                        {isNotified ? (
+                          <><Check size={14} className="mr-1.5" /> Notificación activa</>
+                        ) : (
+                          <><Bell size={14} className="mr-1.5" /> Notificarme</>
+                        )}
+                      </Button>
+                    )}
+                  </motion.div>
+                );
+              })}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {

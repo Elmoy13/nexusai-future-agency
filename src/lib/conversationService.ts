@@ -20,7 +20,7 @@ export interface ConversationListItem {
     platform: string;
     page_name: string | null;
   };
-  active_brand: { id: string; name: string } | null;
+  brand: { id: string; name: string };
   tags: string[];
 }
 
@@ -30,7 +30,7 @@ export interface ConversationDetail {
   mode: string;
   contact: ConversationListItem["contact"];
   channel: ConversationListItem["channel"];
-  active_brand: ConversationListItem["active_brand"];
+  brand: ConversationListItem["brand"];
   messages: MessageItem[];
   total_messages: number;
 }
@@ -98,12 +98,4 @@ export async function updateConversationMode(
   });
 }
 
-export async function updateConversationActiveBrand(
-  conversationId: string,
-  brandId: string,
-): Promise<void> {
-  await apiCall(`/api/v1/conversations/${conversationId}/active-brand`, {
-    method: "PATCH",
-    body: { brand_id: brandId },
-  });
-}
+
