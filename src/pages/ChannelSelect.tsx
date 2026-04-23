@@ -37,7 +37,7 @@ export default function ChannelSelect() {
       }
       window.close();
     } else {
-      navigate("/settings/channels");
+      navigate("/channels");
     }
   };
 

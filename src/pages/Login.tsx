@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Loader2, AlertTriangle, Mail, Lock } from "lucide-react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { PRODUCT } from "@/config/product";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -59,7 +60,7 @@ const Login = () => {
               className="inline-flex items-center gap-2 mb-4 cursor-pointer bg-transparent border-none"
             >
               <span className="w-2 h-2 rounded-full bg-accent pulse-dot" />
-              <span className="text-foreground font-bold text-xl tracking-tight">NexusAI</span>
+              <span className="text-foreground font-bold text-xl tracking-tight">{PRODUCT.name}</span>
             </button>
             <p className="text-sm text-muted-foreground font-mono tracking-wide">
               Accede a tu agencia

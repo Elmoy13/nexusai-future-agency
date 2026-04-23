@@ -1,17 +1,16 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Palette, UserCircle, Bot, Plug, Check, Moon, Sun, Loader2 } from "lucide-react";
+import { ArrowLeft, Palette, UserCircle, Check, Moon, Sun, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useThemeAccent, AccentTheme, ThemeMode } from "@/contexts/ThemeAccentContext";
+import { PRODUCT } from "@/config/product";
 import { cn } from "@/lib/utils";
 
-type SettingsTab = "appearance" | "account" | "agents" | "integrations";
+type SettingsTab = "appearance" | "account";
 
-const menuItems: { id: SettingsTab; label: string; icon: React.ElementType; soon?: boolean; href?: string }[] = [
+const menuItems: { id: SettingsTab; label: string; icon: React.ElementType; soon?: boolean }[] = [
   { id: "appearance", label: "Apariencia", icon: Palette },
   { id: "account", label: "Cuenta", icon: UserCircle },
-  { id: "agents", label: "Agentes", icon: Bot, soon: true },
-  { id: "integrations", label: "Canales", icon: Plug, href: "/settings/channels" },
 ];
 
 const accentOptions: { id: AccentTheme; label: string; hsl: string; hex: string }[] = [
@@ -71,9 +70,7 @@ const Settings = () => {
             <button
               key={item.id}
               onClick={() => {
-                if (item.href) {
-                  navigate(item.href);
-                } else if (!item.soon) {
+                if (!item.soon) {
                   setActiveTab(item.id);
                 }
               }}
@@ -110,7 +107,7 @@ const Settings = () => {
                 Personalización del Entorno
               </h1>
               <p className="text-muted-foreground text-sm mt-1.5">
-                Adapta el sistema operativo NexusAI a la identidad de tu agencia.
+                Adapta el sistema operativo {PRODUCT.name} a la identidad de tu agencia.
               </p>
             </div>
 

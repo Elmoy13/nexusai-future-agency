@@ -60,3 +60,22 @@ export async function deleteChannel(
     { method: "DELETE" },
   );
 }
+
+export interface PlatformOption {
+  id: string;
+  display_name: string;
+  category: string;
+  status: "active" | "beta" | "coming_soon";
+  icon_name: string;
+  brand_color: string;
+  description: string;
+  order: number;
+}
+
+/**
+ * Lista las plataformas disponibles (Facebook, Instagram, WhatsApp, etc.)
+ * con su estado (active, beta, coming_soon).
+ */
+export async function listPlatforms(): Promise<PlatformOption[]> {
+  return apiCall<PlatformOption[]>("/api/v1/channels/platforms");
+}

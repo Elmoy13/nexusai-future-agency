@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, CheckCircle2, Loader2 } from "lucide-react";
 import { z } from "zod";
+import { PRODUCT } from "@/config/product";
 
 const schema = z.object({
   empresa: z.string().trim().min(1, "Campo requerido").max(100),
@@ -54,7 +55,7 @@ const EarlyAccessModal = ({ open, onClose }: EarlyAccessModalProps) => {
           body: JSON.stringify({
             empresa: result.data.empresa,
             email: result.data.email,
-            origen: "Landing Page NexusAI",
+            origen: `Landing Page ${PRODUCT.name}`,
           }),
         }
       );

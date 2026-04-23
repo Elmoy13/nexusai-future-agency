@@ -3,6 +3,7 @@ import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
 import RoleCards from "@/components/RoleCards";
 import OnboardingChat from "@/components/OnboardingChat";
+import { PRODUCT } from "@/config/product";
 import BentoFeatures from "@/components/BentoFeatures";
 import StrategicFlow from "@/components/StrategicFlow";
 import ROIMetrics from "@/components/ROIMetrics";
@@ -35,10 +36,10 @@ const Index = () => {
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-accent pulse-dot" />
-            <span className="font-bold tracking-tight">NexusAI</span>
+            <span className="font-bold tracking-tight">{PRODUCT.name}</span>
           </div>
           <p className="text-sm text-muted-foreground/50">
-            © 2026 NexusAI. Todos los sistemas operativos.
+            © 2026 {PRODUCT.name}. Todos los sistemas operativos.
           </p>
         </div>
       </footer>

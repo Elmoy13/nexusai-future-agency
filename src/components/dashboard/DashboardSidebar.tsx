@@ -2,6 +2,7 @@ import { LayoutDashboard, ClipboardList, CalendarRange, MessageSquare, LogOut, U
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { PRODUCT } from "@/config/product";
 
 type View = "overview" | "briefs" | "parrilla" | "community";
 
@@ -33,7 +34,7 @@ const DashboardSidebar = ({ activeView, onViewChange }: Props) => {
         <span className="w-2.5 h-2.5 rounded-full bg-emerald-accent pulse-dot shrink-0" />
         {!collapsed && (
           <>
-            <span className="font-bold text-lg tracking-tight text-foreground">NexusAI</span>
+            <span className="font-bold text-lg tracking-tight text-foreground">{PRODUCT.name}</span>
             <span className="ml-auto text-[10px] font-mono text-primary bg-primary/10 px-2 py-0.5 rounded-full">PRO</span>
           </>
         )}

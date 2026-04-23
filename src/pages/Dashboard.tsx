@@ -3,9 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ChevronDown, LogOut, Plus, Settings, Sparkles, ArrowRight, Loader2,
-  Building2, Folder, LayoutDashboard, ClipboardList, CalendarRange,
-  MessageSquare, Inbox, ChevronLeft, ChevronRight, User
+  Building2, Folder, Hexagon, ClipboardList, CalendarRange,
+  MessageCircle, Plug, ChevronLeft, ChevronRight
 } from "lucide-react";
+import { PRODUCT } from "@/config/product";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -21,11 +22,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-import OverviewModule from "@/components/dashboard/OverviewModule";
 import BriefsModule from "@/components/dashboard/BriefsModule";
 import ParrillasHub from "@/components/dashboard/ParrillasHub";
-import CommunityHub from "@/components/dashboard/CommunityHub";
-import InboxModule from "@/components/dashboard/InboxModule";
 import DraftsSection from "@/components/dashboard/DraftsSection";
 import { runLegacyLocalStorageMigration } from "@/lib/legacyMigration";
 
@@ -51,15 +49,21 @@ interface Job {
   brand: { id: string; name: string } | null;
 }
 
-type View = "brands" | "overview" | "briefs" | "parrillas" | "community" | "inbox";
+type View = "brands" | "briefs" | "parrillas";
 
-const navItems: { id: View; label: string; icon: React.ElementType }[] = [
-  { id: "brands", label: "Marcas", icon: Building2 },
-  { id: "overview", label: "Vista General", icon: LayoutDashboard },
-  { id: "briefs", label: "Briefs & Estrategia", icon: ClipboardList },
+interface NavItem {
+  id: View | "conversations" | "channels";
+  label: string;
+  icon: React.ElementType;
+  href?: string;
+}
+
+const navItems: NavItem[] = [
+  { id: "brands", label: "Marcas", icon: Hexagon },
+  { id: "briefs", label: "Briefs", icon: ClipboardList },
   { id: "parrillas", label: "Parrillas", icon: CalendarRange },
-  { id: "community", label: "Community & Social", icon: MessageSquare },
-  { id: "inbox", label: "Inbox", icon: Inbox },
+  { id: "conversations", label: "Conversaciones", icon: MessageCircle, href: "/conversations" },
+  { id: "channels", label: "Canales", icon: Plug, href: "/channels" },
 ];
 
 const initialsOf = (name: string) =>
@@ -153,10 +157,7 @@ const Dashboard = () => {
         <div className={cn("flex items-center gap-2 mb-8", collapsed ? "justify-center px-0" : "px-3")}>
           <span className="w-2.5 h-2.5 rounded-full bg-accent pulse-dot shrink-0" />
           {!collapsed && (
-            <>
-              <span className="font-bold text-lg tracking-tight text-foreground">NexusAI</span>
-              <span className="ml-auto text-[10px] font-mono text-primary bg-primary/10 px-2 py-0.5 rounded-full">PRO</span>
-            </>
+            <span className="font-bold text-lg tracking-tight text-foreground">{PRODUCT.name}</span>
           )}
         </div>
 
@@ -169,23 +170,26 @@ const Dashboard = () => {
         </button>
 
         <nav className="flex flex-col gap-1">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setView(item.id)}
-              className={cn(
-                "flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-200 border-none cursor-pointer",
-                collapsed ? "justify-center px-0 py-3" : "px-3 py-2.5",
-                view === item.id
-                  ? "bg-primary/10 text-primary glow-border"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/40 bg-transparent"
-              )}
-              title={collapsed ? item.label : undefined}
-            >
-              <item.icon size={18} className={cn("shrink-0", view === item.id && "icon-neon text-primary")} />
-              {!collapsed && item.label}
-            </button>
-          ))}
+          {navItems.map((item) => {
+            const isActive = !item.href && view === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => item.href ? navigate(item.href) : setView(item.id as View)}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-200 border-none cursor-pointer",
+                  collapsed ? "justify-center px-0 py-3" : "px-3 py-2.5",
+                  isActive
+                    ? "bg-primary/10 text-primary glow-border"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/40 bg-transparent"
+                )}
+                title={collapsed ? item.label : undefined}
+              >
+                <item.icon size={18} className={cn("shrink-0", isActive && "icon-neon text-primary")} />
+                {!collapsed && item.label}
+              </button>
+            );
+          })}
         </nav>
 
         <div className="mt-auto space-y-3">
@@ -202,13 +206,13 @@ const Dashboard = () => {
           </button>
 
           <div className={cn("glass rounded-xl flex items-center gap-3", collapsed ? "p-2 justify-center" : "p-4")}>
-            <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-              <User size={16} className="text-primary" />
+            <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0 text-xs font-bold text-primary">
+              {initialsOf(user?.email || "U")}
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-foreground truncate">
-                  {profile?.full_name || user?.email || "Usuario"}
+                  {user?.email || "Usuario"}
                 </p>
                 <button
                   onClick={handleLogout}
@@ -363,23 +367,9 @@ const Dashboard = () => {
             </div>
           )}
 
-          {view === "overview" && (
-            <div className="p-6 md:p-10 max-w-7xl mx-auto">
-              <OverviewModule />
-            </div>
-          )}
-
           {view === "briefs" && <BriefsModule />}
 
           {view === "parrillas" && <ParrillasHub />}
-
-          {view === "community" && <CommunityHub />}
-
-          {view === "inbox" && (
-            <div className="p-6 md:p-10 max-w-7xl mx-auto">
-              <InboxModule />
-            </div>
-          )}
         </main>
       </div>
 

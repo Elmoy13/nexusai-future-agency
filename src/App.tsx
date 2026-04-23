@@ -25,8 +25,8 @@ import Settings from "./pages/Settings";
 import Editor from "./pages/Editor";
 import Agent from "./pages/Agent";
 import Parrilla from "./pages/Parrilla";
-import Community from "./pages/Community";
-import ChannelsSettings from "./pages/ChannelsSettings";
+import Channels from "./pages/Channels";
+import Conversations from "./pages/Conversations";
 import ChannelSelect from "./pages/ChannelSelect";
 import NotFound from "./pages/NotFound";
 
@@ -54,9 +54,10 @@ const App = () => (
               <Route path="/brand/:id" element={<Protected><Brand /></Protected>} />
               <Route path="/agente/nueva-marca" element={<Protected><Agent /></Protected>} />
               <Route path="/parrilla/:id" element={<Protected><Parrilla /></Protected>} />
-              <Route path="/community/:id" element={<Protected><Community /></Protected>} />
+              <Route path="/channels" element={<Protected><Channels /></Protected>} />
+              <Route path="/conversations" element={<Protected><Conversations /></Protected>} />
+              <Route path="/conversations/:id" element={<Protected><Conversations /></Protected>} />
               <Route path="/settings" element={<Protected><Settings /></Protected>} />
-              <Route path="/settings/channels" element={<Protected><ChannelsSettings /></Protected>} />
               <Route path="/settings/channels/select" element={<Protected><ChannelSelect /></Protected>} />
               <Route path="/editor/:id" element={<Protected><Editor /></Protected>} />
 

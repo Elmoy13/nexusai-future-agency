@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, ChevronDown, Building2, Megaphone } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useState, useRef } from "react";
+import { PRODUCT } from "@/config/product";
 
 interface NavbarProps {
   onOpenModal?: () => void;
@@ -56,7 +57,7 @@ const Navbar = ({ onOpenModal }: NavbarProps) => {
       <div className="glass-strong rounded-full px-6 py-3 flex items-center gap-8">
         <button onClick={handleLogoClick} className="flex items-center gap-2 cursor-pointer">
           <span className="w-2 h-2 rounded-full bg-accent pulse-dot" />
-          <span className="text-foreground font-bold text-lg tracking-tight">NexusAI</span>
+          <span className="text-foreground font-bold text-lg tracking-tight">{PRODUCT.name}</span>
         </button>
 
         <div className="hidden md:flex items-center gap-6">
