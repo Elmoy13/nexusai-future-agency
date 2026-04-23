@@ -1,5 +1,4 @@
 import { supabase } from "@/integrations/supabase/client";
-import { apiCall } from "@/lib/apiClient";
 import type { GeneratedPost } from "@/types/parrilla";
 
 const POST_COLUMNS =
@@ -106,30 +105,4 @@ export async function deletePost(postId: string): Promise<void> {
     .delete()
     .eq("id", postId);
   if (error) throw error;
-}
-
-/**
- * Aprueba UN post individual y dispara generación de imagen en background.
- * Requiere: post.status === "success" && post.image_status === "pending"
- */
-export async function approveAndGenerateImage(
-  postId: string
-): Promise<{ post_id: string; approval_status: string; image_status: string }> {
-  return await apiCall(
-    `/api/v1/posts/${postId}/approve-and-generate-image`,
-    { method: "POST" }
-  );
-}
-
-/**
- * Aprueba TODOS los posts pendientes de un job + dispara generación en paralelo.
- * Retorna el count de posts que se van a generar.
- */
-export async function generateAllApprovedImages(
-  jobId: string
-): Promise<{ count: number; status: string }> {
-  return await apiCall(
-    `/api/v1/posts/job/${jobId}/generate-all-approved-images`,
-    { method: "POST" }
-  );
 }

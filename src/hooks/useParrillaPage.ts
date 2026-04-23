@@ -6,8 +6,8 @@ import { useAgency } from "@/contexts/AgencyContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActiveBrand } from "@/contexts/ActiveBrandContext";
 import { createDraft, getDraftWithPosts, patchDraft, deleteDraft, type DraftPatch } from "@/lib/draftService";
-import { approvePost, rejectPost, approveAllPosts, approveAndGenerateImage, generateAllApprovedImages } from "@/lib/postService";
-import { generateCopyOnly, generateFull } from "@/lib/generationService";
+import { approvePost, rejectPost, approveAllPosts } from "@/lib/postService";
+import { generateFullParrilla, pollJob } from "@/lib/generationService";
 import type { GenerationRequest } from "@/lib/generationService";
 import { uploadBrandLogo, base64ToBlob } from "@/lib/brandStorage";
 import { listProducts, type BrandProduct } from "@/lib/productService";
@@ -43,10 +43,9 @@ export function useParrillaPage() {
   const [posts, setPosts] = useState<PostCard[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
-  const [generationProgress, setGenerationProgress] = useState<{ completed: number; total: number } | null>(null);
+  const [generationProgress, setGenerationProgress] = useState<{ copy: number; image: number; total: number } | null>(null);
   const [isClientView, setIsClientView] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("kanban");
-  const [generationMode, setGenerationMode] = useState<"copy-first" | "full">("copy-first");
 
   // ── Draft state ──
   const [draftId, setDraftId] = useState<string | null>(queryDraftId);
@@ -853,34 +852,6 @@ export function useParrillaPage() {
     });
   }, []);
 
-  const renderPost = useCallback(async (post: PostCard, logoB64: string | undefined): Promise<string> => {
-    const data = await apiCall<{ rendered_post?: string; image?: string }>("/api/v1/posts/render", {
-      method: "POST",
-      body: {
-        format: post.format,
-        brand: {
-          name: brandName || "Mi Marca",
-          logo_b64: logoB64 || undefined,
-          primary_color: brand.primary_color,
-          secondary_color: brand.secondary_color,
-          accent_color: brand.accent_color,
-          font_family: brand.font_family,
-        },
-        copy: {
-          headline: post.headline || post.title || "",
-          body: post.body || post.caption || "",
-          cta: post.cta || "",
-        },
-        image_prompt: post.imagePrompt || "",
-        style_description: post.styleDescription || "profesional y moderno",
-        product_images: productImages,
-      },
-    });
-    if (data.rendered_post) return data.rendered_post;
-    if (data.image) return data.image;
-    throw new Error("No image returned from API");
-  }, [brand, brandName, productImages]);
-
   const handleGenerateParrilla = useCallback(async () => {
     console.info("[parrilla/generate/start]", { draftId, brandId, brandName, language, objective, formats: Array.from(selectedFormats), frequency, optionsPerPost });
     setIsGenerating(true);
@@ -903,6 +874,7 @@ export function useParrillaPage() {
       logoB64 = await blobToBase64(brandAssetBlobs[0]);
     }
 
+    // 1. Skeletons inmediatos
     const skeletonPosts: PostCard[] = postsConfig.map((pc, idx) => ({
       id: `skeleton-${idx}`,
       platform: pc.platform as Platform,
@@ -910,41 +882,17 @@ export function useParrillaPage() {
       status: "draft" as PostStatus,
       calendarDay: (idx * 2) + 1,
       isRendering: true,
+      image_status: "pending" as PostImageStatus,
     }));
     setPosts(skeletonPosts);
     setHasGenerated(true);
-    setGenerationProgress({ completed: 0, total: postsConfig.length });
+    setGenerationProgress({ copy: 0, image: 0, total: postsConfig.length });
     setTimeout(() => {
       parrillaGridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 300);
 
     const userMessages = chatMessages.filter(m => m.role === "user").map(m => m.content);
     const campaignDescription = userMessages.join("\n");
-
-    const requestBody = {
-      brand: {
-        name: brandVision?.brand_name_detected || brandName || "Mi Marca",
-        logo_b64: logoB64 || undefined,
-        primary_color: brand.primary_color,
-        secondary_color: brand.secondary_color,
-        accent_color: brand.accent_color,
-        font_family: brand.font_family,
-      },
-      campaign: {
-        description: campaignDescription,
-        tone: "",
-        extras: "",
-      },
-      brand_vision: brandVision || null,
-      product_vision: productVision || null,
-      product_images: productImages,
-      selected_product_ids: selectedProductIds,
-      draft_id: draftId,
-      posts_config: postsConfig,
-      include_logo_in_image: includeLogoInImage,
-      include_text_in_image: includeTextInImage,
-      language,
-    };
 
     const motivationalMessages = [
       "🎨 Creando escenas con tu producto...",
@@ -956,82 +904,77 @@ export function useParrillaPage() {
     ];
 
     const startTime = Date.now();
-    const secsPerPost = includeLogoInImage ? 60 : 30;
-    const estimatedMins = Math.ceil((postsConfig.length * secsPerPost) / 60);
-    const estimateLabel = includeLogoInImage
-      ? `⏳ Tiempo estimado: ~${estimatedMins} min (integración de logo activada)`
-      : `⏳ Tiempo estimado: ~${estimatedMins} min`;
+    const estimatedMins = Math.ceil((postsConfig.length * 45) / 60);
+    const estimateLabel = `⏳ Tiempo estimado: ~${estimatedMins} min`;
     const timerInterval = setInterval(() => {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
       const mins = Math.floor(elapsed / 60);
       const secs = elapsed % 60;
       const msgIndex = Math.floor(elapsed / 15) % motivationalMessages.length;
       setGeneratingStatus(
-        `⚡ Generando posts con IA...\n${motivationalMessages[msgIndex]}\n${estimateLabel}\n⏱️ ${mins}:${secs.toString().padStart(2, "0")}`
+        `⚡ Generando tu parrilla...\n${motivationalMessages[msgIndex]}\n${estimateLabel}\n⏱️ ${mins}:${secs.toString().padStart(2, "0")}`
       );
     }, 1000);
 
     try {
-      // ── Build shared payload ──
+      // ── Build payload ──
       const genPayload: GenerationRequest = {
-        brand: requestBody.brand,
-        campaign: requestBody.campaign,
-        brand_vision: requestBody.brand_vision,
-        product_vision: requestBody.product_vision,
-        product_images: requestBody.product_images,
-        selected_product_ids: requestBody.selected_product_ids,
-        draft_id: requestBody.draft_id,
-        posts_config: requestBody.posts_config,
-        include_logo_in_image: requestBody.include_logo_in_image,
-        include_text_in_image: requestBody.include_text_in_image,
-        language: requestBody.language,
+        brand: {
+          name: brandVision?.brand_name_detected || brandName || "Mi Marca",
+          logo_b64: logoB64 || undefined,
+          primary_color: brand.primary_color,
+          secondary_color: brand.secondary_color,
+          accent_color: brand.accent_color,
+          font_family: brand.font_family,
+        },
+        campaign: {
+          description: campaignDescription,
+          tone: "",
+          extras: "",
+        },
+        brand_vision: brandVision || null,
+        product_vision: productVision || null,
+        product_images: productImages,
+        selected_product_ids: selectedProductIds,
+        draft_id: draftId,
+        posts_config: postsConfig,
+        include_logo_in_image: includeLogoInImage,
+        include_text_in_image: includeTextInImage,
+        language,
         objective: objective as GenerationRequest["objective"],
       };
 
-      let job_id: string;
-      let total_posts: number | undefined;
-      let currentMode: "copy-first" | "full" = "copy-first";
-
-      // ── Try copy-first, fallback to full ──
-      try {
-        const res = await generateCopyOnly(genPayload);
-        job_id = res.job_id;
-        total_posts = res.total_posts;
-        currentMode = "copy-first";
-      } catch (copyErr) {
-        console.error("[generate] copy-first failed, falling back to full:", copyErr);
-        const res = await generateFull(genPayload);
-        job_id = res.job_id;
-        total_posts = res.total_posts;
-        currentMode = "full";
-      }
-
-      setGenerationMode(currentMode);
-      console.info("[parrilla/generate/dispatched]", { job_id, total_posts, currentMode });
-      // NOTE: Do NOT call setViewJobId here — it triggers a useEffect that
-      // would race with this polling loop. We set it AFTER polling completes.
+      // 2. POST a /posts/generate (flow completo, copy + imagenes)
+      const res = await generateFullParrilla(genPayload);
+      const { job_id, total_posts } = res;
+      console.info("[parrilla/generate/dispatched]", { job_id, total_posts });
 
       if (total_posts && total_posts !== postsConfig.length) {
-        setGenerationProgress({ completed: 0, total: total_posts });
+        setGenerationProgress({ copy: 0, image: 0, total: total_posts });
       }
 
-      let isComplete = false;
-      let pollErrorCount = 0;
-      while (!isComplete) {
-        await new Promise(r => setTimeout(r, 5000));
+      // 3. Polling hasta que TODAS las imágenes estén listas (o error)
+      const MAX_POLLS = 72; // 6 min (72 × 5s)
+      let attempts = 0;
+      let lastMapped: PostCard[] = [];
 
-        let pollData: { job?: Record<string, unknown>; posts?: Record<string, unknown>[] };
+      while (attempts < MAX_POLLS) {
+        await new Promise(r => setTimeout(r, 5000));
+        attempts++;
+
+        let pollData: { job: Record<string, unknown>; posts: Record<string, unknown>[] };
         try {
-          pollData = await apiCall<{ job?: Record<string, unknown>; posts?: Record<string, unknown>[] }>(`/api/v1/posts/job/${job_id}`);
-          console.info("[parrilla/poll]", { job_id, status: pollData.job?.status, completed: pollData.job?.completed_posts, total: pollData.job?.total_posts, postsReturned: pollData.posts?.length });
-          pollErrorCount = 0; // reset on success
+          pollData = await pollJob(job_id);
+          console.info("[parrilla/poll]", {
+            job_id,
+            status: pollData.job?.status,
+            completed: pollData.job?.completed_posts,
+            total: pollData.job?.total_posts,
+            postsReturned: pollData.posts?.length,
+          });
         } catch {
-          pollErrorCount++;
-          console.warn(`Poll error (${pollErrorCount}), retrying...`);
-          // Give up after 10 consecutive errors (~50s)
-          if (pollErrorCount >= 10) {
-            throw new Error("Polling failed: demasiados errores de red consecutivos.");
-          }
+          console.warn(`[parrilla/poll] error (attempt ${attempts}), retrying...`);
+          if (attempts >= MAX_POLLS) break;
           continue;
         }
 
@@ -1041,70 +984,87 @@ export function useParrillaPage() {
           setDetectedLanguage(jobData.language as "es" | "en");
         }
 
-        // Replace posts array from server data (do NOT merge by index)
+        // Progressive UI update — map server posts + fill remaining skeletons
         if (serverPosts && serverPosts.length > 0) {
-          const completedPosts: PostCard[] = [];
-          const skeletonFill: PostCard[] = [];
-
-          (serverPosts as any[]).forEach((sp, idx) => {
+          const mapped: PostCard[] = (serverPosts as any[]).map((sp, idx) => {
             if (sp.status === "success" || sp.status === "error") {
-              completedPosts.push(mapServerPostToCard(sp, idx, job_id));
-            } else {
-              // Still generating — keep as skeleton
-              skeletonFill.push({
-                id: sp.id || `skeleton-${idx}`,
-                platform: (sp.platform || postsConfig[idx]?.platform || "instagram") as Platform,
-                format: sp.format || postsConfig[idx]?.format || "instagram_feed",
-                status: "draft" as PostStatus,
-                calendarDay: (idx * 2) + 1,
-                isRendering: true,
-              });
+              return mapServerPostToCard(sp, idx, job_id);
             }
+            // Still generating — show as skeleton with copy if available
+            return {
+              id: sp.id || `skeleton-${idx}`,
+              platform: (sp.platform || postsConfig[idx]?.platform || "instagram") as Platform,
+              format: sp.format || postsConfig[idx]?.format || "instagram_feed",
+              status: "draft" as PostStatus,
+              calendarDay: (idx * 2) + 1,
+              headline: sp.headline || undefined,
+              body: sp.body || undefined,
+              cta: sp.cta || undefined,
+              isRendering: !sp.headline, // show skeleton if no copy yet
+              image_status: (sp.image_status || "pending") as PostImageStatus,
+            };
           });
 
-          // Build new array: completed posts + remaining skeletons for pending ones
           const totalExpected = (jobData?.total_posts as number) ?? postsConfig.length;
-          const remaining = Math.max(0, totalExpected - completedPosts.length - skeletonFill.length);
+          const remaining = Math.max(0, totalExpected - mapped.length);
           const extraSkeletons: PostCard[] = Array.from({ length: remaining }, (_, i) => ({
             id: `skeleton-extra-${i}`,
-            platform: (postsConfig[completedPosts.length + skeletonFill.length + i]?.platform || "instagram") as Platform,
-            format: postsConfig[completedPosts.length + skeletonFill.length + i]?.format || "instagram_feed",
+            platform: (postsConfig[mapped.length + i]?.platform || "instagram") as Platform,
+            format: postsConfig[mapped.length + i]?.format || "instagram_feed",
             status: "draft" as PostStatus,
-            calendarDay: ((completedPosts.length + skeletonFill.length + i) * 2) + 1,
+            calendarDay: ((mapped.length + i) * 2) + 1,
             isRendering: true,
+            image_status: "pending" as PostImageStatus,
           }));
 
-          setPosts([...completedPosts, ...skeletonFill, ...extraSkeletons]);
+          lastMapped = [...mapped, ...extraSkeletons];
+          setPosts(lastMapped);
         }
 
-        const completedCount = (jobData?.completed_posts as number) ?? 0;
+        // Dual progress: copy + image
         const totalCount = (jobData?.total_posts as number) ?? postsConfig.length;
-        setGenerationProgress({ completed: completedCount, total: totalCount });
+        const copyReady = lastMapped.filter(p => !p.isRendering && (p.headline || p.error)).length;
+        const imageReady = lastMapped.filter(p => p.image_status === "ready" || (p.image && p.image_status !== "generating" && p.image_status !== "pending")).length;
+        setGenerationProgress({ copy: copyReady, image: imageReady, total: totalCount });
 
-        if (jobData?.status === "completed" || jobData?.status === "failed") {
-          isComplete = true;
+        // Terminal condition: all posts have final image_status (ready/error) or post status=error
+        const allTerminal = lastMapped.length > 0 && lastMapped.every(
+          p => p.image_status === "ready" || p.image_status === "error" || p.error
+        );
+
+        if (allTerminal || jobData?.status === "failed") {
+          break;
         }
+      }
+
+      if (attempts >= MAX_POLLS) {
+        console.warn("[parrilla/poll] timeout after 6min");
       }
 
       // Polling complete — now safe to set viewJobId
       console.info("[parrilla/poll/complete]", { job_id });
       setViewJobId(job_id);
 
-      const finalPosts = await new Promise<PostCard[]>(resolve => {
-        setPosts(prev => { resolve(prev); return prev; });
-      });
-      const realPosts = finalPosts.filter(p => !p.isRendering);
-      const errorCount = realPosts.filter(p => p.error).length;
-      if (currentMode === "copy-first") {
-        const copyReady = realPosts.filter(p => !p.error && p.headline).length;
-        toast({ title: "🚀 Copy generado", description: `${copyReady} posts listos para revisar. Apruébalos para generar imágenes.` });
-      } else if (errorCount > 0) {
-        toast({ title: "⚠️ Parrilla con errores", description: `${realPosts.length - errorCount} OK, ${errorCount} fallidos. Reintenta los fallidos.`, variant: "destructive" });
+      // 4. Final toast
+      const realPosts = lastMapped.filter(p => !p.isRendering);
+      const readyCount = realPosts.filter(p => !p.error && p.image_status === "ready").length;
+      const errorCount = realPosts.filter(p => p.error || p.image_status === "error").length;
+
+      if (readyCount === 0 && errorCount > 0) {
+        toast({
+          title: "⚠️ No se pudo generar la parrilla",
+          description: "Revisa el brief o intenta de nuevo",
+          variant: "destructive",
+        });
       } else {
-        toast({ title: "🚀 Parrilla generada", description: `${realPosts.length} posts generados exitosamente.` });
+        const msg = errorCount > 0
+          ? `${readyCount} posts listos, ${errorCount} con error`
+          : `${readyCount} posts listos para revisar`;
+        toast({ title: "🚀 Parrilla generada", description: msg });
       }
+
     } catch (error: any) {
-      console.error("Error generating posts:", error);
+      console.error("[parrilla/generate] error", error);
       setPosts([]);
       setHasGenerated(false);
       setGenerationProgress(null);
@@ -1118,7 +1078,7 @@ export function useParrillaPage() {
       setIsGenerating(false);
       setGeneratingStatus("");
     }
-  }, [selectedFormats, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, chatMessages, brand, brandName, brandVision, productVision, id, productImages, includeLogoInImage, includeTextInImage, language, objective, draftId, selectedProductIds, mapServerPostToCard]);
+  }, [selectedFormats, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, chatMessages, brand, brandName, brandVision, productVision, productImages, includeLogoInImage, includeTextInImage, language, objective, draftId, selectedProductIds, mapServerPostToCard]);
 
   // ═══════════ Post actions ═══════════
 
@@ -1147,58 +1107,7 @@ export function useParrillaPage() {
     const post = posts.find(p => p.id === id);
     if (!post) return;
 
-    // If copy-first mode and image hasn't been generated yet,
-    // use the endpoint that approves + triggers image generation
-    if (generationMode === "copy-first" && post.image_status === "pending") {
-      // Optimistic update
-      setPosts(prev => prev.map(p =>
-        p.id === id
-          ? { ...p, status: "scheduled" as PostStatus, approval_status: "approved" as const, approved_at: new Date().toISOString(), image_status: "generating" as PostImageStatus }
-          : p
-      ));
-      toast({ title: "✅ Post aprobado — generando imagen..." });
-
-      try {
-        await approveAndGenerateImage(id);
-        // Image will arrive via polling — start a lightweight poll for this post
-        const pollImage = setInterval(async () => {
-          try {
-            const pollData = await apiCall<{ job?: Record<string, unknown>; posts?: Record<string, unknown>[] }>(`/api/v1/posts/job/${viewJobId}`);
-            const sp = (pollData.posts || []).find((p: any) => p.id === id) as any;
-            if (!sp) return;
-            const imgStatus: PostImageStatus = sp.image_status || (sp.rendered_image_url ? "ready" : "generating");
-            if (imgStatus === "ready" || imgStatus === "error") {
-              clearInterval(pollImage);
-              setPosts(prev => prev.map(p =>
-                p.id === id
-                  ? { ...p, image: sp.rendered_image_url || "", image_status: imgStatus }
-                  : p
-              ));
-              if (imgStatus === "ready") {
-                toast({ title: "🖼️ Imagen generada" });
-              } else {
-                toast({ title: "⚠️ Error generando imagen", variant: "destructive" });
-              }
-            }
-          } catch {
-            // Ignore polling errors
-          }
-        }, 5000);
-        // Safety: stop polling after 3 minutes
-        setTimeout(() => clearInterval(pollImage), 180000);
-      } catch (err) {
-        console.error("[approve+generate] failed:", err);
-        setPosts(prev => prev.map(p =>
-          p.id === id
-            ? { ...p, status: "draft" as PostStatus, approval_status: "pending" as const, approved_at: null, image_status: "pending" as PostImageStatus }
-            : p
-        ));
-        toast({ title: "Error al aprobar", description: err instanceof Error ? err.message : "Intenta de nuevo", variant: "destructive" });
-      }
-      return;
-    }
-
-    // Standard approval (image already exists or full mode)
+    // Optimistic update — mark as approved (cosmetic, no image trigger)
     setPosts(prev => prev.map(p => p.id === id ? { ...p, status: "scheduled" as PostStatus, approval_status: "approved" as const, approved_at: new Date().toISOString() } : p));
     toast({ title: "✅ Post aprobado" });
     try {
@@ -1208,7 +1117,7 @@ export function useParrillaPage() {
       setPosts(prev => prev.map(p => p.id === id ? { ...p, status: "draft" as PostStatus, approval_status: "pending" as const, approved_at: null } : p));
       toast({ title: "Error al aprobar el post", description: err instanceof Error ? err.message : "Intenta de nuevo", variant: "destructive" });
     }
-  }, [posts, generationMode, viewJobId]);
+  }, [posts]);
 
   const handleRejectPost = useCallback(async (id: string) => {
     setPosts(prev => prev.map(p => p.id === id ? { ...p, status: "draft" as PostStatus, approval_status: "rejected" as const } : p));
@@ -1226,7 +1135,7 @@ export function useParrillaPage() {
     if (!viewJobId) return;
     const previousPosts = posts;
 
-    // Optimistic update: approve all successful pending posts
+    // Optimistic update: approve all successful pending posts (cosmetic only)
     setPosts(prev => prev.map(p => {
       if ((p.status === "draft" || p.approval_status === "pending") && !p.error && p.approval_status !== "rejected") {
         return {
@@ -1234,58 +1143,20 @@ export function useParrillaPage() {
           status: "scheduled" as PostStatus,
           approval_status: "approved" as const,
           approved_at: new Date().toISOString(),
-          image_status: (generationMode === "copy-first" && p.image_status === "pending"
-            ? "generating"
-            : p.image_status) as PostImageStatus | undefined,
         };
       }
       return p;
     }));
 
     try {
-      if (generationMode === "copy-first") {
-        // This endpoint approves + fires image generation for all pending posts
-        const result = await generateAllApprovedImages(viewJobId);
-        toast({ title: `🖼️ Generando ${result.count} imágenes...`, description: "Las imágenes aparecerán a medida que se completen." });
-
-        // Start polling for image updates
-        const pollImages = setInterval(async () => {
-          try {
-            const pollData = await apiCall<{ job?: Record<string, unknown>; posts?: Record<string, unknown>[] }>(`/api/v1/posts/job/${viewJobId}`);
-            let allTerminal = true;
-            setPosts(prev => prev.map(p => {
-              const sp = (pollData.posts || []).find((s: any) => s.id === p.id) as any;
-              if (!sp) return p;
-              const imgStatus: PostImageStatus = sp.image_status || (sp.rendered_image_url ? "ready" : p.image_status || "pending");
-              if (imgStatus === "generating") allTerminal = false;
-              return {
-                ...p,
-                image: sp.rendered_image_url || p.image,
-                image_status: imgStatus,
-                approval_status: sp.approval_status || p.approval_status,
-              };
-            }));
-            if (allTerminal) {
-              clearInterval(pollImages);
-              toast({ title: "✅ Todas las imágenes generadas" });
-            }
-          } catch {
-            // Ignore polling errors
-          }
-        }, 5000);
-        // Safety: stop after 5 minutes
-        setTimeout(() => clearInterval(pollImages), 300000);
-      } else {
-        // Legacy mode: just persist approval in DB
-        const count = await approveAllPosts(viewJobId);
-        toast({ title: `✅ ${count} posts aprobados` });
-      }
+      const count = await approveAllPosts(viewJobId);
+      toast({ title: `✅ ${count} posts aprobados` });
     } catch (err) {
       console.error("[approve-all] failed:", err);
       setPosts(previousPosts);
       toast({ title: "Error al aprobar posts", description: err instanceof Error ? err.message : "Intenta de nuevo", variant: "destructive" });
     }
-  }, [viewJobId, posts, generationMode]);
+  }, [viewJobId, posts]);
 
   const platformPosts = posts.filter((p) => p.platform === activePlatform);
 
@@ -1301,19 +1172,42 @@ export function useParrillaPage() {
   }, []);
 
   const handleRegenerateSingle = useCallback(async (post: PostCard) => {
-    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, isRendering: true, error: null } : p));
+    // TODO: Wire to POST /api/v1/posts/{id}/regenerate when backend endpoint is ready
+    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, isRendering: true, error: null, image_status: "generating" as PostImageStatus } : p));
     try {
-      let logoB64: string | undefined = currentLogoB64 || undefined;
-      if (!logoB64 && brandAssetBlobs.length > 0) logoB64 = await blobToBase64(brandAssetBlobs[0]);
-      const newImage = await renderPost(post, logoB64);
-      setPosts(prev => prev.map(p => p.id === post.id ? { ...p, image: newImage, isRendering: false, error: null } : p));
-      toast({ title: "✨ Post regenerado" });
+      const result = await apiCall<{ post_id: string; status: string }>(`/api/v1/posts/${post.id}/regenerate`, { method: "POST" });
+      // Poll until the post's image is ready
+      let attempts = 0;
+      while (attempts < 36) { // 3 min max
+        await new Promise(r => setTimeout(r, 5000));
+        attempts++;
+        try {
+          if (!viewJobId) break;
+          const pollData = await pollJob(viewJobId);
+          const sp = (pollData.posts || []).find((p: any) => p.id === post.id) as any;
+          if (!sp) continue;
+          const imgStatus: PostImageStatus = sp.image_status || (sp.rendered_image_url ? "ready" : "generating");
+          if (imgStatus === "ready" || imgStatus === "error") {
+            const updated = mapServerPostToCard(sp, 0, viewJobId);
+            setPosts(prev => prev.map(p => p.id === post.id ? updated : p));
+            if (imgStatus === "ready") {
+              toast({ title: "✨ Post regenerado" });
+            } else {
+              toast({ title: "⚠️ Error al regenerar imagen", variant: "destructive" });
+            }
+            return;
+          }
+        } catch { /* ignore poll errors */ }
+      }
+      // Timeout
+      setPosts(prev => prev.map(p => p.id === post.id ? { ...p, isRendering: false, error: "Timeout al regenerar" } : p));
+      toast({ title: "⚠️ Timeout al regenerar", variant: "destructive" });
     } catch (err: any) {
-      console.error("Error regenerating post:", err);
+      console.error("[regenerate-single] error:", err);
       setPosts(prev => prev.map(p => p.id === post.id ? { ...p, isRendering: false, error: "Error al regenerar" } : p));
-      toast({ title: "⚠️ Error al regenerar", description: "No se pudo conectar con el servidor.", variant: "destructive" });
+      toast({ title: "⚠️ Error al regenerar", description: err?.message || "No se pudo conectar con el servidor.", variant: "destructive" });
     }
-  }, [brandAssetBlobs, blobToBase64, renderPost, id]);
+  }, [viewJobId, mapServerPostToCard]);
 
   const handleDownloadPost = useCallback(async (post: PostCard) => {
     const hasVideo = post.video_url && (post.video_status === "completed" || post.video_status === "success");
@@ -1408,7 +1302,6 @@ export function useParrillaPage() {
     isGenerating, generationProgress, generatingStatus,
     isClientView, setIsClientView,
     viewMode, setViewMode,
-    generationMode,
     platformPosts,
 
     // Draft

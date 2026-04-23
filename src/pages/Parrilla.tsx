@@ -31,7 +31,6 @@ const Parrilla = () => {
     posts, hasGenerated,
     isGenerating, generationProgress, generatingStatus,
     isClientView, viewMode, setViewMode,
-    generationMode,
     platformPosts,
     draftId, brandId, saveStatus, lastSavedAt,
     draftTitle, setDraftTitle,
@@ -417,22 +416,28 @@ const Parrilla = () => {
               <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
                 className="px-6 pt-5"
               >
-                <div className="max-w-2xl mx-auto space-y-2">
+                <div className="max-w-2xl mx-auto space-y-3">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-foreground font-medium">
-                      âš¡ Generando posts... {generationProgress.completed} de {generationProgress.total}
+                      ⚡ Generando tu parrilla...
                     </span>
                     <span className="text-muted-foreground text-xs">
-                      {Math.round((generationProgress.completed / generationProgress.total) * 100)}%
+                      {Math.round((generationProgress.image / generationProgress.total) * 100)}%
                     </span>
                   </div>
-                  <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
-                    <motion.div
-                      className="h-full rounded-full bg-primary"
-                      initial={{ width: "0%" }}
-                      animate={{ width: `${(generationProgress.completed / generationProgress.total) * 100}%` }}
-                      transition={{ duration: 0.5, ease: "easeOut" }}
-                    />
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>✍️ Copy: {generationProgress.copy}/{generationProgress.total}</span>
+                      <span>🎨 Imágenes: {generationProgress.image}/{generationProgress.total}</span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
+                      <motion.div
+                        className="h-full rounded-full bg-primary"
+                        initial={{ width: "0%" }}
+                        animate={{ width: `${(generationProgress.image / generationProgress.total) * 100}%` }}
+                        transition={{ duration: 0.5, ease: "easeOut" }}
+                      />
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -476,7 +481,7 @@ const Parrilla = () => {
                         {stats.generatingImages} imágenes generándose
                       </span>
                     )}
-                    {generationMode === "copy-first" && stats.imagesReady > 0 && (
+                    {stats.imagesReady > 0 && (
                       <span className="text-emerald-400">{stats.imagesReady} imágenes listas</span>
                     )}
                   </div>

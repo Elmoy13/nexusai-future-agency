@@ -36,28 +36,27 @@ interface GenerationResponse {
 }
 
 /**
- * Inicia generación en modo copy-first (Fase 1 solamente).
- * Las imágenes se disparan manualmente vía approveAndGenerateImage.
+ * Genera la parrilla completa (copy + imágenes) en una sola pasada.
+ * POST /api/v1/posts/generate
  */
-export async function generateCopyOnly(
-  payload: GenerationRequest
-): Promise<GenerationResponse> {
-  return await apiCall<GenerationResponse>(
-    "/api/v1/posts/generate-copy-only",
-    { method: "POST", body: payload }
-  );
-}
-
-/**
- * Genera todo en una sola pasada (copy + imágenes). Modo legacy.
- */
-export async function generateFull(
+export async function generateFullParrilla(
   payload: GenerationRequest
 ): Promise<GenerationResponse> {
   return await apiCall<GenerationResponse>(
     "/api/v1/posts/generate",
     { method: "POST", body: payload }
   );
+}
+
+/**
+ * Polling del estado de un job + sus posts.
+ * GET /api/v1/posts/job/{jobId}
+ */
+export async function pollJob(jobId: string): Promise<{
+  job: Record<string, unknown>;
+  posts: Record<string, unknown>[];
+}> {
+  return await apiCall(`/api/v1/posts/job/${jobId}`);
 }
 
 export async function getJob(jobId: string): Promise<GenerationJob | null> {

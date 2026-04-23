@@ -9,7 +9,7 @@ import { ALL_FORMATS, getAspectClass } from "@/types/parrilla";
 import type { PostCard } from "@/types/parrilla";
 import {
   X, RefreshCw, Download, Edit3, Play, Video, Calendar,
-  CheckCircle2, ClipboardCopy, Loader2, ImageOff, AlertCircle,
+  CheckCircle2, ClipboardCopy, Loader2, AlertCircle,
 } from "lucide-react";
 
 interface RenderedPostCardProps {
@@ -63,12 +63,9 @@ const RenderedPostCard = ({ post, onEdit, onRegenerate, onDownload, onApproveSta
           {/* ── Image status-aware rendering ── */}
           {post.image_status === "pending" && !post.image ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center p-4 bg-muted">
-              <ImageOff className="w-8 h-8 text-muted-foreground mb-2" />
+              <Loader2 className="w-8 h-8 text-muted-foreground animate-spin mb-2" />
               <p className="text-sm text-muted-foreground text-center">
-                Imagen pendiente de generación
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Aprueba este post para generar la imagen
+                Generando imagen...
               </p>
             </div>
           ) : post.image_status === "generating" ? (
@@ -206,8 +203,7 @@ const RenderedPostCard = ({ post, onEdit, onRegenerate, onDownload, onApproveSta
                 </button>
               )}
               <button onClick={() => onApproveStatus(post.id)} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-emerald-400 hover:bg-secondary transition-colors" title="Aprobar">
-                <CheckCircle2 size={12} />
-                {post.image_status === "pending" ? "Aprobar y generar" : "Aprobar"}
+                <CheckCircle2 size={12} /> Aprobar
               </button>
             </div>
           )}
