@@ -544,37 +544,52 @@ export function useParrillaPage() {
     setIsAnalyzingBrand(true);
     setBrandDetected(false);
     try {
-      const data = await apiCall<{
-        primary_color: string; secondary_color?: string; accent_color?: string;
-        palette: string[]; contrast_color?: string;
-        suggested_fonts?: string[]; background_suggestion?: string;
-        vision_analysis?: { brand_name_detected?: string; [k: string]: unknown };
+      const res = await apiCall<{
+        analysis: {
+          palette: string[]; primary_color: string; secondary_color?: string;
+          accent_colors?: string[]; contrast_color?: string;
+          suggested_fonts?: string[]; background_suggestion?: string;
+          mood?: string; style?: string; personality?: string[];
+          brand_name?: string; detected_typography?: string;
+          logo_description?: string; target_audience?: string;
+          suggested_scenes?: string[];
+        };
+        logo_url: string | null;
+        persisted: boolean;
       }>("/api/v1/brand/analyze-vision", {
         method: "POST",
         body: { logo_b64: logoB64 },
       });
-      if (!data.palette || !data.primary_color) throw new Error("Respuesta incompleta de la API");
+
+      const a = res.analysis;
+      if (!a?.palette || !a.primary_color) throw new Error("Respuesta incompleta de la API");
+
       const newBrand: BrandProfile = {
-        primary_color: data.primary_color,
-        secondary_color: data.secondary_color || data.palette[1] || "#333333",
-        accent_color: data.accent_color || data.palette[2] || "#666666",
-        palette: data.palette,
-        contrast_color: data.contrast_color || "#FFFFFF",
-        font_family: data.suggested_fonts?.[0] || "Montserrat",
-        suggested_fonts: data.suggested_fonts || ["Montserrat", "Poppins", "Inter"],
-        background_suggestion: data.background_suggestion || "dark",
+        primary_color: a.primary_color,
+        secondary_color: a.secondary_color || a.palette[1] || "#333333",
+        accent_color: a.accent_colors?.[0] || a.palette[2] || "#666666",
+        palette: a.palette,
+        contrast_color: a.contrast_color || "#FFFFFF",
+        font_family: a.suggested_fonts?.[0] || "Montserrat",
+        suggested_fonts: a.suggested_fonts || ["Montserrat", "Poppins", "Inter"],
+        background_suggestion: a.background_suggestion || "dark",
       };
       setBrand(newBrand);
       setBrandDetected(true);
       setIsAnalyzingBrand(false);
-      if (data.vision_analysis) {
-        setBrandVision(data.vision_analysis);
-        if (data.vision_analysis.brand_name_detected && !brandName) {
-          setBrandName(data.vision_analysis.brand_name_detected);
-        }
+
+      if (res.logo_url) {
+        setCurrentLogoUrl(res.logo_url);
       }
+
+      setBrandVision(a);
+      if (a.brand_name && !brandName) {
+        setBrandName(a.brand_name);
+      }
+
       toast({ title: "✨ Marca analizada con IA visual", description: "Colores, tipografía y personalidad detectados." });
     } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
       console.error("Error analyzing brand:", error);
       setIsAnalyzingBrand(false);
       setBrandDetected(false);
