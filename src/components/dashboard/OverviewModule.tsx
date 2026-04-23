@@ -10,6 +10,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useAgency } from "@/contexts/AgencyContext";
+import { countActiveJobs, countPostsThisMonth, listJobsByAgency } from "@/lib/generationService";
 
 interface Metrics {
   activeJobs: number;
@@ -90,46 +91,31 @@ const OverviewModule = () => {
       setMetrics(null);
       setActivity(null);
 
-      const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-
-      const [activeRes, processingRes, monthlyRes, brandRes, recentRes] = await Promise.all([
-        supabase
-          .from("generation_jobs")
-          .select("id", { count: "exact", head: true })
-          .eq("agency_id", currentAgencyId)
-          .in("status", ["pending", "processing"]),
-        supabase
-          .from("generation_jobs")
-          .select("id", { count: "exact", head: true })
-          .eq("agency_id", currentAgencyId)
-          .eq("status", "processing"),
-        supabase
-          .from("generated_posts")
-          .select("id, generation_jobs!inner(agency_id)", { count: "exact", head: true })
-          .eq("generation_jobs.agency_id", currentAgencyId)
-          .gte("created_at", firstDay),
+      const [activeJobs, monthlyPosts, brandRes, processingRes, recentJobs] = await Promise.all([
+        countActiveJobs(currentAgencyId),
+        countPostsThisMonth(currentAgencyId),
         supabase
           .from("brands")
           .select("id", { count: "exact", head: true })
           .eq("agency_id", currentAgencyId),
         supabase
           .from("generation_jobs")
-          .select("id, status, total_posts, completed_posts, created_at, updated_at, brand_name, brands(name)")
+          .select("id", { count: "exact", head: true })
           .eq("agency_id", currentAgencyId)
-          .order("updated_at", { ascending: false })
-          .limit(10),
+          .eq("status", "processing"),
+        listJobsByAgency(currentAgencyId, { limit: 10 }),
       ]);
 
       if (cancelled) return;
 
       setMetrics({
-        activeJobs: activeRes.count ?? 0,
+        activeJobs,
         processingCount: processingRes.count ?? 0,
-        monthlyPosts: monthlyRes.count ?? 0,
+        monthlyPosts,
         brandCount: brandRes.count ?? 0,
       });
 
-      const jobs = (recentRes.data as unknown as RecentJob[]) ?? [];
+      const jobs = recentJobs as unknown as RecentJob[];
       setActivity(jobs.map(jobToActivity));
     })();
 

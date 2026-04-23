@@ -216,8 +216,9 @@ export function persistEditorStateBeacon(
 ): boolean {
   if (typeof fetch === "undefined") return false;
   try {
-    const SUPABASE_URL = "https://klxdelvimqpjgbxuznyj.supabase.co";
-    const SUPABASE_ANON_KEY = "sb_publishable_zccLNmYng5e8m6cVAE60nA_yxpNCEzM";
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+    const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
     const url = `${SUPABASE_URL}/rest/v1/brand_briefs?id=eq.${encodeURIComponent(briefId)}`;
     const now = new Date().toISOString();
     const body = JSON.stringify({

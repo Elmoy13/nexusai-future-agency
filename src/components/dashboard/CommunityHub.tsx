@@ -23,10 +23,10 @@ const CommunityHub = () => {
 
   const [brands, setBrands] = useState<BrandData[]>([
     {
-      id: "aero-dynamics",
-      name: "Aero Dynamics",
+      id: "demo-brand",
+      name: "Tu marca",
       campaigns: [
-        { id: "drone-x10", name: "Lanzamiento Drone X10", unreadCount: 12, aiResponses: 47, humanRequired: 3 },
+        { id: "campaign-1", name: "Campaña ejemplo", unreadCount: 0, aiResponses: 0, humanRequired: 0 },
       ],
     },
   ]);

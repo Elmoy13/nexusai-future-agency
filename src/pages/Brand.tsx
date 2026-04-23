@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import ProductsSection from "@/components/dashboard/ProductsSection";
 import EditBrandModal, { type EditableBrand } from "@/components/dashboard/EditBrandModal";
+import { listJobsByBrand } from "@/lib/generationService";
 
 interface Job {
   id: string;
@@ -48,7 +49,7 @@ const Brand = () => {
   const fetchBrand = async () => {
     if (!id) return;
     setLoading(true);
-    const [{ data: b }, { data: js }, { data: bs }] = await Promise.all([
+    const [{ data: b }, js, { data: bs }] = await Promise.all([
       supabase
         .from("brands")
         .select(
@@ -56,11 +57,7 @@ const Brand = () => {
         )
         .eq("id", id)
         .maybeSingle(),
-      supabase
-        .from("generation_jobs")
-        .select("id, campaign_description, status, created_at")
-        .eq("brand_id", id)
-        .order("created_at", { ascending: false }),
+      listJobsByBrand(id),
       supabase
         .from("brand_briefs")
         .select("id, kind, status, title, created_at, updated_at")
@@ -68,7 +65,7 @@ const Brand = () => {
         .order("updated_at", { ascending: false }),
     ]);
     setBrand((b as EditableBrand | null) ?? null);
-    setJobs((js as Job[]) ?? []);
+    setJobs(js as Job[]);
     setBriefs((bs as BriefRow[]) ?? []);
     setLoading(false);
   };

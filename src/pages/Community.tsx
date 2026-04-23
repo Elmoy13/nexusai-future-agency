@@ -31,8 +31,6 @@ import {
   MessageCircle,
   Shield,
   Plug,
-  Linkedin,
-  Facebook,
   Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -41,10 +39,10 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { apiCall } from "@/lib/apiClient";
 
 /* ── Types ── */
 interface Conversation {
@@ -130,11 +128,6 @@ const Community = () => {
 
   const [knowledgeFiles, setKnowledgeFiles] = useState<KnowledgeFile[]>(mockKnowledgeFiles);
   const [aiTemperature, setAiTemperature] = useState([30]);
-  const [showIntegrations, setShowIntegrations] = useState(false);
-  const [connectedChannels, setConnectedChannels] = useState<Record<string, boolean>>({});
-  const [connectingChannel, setConnectingChannel] = useState<string | null>(null);
-  const [whatsappPhone, setWhatsappPhone] = useState("");
-  const [showWhatsappInput, setShowWhatsappInput] = useState(false);
   const [clientTags, setClientTags] = useState<string[]>(["Lead Caliente"]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -148,26 +141,21 @@ const Community = () => {
     const newMode = isManualMode ? "ai" : "manual";
     setTogglingMode(true);
     try {
-      const res = await fetch(
-        `https://representative-tier-customize-bonus.trycloudflare.com/api/v1/conversations/${selectedConversationId}/mode`,
+      await apiCall(
+        `/api/v1/conversations/${selectedConversationId}/mode`,
         {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: newMode }),
+          body: { mode: newMode },
         }
       );
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || `HTTP ${res.status}`);
-      }
       // Update local state immediately
       setConversations((prev) =>
         prev.map((c) => (c.id === selectedConversationId ? { ...c, mode: newMode } : c))
       );
       toast({ title: newMode === "manual" ? "Modo manual activado" : "IA activada", description: newMode === "manual" ? "Ahora respondes tú" : "El bot responderá automáticamente" });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Toggle mode error:", err);
-      toast({ title: "Error cambiando modo", description: err.message, variant: "destructive" });
+      toast({ title: "Error cambiando modo", description: err instanceof Error ? err.message : "Error desconocido", variant: "destructive" });
     } finally {
       setTogglingMode(false);
     }
@@ -270,19 +258,13 @@ const Community = () => {
     setInputMessage("");
 
     try {
-      const res = await fetch("https://representative-tier-customize-bonus.trycloudflare.com/api/v1/messages/send", {
+      await apiCall("/api/v1/messages/send", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           conversation_id: selectedConversationId,
           message_text: text,
-        }),
+        },
       });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || `HTTP ${res.status}`);
-      }
 
       {
         // Re-fetch messages to ensure the sent message appears immediately
@@ -294,9 +276,9 @@ const Community = () => {
         if (freshMessages) setMessages(freshMessages);
         fetchConversations();
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Send error:", err);
-      toast({ title: "Error de conexión", description: err.message, variant: "destructive" });
+      toast({ title: "Error de conexión", description: err instanceof Error ? err.message : "Error desconocido", variant: "destructive" });
       setInputMessage(text);
     } finally {
       setIsSending(false);
@@ -307,25 +289,7 @@ const Community = () => {
     if (!clientTags.includes(tag)) setClientTags((p) => [...p, tag]);
   };
 
-  const handleConnectChannel = (channelKey: string) => {
-    if (channelKey === "whatsapp" && !showWhatsappInput && !connectedChannels.whatsapp) {
-      setShowWhatsappInput(true);
-      return;
-    }
-    setConnectingChannel(channelKey);
-    setShowWhatsappInput(false);
-    setTimeout(() => {
-      setConnectedChannels((prev) => ({ ...prev, [channelKey]: true }));
-      setConnectingChannel(null);
-    }, 2000);
-  };
 
-  const integrationChannels = [
-    { key: "whatsapp", name: "WhatsApp Business API", description: "Mensajería directa con clientes vía API oficial de Meta", icon: Phone, color: "text-green-500", bgColor: "bg-green-500/15", borderColor: "border-green-500/30" },
-    { key: "instagram", name: "Instagram Direct", description: "DMs, comentarios y menciones de Instagram", icon: Instagram, color: "text-pink-500", bgColor: "bg-pink-500/15", borderColor: "border-pink-500/30" },
-    { key: "messenger", name: "Facebook Messenger", description: "Chat de Facebook Pages y Messenger API", icon: Facebook, color: "text-blue-500", bgColor: "bg-blue-500/15", borderColor: "border-blue-500/30" },
-    { key: "linkedin", name: "LinkedIn Pages", description: "Gestiona comentarios y mensajes de tu LinkedIn Company Page", icon: Linkedin, color: "text-blue-400", bgColor: "bg-blue-400/15", borderColor: "border-blue-400/30" },
-  ];
 
   return (
     <div className="h-screen bg-background flex flex-col overflow-hidden">
@@ -337,7 +301,7 @@ const Community = () => {
         <div className="h-6 w-px bg-border/30" />
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Hexagon size={14} className="text-primary" />
-          <span>Aero Dynamics</span>
+          <span>Tu marca</span>
           <span className="text-border">/</span>
           <span className="text-foreground font-semibold">Smart Inbox</span>
         </div>
@@ -362,7 +326,7 @@ const Community = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setShowIntegrations(true)}
+            onClick={() => navigate("/settings/channels")}
             className="gap-2 text-xs border-border/40 text-muted-foreground hover:text-foreground hover:border-primary/30"
           >
             <Plug size={14} />
@@ -713,109 +677,7 @@ const Community = () => {
         </div>
       </div>
 
-      {/* ═══ INTEGRATIONS MODAL ═══ */}
-      <Dialog open={showIntegrations} onOpenChange={setShowIntegrations}>
-        <DialogContent className="sm:max-w-2xl bg-card border-border/40">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2.5 text-xl">
-              <div className="w-9 h-9 rounded-xl bg-primary/15 border border-primary/25 flex items-center justify-center">
-                <Plug size={18} className="text-primary" />
-              </div>
-              Centro de Integraciones
-              <Badge variant="outline" className="text-[10px] border-border/30 text-muted-foreground font-normal ml-1">
-                Aero Dynamics
-              </Badge>
-            </DialogTitle>
-            <p className="text-sm text-muted-foreground">Conecta tus canales sociales para unificar la comunicación en un solo inbox.</p>
-          </DialogHeader>
-
-          <div className="grid grid-cols-2 gap-4 py-4">
-            {integrationChannels.map((channel) => {
-              const isConnected = connectedChannels[channel.key];
-              const isConnecting = connectingChannel === channel.key;
-              const Icon = channel.icon;
-
-              return (
-                <motion.div
-                  key={channel.key}
-                  className={cn(
-                    "p-5 rounded-xl border transition-all",
-                    isConnected
-                      ? "border-green-500/30 bg-green-500/5"
-                      : "border-border/30 bg-muted/10 hover:border-border/50"
-                  )}
-                  whileHover={!isConnected ? { scale: 1.01 } : {}}
-                >
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", channel.bgColor, channel.borderColor, "border")}>
-                      <Icon size={20} className={channel.color} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-sm">{channel.name}</h4>
-                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{channel.description}</p>
-                    </div>
-                  </div>
-
-                  {/* WhatsApp phone input */}
-                  {channel.key === "whatsapp" && showWhatsappInput && !isConnected && !isConnecting && (
-                    <div className="mb-3">
-                      <Input
-                        placeholder="+52 555 123 4567"
-                        value={whatsappPhone}
-                        onChange={(e) => setWhatsappPhone(e.target.value)}
-                        className="h-8 text-xs bg-muted/20 border-border/30 mb-2"
-                      />
-                    </div>
-                  )}
-
-                  {isConnected ? (
-                    <div className="space-y-1">
-                      <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
-                        <Check size={12} className="mr-1" /> Conectado
-                      </Badge>
-                      <p className="text-[10px] text-muted-foreground">Token activo · OAuth 2.0</p>
-                    </div>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={isConnecting}
-                      onClick={() => handleConnectChannel(channel.key)}
-                      className={cn(
-                        "w-full text-xs",
-                        isConnecting
-                          ? "border-primary/30 text-primary"
-                          : "border-border/40 text-muted-foreground hover:text-foreground hover:border-border"
-                      )}
-                    >
-                      {isConnecting ? (
-                        <>
-                          <Loader2 size={13} className="mr-1.5 animate-spin" />
-                          Autorizando con OAuth...
-                        </>
-                      ) : (
-                        <>
-                          <Globe size={13} className="mr-1.5" />
-                          {channel.key === "whatsapp" && showWhatsappInput ? "Verificar y Conectar" : "Conectar cuenta"}
-                        </>
-                      )}
-                    </Button>
-                  )}
-                </motion.div>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center justify-between pt-2 border-t border-border/20">
-            <p className="text-[10px] text-muted-foreground">
-              {Object.values(connectedChannels).filter(Boolean).length} de {integrationChannels.length} canales conectados
-            </p>
-            <Button variant="ghost" size="sm" onClick={() => setShowIntegrations(false)} className="text-xs text-muted-foreground">
-              Cerrar
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* TODO Sprint CM-4: unificar con InboxModule — este componente hace queries directas a Supabase */}
     </div>
   );
 };

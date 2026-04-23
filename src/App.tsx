@@ -26,6 +26,8 @@ import Editor from "./pages/Editor";
 import Agent from "./pages/Agent";
 import Parrilla from "./pages/Parrilla";
 import Community from "./pages/Community";
+import ChannelsSettings from "./pages/ChannelsSettings";
+import ChannelSelect from "./pages/ChannelSelect";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -54,6 +56,8 @@ const App = () => (
               <Route path="/parrilla/:id" element={<Protected><Parrilla /></Protected>} />
               <Route path="/community/:id" element={<Protected><Community /></Protected>} />
               <Route path="/settings" element={<Protected><Settings /></Protected>} />
+              <Route path="/settings/channels" element={<Protected><ChannelsSettings /></Protected>} />
+              <Route path="/settings/channels/select" element={<Protected><ChannelSelect /></Protected>} />
               <Route path="/editor/:id" element={<Protected><Editor /></Protected>} />
 
               <Route path="*" element={<NotFound />} />

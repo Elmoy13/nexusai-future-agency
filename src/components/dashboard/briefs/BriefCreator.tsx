@@ -39,9 +39,7 @@ import {
 import { createDraft } from "@/lib/draftService";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { apiCall, getAuthHeaders, API_URL } from "@/lib/apiClient";
-
-const BASE_URL = "https://representative-tier-customize-bonus.trycloudflare.com";
+import { apiCall, apiUpload } from "@/lib/apiClient";
 
 /* ── Helpers ─────────────────────────────────────────────── */
 
@@ -305,21 +303,8 @@ const BriefCreator = ({ brandName, briefId: briefIdProp, brandId, kind = "campai
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const authHeaders = await getAuthHeaders();
-      const res = await fetch(`${BASE_URL}/api/v1/agent/upload`, {
-        method: "POST",
-        headers: authHeaders, // No Content-Type — browser sets it with boundary
-        body: fd,
-      });
-      if (res.status === 401) {
-        toast({ title: "Sesión expirada", description: "Vuelve a iniciar sesión", variant: "destructive" });
-        await supabase.auth.signOut();
-        window.location.href = "/login";
-        return null;
-      }
-      if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
-      const data = await res.json();
-      return data.url as string;
+      const data = await apiUpload<{ url: string }>("/api/v1/agent/upload", fd);
+      return data.url;
     } catch (err) {
       console.error("Upload error:", err);
       return null;
@@ -423,34 +408,21 @@ const BriefCreator = ({ brandName, briefId: briefIdProp, brandId, kind = "campai
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 120_000);
 
-      const authHeaders = await getAuthHeaders();
-      const res = await fetch(`${BASE_URL}/api/v1/agent/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders },
-        body: JSON.stringify({
-          session_id: sessionId,
-          message: text,
-          logo_url: logoUrl,
-          uploaded_images: uploadedImages.length ? uploadedImages : undefined,
-        }),
-        signal: controller.signal,
-      });
+      const data = await apiCall<{ reply?: string; status?: string; presentation?: ApiSlide[] }>(
+        "/api/v1/agent/chat",
+        {
+          method: "POST",
+          body: {
+            session_id: sessionId,
+            message: text,
+            logo_url: logoUrl,
+            uploaded_images: uploadedImages.length ? uploadedImages : undefined,
+          },
+          signal: controller.signal,
+        },
+      );
 
       clearTimeout(timeout);
-
-      if (res.status === 401) {
-        toast({ title: "Sesión expirada", description: "Vuelve a iniciar sesión", variant: "destructive" });
-        await supabase.auth.signOut();
-        window.location.href = "/login";
-        return;
-      }
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || `Error ${res.status}`);
-      }
-
-      const data = await res.json();
 
       setMessages((prev) => [
         ...prev,
@@ -470,11 +442,12 @@ const BriefCreator = ({ brandName, briefId: briefIdProp, brandId, kind = "campai
         setPresentation(data.presentation);
         setStep("done");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error("Unknown error");
       const errorText =
-        err.name === "AbortError"
+        error.name === "AbortError"
           ? "La solicitud tardó demasiado. Intenta de nuevo."
-          : `Hubo un error: ${err.message || "intenta de nuevo"}`;
+          : `Hubo un error: ${error.message || "intenta de nuevo"}`;
       setMessages((prev) => [
         ...prev,
         { id: uid(), role: "assistant", content: errorText },
@@ -487,11 +460,7 @@ const BriefCreator = ({ brandName, briefId: briefIdProp, brandId, kind = "campai
   /* ── Reset session ───────────────────────────────────── */
   const handleReset = useCallback(async () => {
     try {
-      const authHeaders = await getAuthHeaders();
-      await fetch(`${BASE_URL}/api/v1/agent/session/${sessionId}`, {
-        method: "DELETE",
-        headers: authHeaders,
-      });
+      await apiCall(`/api/v1/agent/session/${sessionId}`, { method: "DELETE" });
     } catch {}
 
     if (briefId) {

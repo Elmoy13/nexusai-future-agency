@@ -1,2098 +1,83 @@
-import { useState, useRef, useCallback, useMemo, useEffect } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { useDebouncedCallback } from "use-debounce";
-import { useAgency } from "@/contexts/AgencyContext";
-import { useAuth } from "@/contexts/AuthContext";
-import { createDraft, getDraft, patchDraft, deleteDraft, type DraftRow, type DraftPatch } from "@/lib/draftService";
-import { uploadBrandLogo, base64ToBlob } from "@/lib/brandStorage";
-import { listProducts, type BrandProduct } from "@/lib/productService";
-import ParrillaProductSelector from "@/components/dashboard/ParrillaProductSelector";
+﻿import { useParrillaPage } from "@/hooks/useParrillaPage";
+import PlatformIcon from "@/components/parrilla/PlatformIcon";
+import ImagePreviewModal from "@/components/parrilla/ImagePreviewModal";
+import RenderedPostCard from "@/components/parrilla/RenderedPostCard";
+import CalendarView from "@/components/parrilla/CalendarView";
+import EditPostModal from "@/components/parrilla/EditPostModal";
+import BrandAssetsSidebar from "@/components/parrilla/BrandAssetsSidebar";
+import { DEFAULT_BRAND } from "@/types/parrilla";
 
+import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import CreativeAgentChat from "@/components/dashboard/CreativeAgentChat";
 import {
-  ArrowLeft, Download, CheckCircle2, Upload, Sparkles, Loader2, X,
-  Instagram, Linkedin, Play, Music, Calendar, Send, Clock, Eye,
-  GripVertical, Image as ImageIcon, Video, FileText, Zap, Target, Users,
-  TrendingUp, MessageSquare, Heart, Share2, Bookmark, MoreHorizontal,
-  Check, MessageCircle, LayoutGrid, CalendarDays, ChevronLeft, ChevronRight,
-  Wand2, Home, Hexagon, FileText as BriefIcon, Twitter, Palette, Type,
-  MoreVertical, Edit3, RefreshCw, Layers, Camera, Plus, ClipboardCopy
+  ArrowLeft, CheckCircle2, Sparkles, Loader2,
+  Zap, Target, Users, Heart, Check,
+  LayoutGrid, CalendarDays, Home, Hexagon,
+  FileText as BriefIcon,
 } from "lucide-react";
 
-/* ── Types ── */
-type Platform = "instagram" | "tiktok" | "linkedin";
-type PostStatus = "draft" | "scheduled" | "published";
-type ViewMode = "kanban" | "calendar";
-
-interface FormatOption {
-  id: string;
-  platform: string;
-  label: string;
-  width: number;
-  height: number;
-  icon: string; // □ ▯ ▬
-}
-
-const ALL_FORMATS: FormatOption[] = [
-  { id: "instagram_feed", platform: "instagram", label: "Feed", width: 1080, height: 1080, icon: "□" },
-  { id: "instagram_story", platform: "instagram", label: "Story", width: 1080, height: 1920, icon: "▯" },
-  { id: "instagram_reel", platform: "instagram", label: "Reel", width: 1080, height: 1920, icon: "▯" },
-  { id: "tiktok_video", platform: "tiktok", label: "Video", width: 1080, height: 1920, icon: "▯" },
-  { id: "linkedin_post", platform: "linkedin", label: "Post", width: 1200, height: 627, icon: "▬" },
-  { id: "linkedin_story", platform: "linkedin", label: "Story", width: 1080, height: 1920, icon: "▯" },
-  { id: "twitter_post", platform: "twitter", label: "Post", width: 1200, height: 630, icon: "▬" },
-];
-
-interface PostCard {
-  id: string;
-  platform: Platform;
-  format: string;
-  status: PostStatus;
-  image?: string;
-  caption?: string;
-  audio?: string;
-  title?: string;
-  hashtags?: string[];
-  scheduledAt?: string;
-  calendarDay?: number;
-  headline?: string;
-  body?: string;
-  cta?: string;
-  imagePrompt?: string;
-  styleDescription?: string;
-  isRendering?: boolean;
-  error?: string | null;
-  video_url?: string;
-  video_status?: "idle" | "generating" | "completed" | "success" | "processing" | "error";
-  video_error?: string;
-}
-
-interface BrandProfile {
-  primary_color: string;
-  secondary_color: string;
-  accent_color: string;
-  palette: string[];
-  contrast_color: string;
-  font_family: string;
-  suggested_fonts: string[];
-  background_suggestion: string;
-}
-
-const DEFAULT_BRAND: BrandProfile = {
-  primary_color: "#FF6B35",
-  secondary_color: "#004E89",
-  accent_color: "#F1FAEE",
-  palette: ["#FF6B35", "#004E89", "#F1FAEE", "#A8DADC", "#457B9D"],
-  contrast_color: "#FFFFFF",
-  font_family: "Montserrat",
-  suggested_fonts: ["Montserrat", "Poppins", "Inter"],
-  background_suggestion: "dark",
-};
-
-// Save status indicator for the draft auto-save
-type SaveStatus = "idle" | "saving" | "saved" | "error";
-
-const API_URL = import.meta.env.VITE_API_URL || "https://representative-tier-customize-bonus.trycloudflare.com";
-
-function getDimensionsFromFormat(format: string): { w: number; h: number } {
-  const f = ALL_FORMATS.find(f => f.id === format);
-  if (f) return { w: f.width, h: f.height };
-  return { w: 1080, h: 1080 };
-}
-
-/* ── TikTok Icon ── */
-const TikTokIcon = ({ size = 16, className = "" }: { size?: number; className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
-  </svg>
-);
-
-/* ── Checkerboard Pattern ── */
-const CheckerboardBg = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
-  <div className={`relative ${className}`}
-    style={{
-      backgroundImage: `linear-gradient(45deg, hsl(var(--muted)) 25%, transparent 25%), linear-gradient(-45deg, hsl(var(--muted)) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, hsl(var(--muted)) 75%), linear-gradient(-45deg, transparent 75%, hsl(var(--muted)) 75%)`,
-      backgroundSize: "16px 16px",
-      backgroundPosition: "0 0, 0 8px, 8px -8px, -8px 0px",
-      backgroundColor: "hsl(var(--card))",
-    }}
-  >{children}</div>
-);
-
-/* ── Platform Icon Helper ── */
-const PlatformIcon = ({ platform, size = 16 }: { platform: string; size?: number }) => {
-  if (platform === "instagram") return <Instagram size={size} />;
-  if (platform === "tiktok") return <TikTokIcon size={size} />;
-  if (platform === "twitter") return <Twitter size={size} />;
-  return <Linkedin size={size} />;
-};
-
-/* ── Status Badge ── */
-const StatusBadge = ({ status }: { status: PostStatus }) => {
-  const config = {
-    draft: { label: "Draft", bg: "bg-muted text-muted-foreground border-border" },
-    scheduled: { label: "Aprobado", bg: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-    published: { label: "Published", bg: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
-  };
-  const c = config[status];
-  return <Badge variant="outline" className={`text-[10px] font-semibold px-2 py-0.5 ${c.bg}`}>{c.label}</Badge>;
-};
-
-/* ── Shimmer Skeleton ── */
-const ShimmerSkeleton = ({ aspectClass }: { aspectClass: string }) => (
-  <div className={`${aspectClass} bg-secondary rounded-xl overflow-hidden relative`}>
-    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-muted-foreground/5 to-transparent animate-pulse" />
-    <motion.div
-      animate={{ x: ["-100%", "100%"] }}
-      transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-      className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/10 to-transparent"
-    />
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-      <Loader2 size={20} className="animate-spin text-muted-foreground" />
-      <p className="text-[11px] text-muted-foreground font-medium">Generando diseño...</p>
-    </div>
-  </div>
-);
-
-/* ── Aspect class helper ── */
-function getAspectClass(format: string) {
-  const dims = getDimensionsFromFormat(format);
-  if (dims.w === dims.h) return "aspect-square";
-  if (dims.h > dims.w) return "aspect-[9/16]";
-  return "aspect-[1.91/1]";
-}
-
-/* ── Post Card ── */
-const RenderedPostCard = ({ post, onEdit, onRegenerate, onDownload, onApproveStatus, isClientView, onClickImage, onGenerateVideo }: {
-  post: PostCard; onEdit: (post: PostCard) => void; onRegenerate: (post: PostCard) => void;
-  onDownload: (post: PostCard) => void; onApproveStatus: (id: string) => void;
-  isClientView?: boolean; onClickImage?: (post: PostCard) => void;
-  onGenerateVideo?: (post: PostCard) => void;
-}) => {
-  const [isHoveringMedia, setIsHoveringMedia] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const platformGradients: Record<string, string> = {
-    instagram: "from-pink-500 via-red-500 to-yellow-500",
-    tiktok: "from-slate-900 to-slate-700",
-    linkedin: "from-blue-600 to-blue-700",
-    twitter: "from-slate-800 to-slate-900",
-  };
-  const aspectClass = getAspectClass(post.format || "instagram_feed");
-  const fmt = ALL_FORMATS.find(f => f.id === post.format);
-  const hasVideo = post.video_url && (post.video_status === "completed" || post.video_status === "success");
-
-  return (
-    <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
-      className="bg-card rounded-xl border border-border/60 shadow-sm hover:shadow-lg hover:shadow-primary/5 hover:scale-[1.02] transition-all overflow-hidden group relative"
-    >
-      {post.isRendering ? (
-        <ShimmerSkeleton aspectClass={aspectClass} />
-      ) : post.error ? (
-        <div className={`${aspectClass} bg-destructive/10 border border-destructive/30 rounded-t-xl flex flex-col items-center justify-center gap-2`}>
-          <X size={24} className="text-destructive" />
-          <p className="text-xs font-medium text-destructive">Error al generar este post</p>
-          <button onClick={() => onRegenerate(post)}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-destructive/20 text-destructive hover:bg-destructive/30 transition-colors flex items-center gap-1">
-            <RefreshCw size={12} /> Reintentar
-          </button>
-        </div>
-      ) : (
-        <div
-          className={`${aspectClass} bg-secondary relative overflow-hidden cursor-pointer`}
-          onClick={() => onClickImage?.(post)}
-          onMouseEnter={() => setIsHoveringMedia(true)}
-          onMouseLeave={() => setIsHoveringMedia(false)}
-        >
-          {hasVideo ? (
-            <>
-              <video
-                ref={videoRef}
-                src={post.video_url}
-                autoPlay loop muted playsInline
-                className="w-full h-full object-cover"
-              />
-              <AnimatePresence>
-                {isHoveringMedia && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    className="absolute inset-0 flex items-center justify-center bg-black/20"
-                  >
-                    <div className="w-12 h-12 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center">
-                      <Play size={20} className="text-white ml-0.5" />
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </>
-          ) : (
-            <img src={post.image || "/placeholder.svg"} alt="" className="w-full h-full object-cover" />
-          )}
-          <div className="absolute top-3 left-3 flex items-center gap-1.5">
-            <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${platformGradients[post.platform]} flex items-center justify-center shadow-md`}>
-              <PlatformIcon platform={post.platform} size={14} />
-            </div>
-            {hasVideo ? (
-              <Badge className="text-[9px] bg-purple-500/80 backdrop-blur-sm border-purple-400/30 text-white hover:bg-purple-500/90">
-                🎬 Video
-              </Badge>
-            ) : post.image && (
-              <Badge variant="outline" className="text-[9px] bg-card/60 backdrop-blur-sm border-border/50 text-muted-foreground">
-                📷 Imagen
-              </Badge>
-            )}
-          </div>
-          <div className="absolute top-3 right-3"><StatusBadge status={post.status} /></div>
-          {fmt && (
-            <div className="absolute bottom-3 left-3">
-              <Badge variant="outline" className="text-[9px] bg-card/70 backdrop-blur-sm border-border/50 text-muted-foreground">
-                {fmt.label} {fmt.width}×{fmt.height}
-              </Badge>
-            </div>
-          )}
-        </div>
-      )}
-      {/* Caption section */}
-      {(post.headline || post.body || post.cta) && !post.isRendering && !post.error && (
-        <div className="p-3 space-y-2 bg-secondary/30 border-t border-border/40">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">📝 Caption</span>
-            <button
-              onClick={() => {
-                const parts = [post.headline, post.body, post.cta].filter(Boolean);
-                navigator.clipboard.writeText(parts.join("\n\n"));
-                toast({ title: "Caption copiado ✅" });
-              }}
-              className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-              title="Copiar caption"
-            >
-              <ClipboardCopy size={11} /> Copiar
-            </button>
-          </div>
-          {post.headline && <p className="text-sm font-semibold text-foreground leading-snug">{post.headline}</p>}
-          {post.body && <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">{post.body}</p>}
-          {post.cta && (
-            <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-semibold bg-primary/15 text-primary border border-primary/20">
-              {post.cta}
-            </span>
-          )}
-        </div>
-      )}
-      {post.scheduledAt && (
-        <div className="px-3 py-1.5 flex items-center gap-1.5 text-[11px] text-amber-400 font-medium"><Calendar size={12} /> {post.scheduledAt}</div>
-      )}
-      {!isClientView && !post.isRendering && (
-        <div className="flex items-center gap-1 px-3 py-2 border-t border-border/50">
-          <button onClick={() => onEdit(post)} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Editar">
-            <Edit3 size={12} /> Editar
-          </button>
-          <button onClick={() => onRegenerate(post)} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Regenerar">
-            <RefreshCw size={12} />
-          </button>
-          <button onClick={() => onDownload(post)} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Descargar">
-            <Download size={12} />
-          </button>
-          {/* Video button */}
-          {post.video_status === "generating" ? (
-            <button disabled className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-muted-foreground opacity-60 cursor-not-allowed" title="Generando video...">
-              <Loader2 size={12} className="animate-spin" /> Generando...
-            </button>
-          ) : post.video_status === "error" ? (
-            <button onClick={() => onGenerateVideo?.(post)} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-destructive hover:bg-destructive/10 transition-colors" title="Reintentar video">
-              <Video size={12} /> Error — Reintentar
-            </button>
-          ) : hasVideo ? (
-            <button className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-emerald-400" title="Video listo">
-              <Video size={12} /> ✅
-            </button>
-          ) : post.image ? (
-            <button onClick={() => onGenerateVideo?.(post)} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Convertir a video">
-              <Video size={12} /> Video
-            </button>
-          ) : null}
-          <button onClick={() => onApproveStatus(post.id)} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] text-emerald-400 hover:bg-secondary transition-colors ml-auto" title="Aprobar">
-            <CheckCircle2 size={12} /> Aprobar
-          </button>
-        </div>
-      )}
-    </motion.div>
-  );
-};
-
-/* ── Mini Card for Calendar ── */
-const MiniPostCard = ({ post }: { post: PostCard }) => {
-  const platformColors = { instagram: "from-pink-500 via-red-500 to-yellow-500", tiktok: "from-slate-900 to-slate-700", linkedin: "from-blue-600 to-blue-700", twitter: "from-slate-800 to-slate-900" };
-  return (
-    <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-      className="flex items-center gap-2 p-1.5 rounded-lg bg-card border border-border shadow-sm hover:shadow-md transition-all cursor-pointer"
-    >
-      <div className="w-8 h-8 rounded-md overflow-hidden bg-secondary shrink-0"><img src={post.image} alt="" className="w-full h-full object-cover" /></div>
-      <div className={`w-5 h-5 rounded-md bg-gradient-to-br ${platformColors[post.platform] || "from-slate-700 to-slate-800"} flex items-center justify-center`}><PlatformIcon platform={post.platform} size={10} /></div>
-    </motion.div>
-  );
-};
-
-/* ── Calendar View ── */
-const CalendarView = ({ posts }: { posts: PostCard[] }) => {
-  const daysInMonth = 31;
-  const firstDayOfWeek = 1;
-  const days = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-  const postsByDay = useMemo(() => {
-    const map: Record<number, PostCard[]> = {};
-    posts.forEach((p) => { if (p.calendarDay) { if (!map[p.calendarDay]) map[p.calendarDay] = []; map[p.calendarDay].push(p); } });
-    return map;
-  }, [posts]);
-  const cells = useMemo(() => {
-    const result: (number | null)[] = [];
-    for (let i = 0; i < firstDayOfWeek; i++) result.push(null);
-    for (let d = 1; d <= daysInMonth; d++) result.push(d);
-    while (result.length % 7 !== 0) result.push(null);
-    return result;
-  }, []);
-
-  return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"><ChevronLeft size={18} /></Button>
-          <h2 className="text-xl font-bold text-foreground">Julio 2025</h2>
-          <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"><ChevronRight size={18} /></Button>
-        </div>
-      </div>
-      <div className="grid grid-cols-7 gap-2 mb-2">
-        {days.map((d) => <div key={d} className="text-center text-xs font-semibold text-muted-foreground py-2">{d}</div>)}
-      </div>
-      <div className="grid grid-cols-7 gap-2">
-        {cells.map((day, i) => (
-          <motion.div key={i} whileHover={{ scale: day ? 1.02 : 1 }}
-            className={`min-h-[120px] rounded-xl border transition-all ${day ? "bg-card border-border hover:border-primary/30 hover:shadow-md cursor-pointer" : "bg-secondary/30 border-transparent"}`}
-          >
-            {day && (
-              <div className="p-2 h-full flex flex-col">
-                <span className={`text-sm font-semibold mb-2 ${postsByDay[day]?.length ? "text-foreground" : "text-muted-foreground"}`}>{day}</span>
-                <div className="flex-1 space-y-1.5 overflow-hidden">
-                  {postsByDay[day]?.slice(0, 2).map((post) => <MiniPostCard key={post.id} post={post} />)}
-                  {postsByDay[day]?.length > 2 && <p className="text-[10px] text-muted-foreground font-medium">+{postsByDay[day].length - 2} más</p>}
-                </div>
-              </div>
-            )}
-          </motion.div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-/* ── Fullscreen Image Preview Modal ── */
-const ImagePreviewModal = ({ posts, initialIndex, open, onClose, onApprove, onDownload }: {
-  posts: PostCard[]; initialIndex: number; open: boolean; onClose: () => void;
-  onApprove: (id: string) => void; onDownload: (post: PostCard) => void;
-}) => {
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
-  useEffect(() => { setCurrentIndex(initialIndex); }, [initialIndex]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      if (e.key === "ArrowLeft") setCurrentIndex(i => Math.max(0, i - 1));
-      if (e.key === "ArrowRight") setCurrentIndex(i => Math.min(posts.length - 1, i + 1));
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [open, posts.length, onClose]);
-
-  if (!open || posts.length === 0) return null;
-  const post = posts[currentIndex];
-  if (!post) return null;
-  const fmt = ALL_FORMATS.find(f => f.id === post.format);
-  const platformLabels: Record<string, string> = { instagram: "Instagram", tiktok: "TikTok", linkedin: "LinkedIn", twitter: "X" };
-
-  return (
-    <AnimatePresence>
-      {open && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm"
-          onClick={onClose}
-        >
-          {/* Close button */}
-          <button onClick={onClose} className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
-            <X size={20} className="text-white" />
-          </button>
-
-          {/* Navigation arrows */}
-          {currentIndex > 0 && (
-            <button onClick={(e) => { e.stopPropagation(); setCurrentIndex(i => i - 1); }}
-              className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
-              <ChevronLeft size={24} className="text-white" />
-            </button>
-          )}
-          {currentIndex < posts.length - 1 && (
-            <button onClick={(e) => { e.stopPropagation(); setCurrentIndex(i => i + 1); }}
-              className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
-              <ChevronRight size={24} className="text-white" />
-            </button>
-          )}
-
-          {/* Image */}
-          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.3 }}
-            className="max-w-[85vw] max-h-[70vh] flex items-center justify-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {post.video_url && (post.video_status === "completed" || post.video_status === "success") ? (
-              <video src={post.video_url} controls autoPlay loop className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-2xl" />
-            ) : (
-              <img src={post.image || "/placeholder.svg"} alt={post.headline || ""} className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-2xl" />
-            )}
-          </motion.div>
-
-          {/* Bottom bar */}
-          <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }}
-            className="mt-4 px-6 py-3 rounded-2xl bg-card/90 backdrop-blur-md border border-border shadow-xl flex flex-col sm:flex-row items-center gap-3 max-w-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex-1 text-center sm:text-left">
-              {post.headline && <p className="text-sm font-semibold text-foreground">{post.headline}</p>}
-              <p className="text-xs text-muted-foreground">
-                {platformLabels[post.platform] || post.platform}
-                {fmt && ` • ${fmt.label} ${fmt.width}×${fmt.height}`}
-                {` • ${currentIndex + 1} de ${posts.length}`}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => onDownload(post)} className="gap-1.5 text-xs border-border">
-                <Download size={14} /> Descargar
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => toast({ title: "Próximamente", description: "La edición inline estará disponible pronto." })} className="gap-1.5 text-xs border-border">
-                <Edit3 size={14} /> Editar
-              </Button>
-              <Button size="sm" onClick={() => { onApprove(post.id); }} className="gap-1.5 text-xs bg-emerald-500 hover:bg-emerald-600 text-white">
-                <CheckCircle2 size={14} /> Aprobar
-              </Button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-};
-
-/* ── Edit Post Modal (AI Workspace) ── */
-type ChatMsg = { id?: string; role: "user" | "assistant" | "system"; content: string; pending?: boolean; created_at?: string };
-type PostVersion = {
-  id: string;
-  version_number: number;
-  image_url: string;
-  headline?: string;
-  body?: string;
-  cta?: string;
-  image_prompt?: string;
-  change_description?: string;
-  is_current?: boolean;
-  created_at?: string;
-};
-
-const QUICK_ACTIONS: { id: string; label: string; emoji: string; tooltip: string }[] = [
-  { id: "more_vibrant", label: "Más vibrante", emoji: "🎨", tooltip: "Aumenta saturación y contraste" },
-  { id: "another_angle", label: "Otro ángulo", emoji: "🔄", tooltip: "Genera la misma escena desde otra perspectiva" },
-  { id: "more_minimal", label: "Más minimalista", emoji: "✨", tooltip: "Reduce elementos y limpia la composición" },
-  { id: "change_background", label: "Cambiar fondo", emoji: "🌅", tooltip: "Reemplaza el fondo manteniendo el sujeto" },
-  { id: "more_editorial", label: "Más editorial", emoji: "📸", tooltip: "Estilo revista, fotografía profesional" },
-  { id: "better_lighting", label: "Mejor iluminación", emoji: "💡", tooltip: "Mejora luz, sombras y mood" },
-  { id: "closer", label: "Más cercano", emoji: "🔍", tooltip: "Acerca la cámara al sujeto" },
-  { id: "change_typography", label: "Cambiar tipografía", emoji: "🔤", tooltip: "Prueba otra fuente para el texto" },
-];
-
-function relativeTime(iso?: string) {
-  if (!iso) return "";
-  const d = new Date(iso).getTime();
-  if (isNaN(d)) return "";
-  const diff = Math.floor((Date.now() - d) / 1000);
-  if (diff < 60) return "hace unos segundos";
-  if (diff < 3600) return `hace ${Math.floor(diff / 60)} min`;
-  if (diff < 86400) return `hace ${Math.floor(diff / 3600)} h`;
-  return `hace ${Math.floor(diff / 86400)} d`;
-}
-
-const EditPostModal = ({ post, open, onClose, onSave, brand }: {
-  post: PostCard | null; open: boolean; onClose: () => void;
-  onSave: (updatedPost: PostCard) => void;
-  brand: BrandProfile;
-}) => {
-  // Manual fields
-  const [headline, setHeadline] = useState("");
-  const [body, setBody] = useState("");
-  const [cta, setCta] = useState("");
-  const [imagePrompt, setImagePrompt] = useState("");
-  const [styleDescription, setStyleDescription] = useState("");
-  const [format, setFormat] = useState("instagram_feed");
-  const [activeTab, setActiveTab] = useState<"chat" | "manual">("chat");
-
-  // Chat & versions
-  const [messages, setMessages] = useState<ChatMsg[]>([]);
-  const [versions, setVersions] = useState<PostVersion[]>([]);
-  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [chatInput, setChatInput] = useState("");
-  const [isSending, setIsSending] = useState(false);
-  const [isRegenerating, setIsRegenerating] = useState(false);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  const [highlightVersionId, setHighlightVersionId] = useState<string | null>(null);
-
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const pollRef = useRef<number | null>(null);
-  const lastVersionCountRef = useRef<number>(0);
-
-  // Reset & load when post changes
-  useEffect(() => {
-    if (!post || !open) return;
-    setHeadline(post.headline || post.title || "");
-    setBody(post.body || post.caption || "");
-    setCta(post.cta || "");
-    setImagePrompt(post.imagePrompt || "");
-    setStyleDescription(post.styleDescription || "profesional y moderno");
-    setFormat(post.format || "instagram_feed");
-    setPreviewImage(post.image || null);
-    setActiveTab("chat");
-    setSelectedVersionId(null);
-    setHighlightVersionId(null);
-
-    // Load chat + versions
-    (async () => {
-      setIsLoadingHistory(true);
-      try {
-        const [chatRes, versionsRes] = await Promise.all([
-          fetch(`${API_URL}/api/v1/posts/${post.id}/edit-chat`).catch(() => null),
-          fetch(`${API_URL}/api/v1/posts/${post.id}/versions`).catch(() => null),
-        ]);
-        if (chatRes && chatRes.ok) {
-          const data = await chatRes.json();
-          const msgs: ChatMsg[] = Array.isArray(data?.messages) ? data.messages : (Array.isArray(data) ? data : []);
-          setMessages(msgs);
-        } else {
-          setMessages([]);
-        }
-        if (versionsRes && versionsRes.ok) {
-          const data = await versionsRes.json();
-          const vs: PostVersion[] = Array.isArray(data?.versions) ? data.versions : (Array.isArray(data) ? data : []);
-          setVersions(vs);
-          lastVersionCountRef.current = vs.length;
-          const current = vs.find(v => v.is_current);
-          if (current) {
-            setSelectedVersionId(current.id);
-            setPreviewImage(current.image_url || post.image || null);
-          }
-        } else {
-          setVersions([]);
-          lastVersionCountRef.current = 0;
-        }
-      } catch (e) {
-        console.warn("Edit modal load error:", e);
-      } finally {
-        setIsLoadingHistory(false);
-      }
-    })();
-
-    return () => {
-      if (pollRef.current) { window.clearInterval(pollRef.current); pollRef.current = null; }
-    };
-  }, [post, open]);
-
-  // Auto-scroll chat
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length, isRegenerating]);
-
-  // Stop polling on close
-  useEffect(() => {
-    if (!open && pollRef.current) {
-      window.clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-  }, [open]);
-
-  // Esc to close handled by Dialog. Cmd+Enter to send.
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  const startPolling = useCallback(() => {
-    if (!post) return;
-    if (pollRef.current) window.clearInterval(pollRef.current);
-    setIsRegenerating(true);
-    pollRef.current = window.setInterval(async () => {
-      try {
-        const res = await fetch(`${API_URL}/api/v1/posts/${post.id}/versions`);
-        if (!res.ok) return;
-        const data = await res.json();
-        const vs: PostVersion[] = Array.isArray(data?.versions) ? data.versions : (Array.isArray(data) ? data : []);
-        if (vs.length > lastVersionCountRef.current) {
-          // New version arrived
-          const sorted = [...vs].sort((a, b) => (b.version_number || 0) - (a.version_number || 0));
-          const newest = sorted[0];
-          setVersions(vs);
-          lastVersionCountRef.current = vs.length;
-          if (newest?.is_current) {
-            setSelectedVersionId(newest.id);
-            setPreviewImage(newest.image_url || null);
-            if (newest.headline) setHeadline(newest.headline);
-            if (newest.body) setBody(newest.body);
-            if (newest.cta) setCta(newest.cta);
-            if (newest.image_prompt) setImagePrompt(newest.image_prompt);
-          }
-          setHighlightVersionId(newest?.id || null);
-          setTimeout(() => setHighlightVersionId(null), 2500);
-          setIsRegenerating(false);
-          if (pollRef.current) { window.clearInterval(pollRef.current); pollRef.current = null; }
-        }
-      } catch {}
-    }, 3000);
-
-    // Safety timeout: stop after 5 min
-    window.setTimeout(() => {
-      if (pollRef.current) { window.clearInterval(pollRef.current); pollRef.current = null; setIsRegenerating(false); }
-    }, 5 * 60 * 1000);
-  }, [post]);
-
-  const sendChat = useCallback(async (userMessage: string, quickAction?: string) => {
-    if (!post) return;
-    const optimisticUser: ChatMsg = { role: "user", content: userMessage };
-    setMessages(prev => [...prev, optimisticUser]);
-    setIsSending(true);
-    try {
-      const res = await fetch(`${API_URL}/api/v1/posts/${post.id}/edit-chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_message: userMessage, quick_action: quickAction || null }),
-      });
-      if (!res.ok) throw new Error(`Error ${res.status}`);
-      const data = await res.json();
-      const aiContent: string = data?.assistant_message || data?.message || data?.reply || "🎨 Generando nueva versión...";
-      setMessages(prev => [...prev, { role: "assistant", content: aiContent }]);
-      // If backend signals a regeneration is in progress, start polling versions
-      if (data?.regenerating !== false) {
-        startPolling();
-      }
-    } catch (err) {
-      console.error("edit-chat error:", err);
-      toast({ title: "⚠️ No se pudo enviar", description: "Intenta de nuevo en unos segundos.", variant: "destructive" });
-      setMessages(prev => [...prev, { role: "assistant", content: "⚠️ Hubo un problema procesando tu mensaje. Intenta de nuevo." }]);
-    } finally {
-      setIsSending(false);
-    }
-  }, [post, startPolling]);
-
-  const handleSend = () => {
-    const txt = chatInput.trim();
-    if (!txt || isSending) return;
-    setChatInput("");
-    sendChat(txt);
-  };
-
-  const handleQuickAction = (qa: typeof QUICK_ACTIONS[number]) => {
-    if (isSending) return;
-    sendChat(`${qa.emoji} ${qa.label}`, qa.id);
-  };
-
-  const handleManualRegenerate = () => {
-    const summary = `Manual edit: headline="${headline}", body="${body}", cta="${cta}", prompt="${imagePrompt}", style="${styleDescription}", format="${format}"`;
-    sendChat(summary, "manual_edit");
-  };
-
-  const handleSelectVersion = (v: PostVersion) => {
-    setSelectedVersionId(v.id);
-    setPreviewImage(v.image_url);
-  };
-
-  const handleRestoreVersion = async (v: PostVersion, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!post) return;
-    try {
-      const res = await fetch(`${API_URL}/api/v1/posts/${post.id}/versions/${v.id}/restore`, { method: "POST" });
-      if (!res.ok) throw new Error(`Error ${res.status}`);
-      const data = await res.json().catch(() => ({}));
-      const updatedVersions: PostVersion[] = data?.versions || versions.map(x => ({ ...x, is_current: x.id === v.id }));
-      setVersions(updatedVersions);
-      setSelectedVersionId(v.id);
-      setPreviewImage(v.image_url);
-      if (v.headline) setHeadline(v.headline);
-      if (v.body) setBody(v.body);
-      if (v.cta) setCta(v.cta);
-      if (v.image_prompt) setImagePrompt(v.image_prompt);
-      toast({ title: `↺ Versión v${v.version_number} restaurada` });
-    } catch (err) {
-      console.error("restore error:", err);
-      toast({ title: "⚠️ No se pudo restaurar", variant: "destructive" });
-    }
-  };
-
-  const handleClearChat = () => {
-    if (!confirm("¿Limpiar todo el historial de chat de este post?")) return;
-    setMessages([]);
-  };
-
-  const handleSaveAndClose = () => {
-    if (!post) return;
-    onSave({
-      ...post,
-      headline, body, cta, imagePrompt, styleDescription, format,
-      image: previewImage || post.image,
-    });
-    onClose();
-  };
-
-  if (!post) return null;
-
-  const currentVersion = versions.find(v => v.is_current) || null;
-  const displayedVersionNumber = (selectedVersionId && versions.find(v => v.id === selectedVersionId)?.version_number) || currentVersion?.version_number || 1;
-  const totalVersions = versions.length || 1;
-  const isViewingCurrent = !selectedVersionId || selectedVersionId === currentVersion?.id;
-  const formatDims = getDimensionsFromFormat(format);
-  const formatLabel: Record<string, string> = {};
-  ALL_FORMATS.forEach(f => { formatLabel[f.id] = `${f.label} • ${f.platform}`; });
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-[1400px] w-[95vw] h-[92vh] bg-card border-border p-0 overflow-hidden flex flex-col">
-        <DialogHeader className="sr-only">
-          <DialogTitle>Editor IA del Post</DialogTitle>
-        </DialogHeader>
-
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-[35%_45%_20%] overflow-hidden">
-
-          {/* ── COL 1: CHAT ── */}
-          <aside className="flex flex-col border-r border-border bg-background/40 min-h-0">
-            <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
-              <div>
-                <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-                  <Sparkles size={14} className="text-primary" /> Editor IA
-                </h3>
-                <p className="text-[11px] text-muted-foreground">Dime qué cambiar</p>
-              </div>
-              <Button variant="ghost" size="sm" onClick={handleClearChat} aria-label="Limpiar chat" title="Limpiar chat" className="h-7 px-2 text-muted-foreground hover:text-foreground">
-                <X size={14} />
-              </Button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
-              {isLoadingHistory && (
-                <div className="text-center text-xs text-muted-foreground py-4">
-                  <Loader2 size={14} className="inline animate-spin mr-1" /> Cargando historial...
-                </div>
-              )}
-              {!isLoadingHistory && messages.length === 0 && (
-                <div className="text-xs text-muted-foreground bg-secondary/40 border border-border rounded-lg p-3">
-                  👋 Soy tu editor IA. Pídeme cambios concretos: <em>"hazla más cinematográfica"</em>, <em>"botella más cristalina"</em>, <em>"fondo nocturno con luces"</em>...
-                </div>
-              )}
-              {messages.map((m, i) => (
-                <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${
-                    m.role === "user"
-                      ? "bg-primary text-primary-foreground rounded-br-sm"
-                      : "bg-secondary text-foreground rounded-bl-sm border border-border"
-                  }`}>
-                    {m.content}
-                  </div>
-                </div>
-              ))}
-              {isRegenerating && (
-                <div className="flex justify-start">
-                  <div className="max-w-[85%] rounded-2xl rounded-bl-sm px-3 py-2.5 text-sm bg-secondary border border-border">
-                    <div className="flex items-center gap-2 text-foreground">
-                      <Loader2 size={14} className="animate-spin text-primary" />
-                      <span>🎨 Generando nueva versión...</span>
-                    </div>
-                    <div className="mt-2 h-1 bg-background rounded-full overflow-hidden">
-                      <motion.div
-                        className="h-full bg-gradient-to-r from-primary via-violet-500 to-primary"
-                        animate={{ x: ["-100%", "100%"] }}
-                        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Quick actions */}
-            <div className="px-3 py-2 border-t border-border">
-              <div className="flex gap-1.5 overflow-x-auto pb-1.5 scrollbar-thin">
-                {QUICK_ACTIONS.map(qa => (
-                  <button
-                    key={qa.id}
-                    onClick={() => handleQuickAction(qa)}
-                    disabled={isSending || isRegenerating}
-                    title={qa.tooltip}
-                    aria-label={qa.tooltip}
-                    className="shrink-0 text-xs px-2.5 py-1.5 rounded-full bg-secondary hover:bg-secondary/70 border border-border text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <span className="mr-1">{qa.emoji}</span>{qa.label}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-2 items-end">
-                <Textarea
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Ej: hazla más publicitaria, botella más cristalina..."
-                  rows={2}
-                  className="bg-secondary/50 border-border resize-none text-sm min-h-[60px]"
-                  aria-label="Mensaje al editor IA"
-                />
-                <Button
-                  onClick={handleSend}
-                  disabled={!chatInput.trim() || isSending || isRegenerating}
-                  size="icon"
-                  className="bg-primary text-primary-foreground h-10 w-10 shrink-0"
-                  aria-label="Enviar mensaje"
-                >
-                  {isSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                </Button>
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-1 px-1">Enter envía • Shift+Enter nueva línea</p>
-            </div>
-          </aside>
-
-          {/* ── COL 2: PREVIEW + MANUAL ── */}
-          <section className="flex flex-col bg-secondary/20 min-h-0">
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "chat" | "manual")} className="flex-1 flex flex-col min-h-0">
-              <div className="px-4 pt-3 pb-2 border-b border-border bg-background/40">
-                <TabsList className="bg-secondary/60">
-                  <TabsTrigger value="chat" className="text-xs"><MessageCircle size={12} className="mr-1" /> Chat</TabsTrigger>
-                  <TabsTrigger value="manual" className="text-xs"><Wand2 size={12} className="mr-1" /> Manual</TabsTrigger>
-                </TabsList>
-              </div>
-
-              <TabsContent value="chat" className="flex-1 overflow-y-auto m-0 p-6 min-h-0">
-                <div className="max-w-md mx-auto flex flex-col items-center">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Badge className="bg-primary/20 text-primary border-primary/30">Versión {displayedVersionNumber} {isViewingCurrent ? "• Actual" : ""}</Badge>
-                    <span className="text-[11px] text-muted-foreground">{formatDims.w}×{formatDims.h} • {formatLabel[format] || format}</span>
-                  </div>
-                  <div className={`w-full rounded-xl overflow-hidden border border-border bg-secondary relative ${getAspectClass(format)} ${format.includes("story") || format.includes("reel") || format.includes("tiktok") ? "max-h-[420px]" : ""}`}>
-                    {previewImage ? (
-                      <img src={previewImage} alt="Preview del post" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">Sin imagen</div>
-                    )}
-                    {isRegenerating && (
-                      <div className="absolute inset-0 bg-background/70 backdrop-blur-sm flex flex-col items-center justify-center gap-2">
-                        <Loader2 size={28} className="animate-spin text-primary" />
-                        <p className="text-xs text-foreground">Generando nueva versión...</p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Caption preview */}
-                  <div className="w-full mt-4 bg-background/60 border border-border rounded-lg p-3 space-y-2">
-                    {headline && <p className="text-sm font-bold text-foreground leading-tight">{headline}</p>}
-                    {body && <p className="text-xs text-muted-foreground leading-snug">{body}</p>}
-                    {cta && (
-                      <div>
-                        <span className="inline-block text-[11px] font-semibold px-3 py-1.5 rounded-full bg-primary/15 text-primary border border-primary/30">{cta}</span>
-                      </div>
-                    )}
-                    {!headline && !body && !cta && (
-                      <p className="text-[11px] text-muted-foreground italic">Sin caption aún</p>
-                    )}
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="manual" className="flex-1 overflow-y-auto m-0 p-6 min-h-0">
-                <div className="max-w-lg mx-auto space-y-4">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Contenido</p>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Headline</label>
-                    <Input value={headline} onChange={(e) => setHeadline(e.target.value)} maxLength={60} className="bg-secondary/50 border-border" />
-                    <span className="text-[10px] text-muted-foreground mt-0.5 block text-right">{headline.length}/60</span>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Body</label>
-                    <Textarea value={body} onChange={(e) => setBody(e.target.value)} maxLength={150} rows={2} className="bg-secondary/50 border-border resize-none" />
-                    <span className="text-[10px] text-muted-foreground mt-0.5 block text-right">{body.length}/150</span>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">CTA</label>
-                    <Input value={cta} onChange={(e) => setCta(e.target.value)} maxLength={30} className="bg-secondary/50 border-border" />
-                  </div>
-
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pt-2">Imagen</p>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Image prompt</label>
-                    <Textarea value={imagePrompt} onChange={(e) => setImagePrompt(e.target.value)} rows={4} className="bg-background border-border resize-none font-mono text-xs" placeholder="Describe la imagen..." />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Estilo</label>
-                    <Input value={styleDescription} onChange={(e) => setStyleDescription(e.target.value)} className="bg-secondary/50 border-border" placeholder="ej: elegante, premium" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Formato</label>
-                    <Select value={format} onValueChange={setFormat}>
-                      <SelectTrigger className="bg-secondary/50 border-border"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {ALL_FORMATS.map(f => <SelectItem key={f.id} value={f.id}>{f.icon} {f.label} ({f.width}×{f.height})</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <Button onClick={handleManualRegenerate} disabled={isSending || isRegenerating} className="w-full h-11 bg-gradient-to-r from-violet-600 to-primary text-white font-semibold">
-                    {isRegenerating ? <><Loader2 size={16} className="animate-spin mr-2" /> Regenerando...</> : <><Sparkles size={16} className="mr-2" /> Regenerar con cambios manuales</>}
-                  </Button>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </section>
-
-          {/* ── COL 3: VERSIONS ── */}
-          <aside className="flex flex-col border-l border-border bg-background/40 min-h-0">
-            <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-foreground">Versiones</h3>
-              <span className="text-[11px] text-muted-foreground">({totalVersions})</span>
-            </div>
-            <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0">
-              {versions.length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-6 italic">Solo versión original</p>
-              )}
-              {versions.map(v => {
-                const isSelected = selectedVersionId === v.id;
-                const isHighlighted = highlightVersionId === v.id;
-                return (
-                  <motion.div
-                    key={v.id}
-                    layout
-                    initial={isHighlighted ? { opacity: 0, scale: 0.9 } : false}
-                    animate={{ opacity: 1, scale: 1 }}
-                    onClick={() => handleSelectVersion(v)}
-                    className={`group relative cursor-pointer rounded-lg border overflow-hidden transition-all ${
-                      isSelected ? "border-primary ring-1 ring-primary/40" : "border-border hover:border-primary/50"
-                    } ${isHighlighted ? "shadow-[0_0_20px_hsl(var(--primary)/0.6)]" : ""}`}
-                  >
-                    <div className={`w-full ${getAspectClass(format)} bg-secondary relative`}>
-                      {v.image_url ? (
-                        <img src={v.image_url} alt={`Versión ${v.version_number}`} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">sin preview</div>
-                      )}
-                      <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-background/80 backdrop-blur-sm text-[10px] font-semibold text-foreground">
-                        v{v.version_number}
-                      </div>
-                      {v.is_current && (
-                        <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded bg-primary text-primary-foreground text-[10px] font-semibold">
-                          Actual
-                        </div>
-                      )}
-                      {!v.is_current && (
-                        <button
-                          onClick={(e) => handleRestoreVersion(v, e)}
-                          className="absolute inset-x-1 bottom-1 opacity-0 group-hover:opacity-100 transition-opacity bg-background/90 backdrop-blur-sm border border-border text-foreground text-[10px] font-medium rounded py-1 hover:bg-primary hover:text-primary-foreground"
-                          aria-label={`Restaurar versión ${v.version_number}`}
-                        >
-                          ↺ Restaurar
-                        </button>
-                      )}
-                    </div>
-                    <div className="p-2">
-                      <p className="text-[11px] text-foreground truncate" title={v.change_description || ""}>
-                        {v.change_description || "Sin descripción"}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">{relativeTime(v.created_at)}</p>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-            <div className="px-3 py-2 border-t border-border">
-              <Button variant="ghost" size="sm" disabled={versions.length < 2} className="w-full text-xs text-muted-foreground hover:text-foreground">
-                <Layers size={12} className="mr-1.5" /> Exportar comparación
-              </Button>
-            </div>
-          </aside>
-        </div>
-
-        {/* Footer */}
-        <DialogFooter className="px-4 py-3 border-t border-border bg-background/40 flex-row justify-between sm:justify-between">
-          <Button variant="ghost" onClick={onClose} className="text-muted-foreground">Cancelar</Button>
-          <Button onClick={handleSaveAndClose} className="bg-primary text-primary-foreground font-semibold">
-            <Check size={14} className="mr-1.5" /> Guardar y cerrar
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-
-/* ── Main Page ── */
+/* â”€â”€ Main Page â”€â”€ */
 const Parrilla = () => {
-  const { id } = useParams<{ id: string }>();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const { currentAgencyId } = useAgency();
-  const { user } = useAuth();
-
-  const isNewParrilla = id === "nueva" || !id;
-  const queryDraftId = searchParams.get("draft_id");
-  const queryBrandId = searchParams.get("brand_id");
-  // When :id is a real UUID (not "nueva") and no ?draft_id is present,
-  // we treat it as a job_id and load existing generated posts (read-only-ish view).
-  const candidateJobId = !isNewParrilla && !queryDraftId ? id ?? null : null;
-  const [viewJobId, setViewJobId] = useState<string | null>(candidateJobId);
-  const [isLoadingJob, setIsLoadingJob] = useState<boolean>(!!candidateJobId);
-
-  const [activePlatform, setActivePlatform] = useState<string>("instagram");
-  const [posts, setPosts] = useState<PostCard[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [hasGenerated, setHasGenerated] = useState(false);
-  const [generationProgress, setGenerationProgress] = useState<{ completed: number; total: number } | null>(null);
-  const [isClientView, setIsClientView] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>("kanban");
-
-  // Draft state
-  const [draftId, setDraftId] = useState<string | null>(queryDraftId);
-  const [brandId, setBrandId] = useState<string | null>(queryBrandId);
-  const [draftHydrated, setDraftHydrated] = useState<boolean>(!isNewParrilla);
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
-  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
-  const [draftTitle, setDraftTitle] = useState<string>("");
-  const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false);
-  const [briefInfo, setBriefInfo] = useState<{ id: string; title: string } | null>(null);
-  const skipNextSaveRef = useRef<boolean>(true); // skip the auto-save triggered by hydrate
-
-  // Logo: in-memory only (persisted to Supabase Storage when uploaded).
-  // We keep b64 for backend AI calls until the backend accepts logo URL directly.
-  const [currentLogoB64, setCurrentLogoB64] = useState<string | null>(null);
-  const [currentLogoUrl, setCurrentLogoUrl] = useState<string | null>(null);
-  const [brandAssets, setBrandAssets] = useState<string[]>([]);
-  const [brandAssetBlobs, setBrandAssetBlobs] = useState<Blob[]>([]);
-  const [productImages, setProductImages] = useState<string[]>([]);
-  // NEW: persistent products from brand_products
-  const [brandProducts, setBrandProducts] = useState<BrandProduct[] | null>(null);
-  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const productFileInputRef = useRef<HTMLInputElement>(null);
-
-  const [platforms, setPlatforms] = useState({ instagram: true, tiktok: true, linkedin: false, twitter: false });
-  const [selectedFormats, setSelectedFormats] = useState<Set<string>>(new Set(["instagram_feed", "tiktok_video"]));
-  const [frequency, setFrequency] = useState("3-week");
-  const [objective, setObjective] = useState("engagement");
-  const [optionsPerPost, setOptionsPerPost] = useState(2);
-
-  const [generatingStatus, setGeneratingStatus] = useState("");
-  const [brand, setBrand] = useState<BrandProfile>(DEFAULT_BRAND);
-
-  // Chat state (real AI)
-  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
-    { role: "assistant", content: "¡Hola! 👋 Soy tu **Nano Banano Content Agent**.\n\n📸 **Sube tu logo** y **fotos de tu producto** en el panel de Brand Assets para que pueda analizar tu marca con IA visual. 👈\n\nDespués hablamos sobre tu campaña. 🚀" }
-  ]);
-  const [isChatThinking, setIsChatThinking] = useState(false);
-  const [brandVision, setBrandVision] = useState<any>(null);
-  const [productVision, setProductVision] = useState<any>(null);
-  const [isAnalyzingProduct, setIsAnalyzingProduct] = useState(false);
-  const [brandName, setBrandName] = useState<string>("");
-  const [editingPost, setEditingPost] = useState<PostCard | null>(null);
-  const [previewIndex, setPreviewIndex] = useState(-1);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const parrillaGridRef = useRef<HTMLDivElement>(null);
-  const [isAnalyzingBrand, setIsAnalyzingBrand] = useState(false);
-  const [brandDetected, setBrandDetected] = useState(false);
-  const [includeLogoInImage, setIncludeLogoInImage] = useState(false);
-  const [includeTextInImage, setIncludeTextInImage] = useState(false);
-  const [language, setLanguage] = useState<"auto" | "es" | "en">("auto");
-  const [detectedLanguage, setDetectedLanguage] = useState<"es" | "en" | null>(null);
-
-  // Available formats based on selected platforms
-  const availableFormats = useMemo(() => {
-    return ALL_FORMATS.filter(f => platforms[f.platform as keyof typeof platforms]);
-  }, [platforms]);
-
-  // Sync selected formats when platforms change
-  useEffect(() => {
-    setSelectedFormats(prev => {
-      const newSet = new Set<string>();
-      const activePlatformKeys = Object.entries(platforms).filter(([_, v]) => v).map(([k]) => k);
-      // Keep existing selections that are still valid
-      prev.forEach(fId => {
-        const fmt = ALL_FORMATS.find(f => f.id === fId);
-        if (fmt && platforms[fmt.platform as keyof typeof platforms]) newSet.add(fId);
-      });
-      // Auto-select first format of newly enabled platforms
-      activePlatformKeys.forEach(pk => {
-        const platformFormats = ALL_FORMATS.filter(f => f.platform === pk);
-        const hasAny = platformFormats.some(f => newSet.has(f.id));
-        if (!hasAny && platformFormats.length > 0) newSet.add(platformFormats[0].id);
-      });
-      return newSet;
-    });
-  }, [platforms]);
-
-  const getFrequencyCount = (f: string) => ({ "3-week": 3, "5-week": 5, "daily": 7 }[f] || 3);
-  const totalPosts = selectedFormats.size * getFrequencyCount(frequency) * optionsPerPost;
-
-  // Load Google Font dynamically
-  useEffect(() => {
-    const fontName = brand.font_family.replace(/ /g, "+");
-    const linkId = "dynamic-brand-font";
-    let link = document.getElementById(linkId) as HTMLLinkElement | null;
-    if (!link) {
-      link = document.createElement("link");
-      link.id = linkId;
-      link.rel = "stylesheet";
-      document.head.appendChild(link);
-    }
-    link.href = `https://fonts.googleapis.com/css2?family=${fontName}:wght@400;700;900&display=swap`;
-  }, [brand.font_family]);
-
-  // ───────── Draft hydration & auto-save (Figma-style) ─────────
-  // Hydrate from existing draft (?draft_id=) or create one (?brand_id=) on first mount.
-  useEffect(() => {
-    if (!isNewParrilla) return;
-    if (!currentAgencyId || !user) return;
-    if (draftHydrated) return;
-
-    let cancelled = false;
-    (async () => {
-      try {
-        // Case A: ?draft_id → load existing
-        if (queryDraftId) {
-          const d = await getDraft(queryDraftId);
-          if (cancelled) return;
-          if (!d) {
-            toast({ title: "Borrador no encontrado", variant: "destructive" });
-            navigate("/dashboard");
-            return;
-          }
-          setDraftId(d.id);
-          setBrandId(d.brand_id);
-          const cfg = (d.config as any) || {};
-          if (cfg.brand) setBrand({ ...DEFAULT_BRAND, ...cfg.brand });
-          if (cfg.brandName) setBrandName(cfg.brandName);
-          if (cfg.brandVision) { setBrandVision(cfg.brandVision); setBrandDetected(true); }
-          if (cfg.productVision) setProductVision(cfg.productVision);
-          if (cfg.platforms) setPlatforms(cfg.platforms);
-          if (Array.isArray(cfg.selectedFormats)) setSelectedFormats(new Set(cfg.selectedFormats));
-          if (cfg.frequency) setFrequency(cfg.frequency);
-          if (cfg.objective) setObjective(cfg.objective);
-          if (typeof cfg.optionsPerPost === "number") setOptionsPerPost(cfg.optionsPerPost);
-          if (typeof cfg.includeLogoInImage === "boolean") setIncludeLogoInImage(cfg.includeLogoInImage);
-          if (typeof cfg.includeTextInImage === "boolean") setIncludeTextInImage(cfg.includeTextInImage);
-          if (cfg.language) setLanguage(cfg.language);
-          if (cfg.logoUrl) { setCurrentLogoUrl(cfg.logoUrl); setBrandAssets([cfg.logoUrl]); }
-          if (Array.isArray(d.chat_messages) && d.chat_messages.length > 0) setChatMessages(d.chat_messages as any);
-          if (Array.isArray(d.selected_product_ids) && d.selected_product_ids.length > 0) {
-            setSelectedProductIds(d.selected_product_ids);
-          }
-          if (d.title) setDraftTitle(d.title);
-          if (d.brief_id) {
-            const { data: briefRow } = await supabase
-              .from("brand_briefs")
-              .select("id, title")
-              .eq("id", d.brief_id)
-              .maybeSingle();
-            if (briefRow && !cancelled) setBriefInfo(briefRow as any);
-          }
-          setDraftHydrated(true);
-          return;
-        }
-
-        // Case B: ?brand_id → create new draft
-        if (queryBrandId) {
-          const created = await createDraft({
-            agencyId: currentAgencyId,
-            brandId: queryBrandId,
-            userId: user.id,
-          });
-          if (cancelled) return;
-          setDraftId(created.id);
-          setBrandId(queryBrandId);
-          // Load existing brand info to pre-fill
-          const { data: brandRow } = await supabase
-            .from("brands")
-            .select("name, logo_url, primary_color, secondary_color, accent_colors, font_family")
-            .eq("id", queryBrandId)
-            .maybeSingle();
-          if (brandRow && !cancelled) {
-            if (brandRow.name) setBrandName(brandRow.name);
-            if (brandRow.logo_url) {
-              setCurrentLogoUrl(brandRow.logo_url);
-              setBrandAssets([brandRow.logo_url]);
-              setBrandDetected(true);
-            }
-            if (brandRow.primary_color) {
-              setBrand((prev) => ({
-                ...prev,
-                primary_color: brandRow.primary_color || prev.primary_color,
-                secondary_color: brandRow.secondary_color || prev.secondary_color,
-                font_family: brandRow.font_family || prev.font_family,
-              }));
-            }
-          }
-          // Reflect draft_id in URL so refresh works
-          setSearchParams({ draft_id: created.id }, { replace: true });
-          setDraftHydrated(true);
-          return;
-        }
-
-        // Case C: no params → just allow user to pick brand later (legacy flow)
-        setDraftHydrated(true);
-      } catch (err: any) {
-        console.error("[parrilla] hydration error", err);
-        toast({ title: "Error cargando borrador", description: err?.message, variant: "destructive" });
-        setDraftHydrated(true);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [isNewParrilla, currentAgencyId, user, queryDraftId, queryBrandId, draftHydrated, navigate, setSearchParams]);
-
-  // ───────── View existing job (Case B): :id is a generation_jobs.id ─────────
-  // Loads the brand and the already-generated posts in read mode.
-  useEffect(() => {
-    if (!viewJobId) return;
-    if (!currentAgencyId) return;
-    let cancelled = false;
-    (async () => {
-      setIsLoadingJob(true);
-      try {
-        // 1) Try to load the job
-        const { data: job, error: jobErr } = await supabase
-          .from("generation_jobs")
-          .select("id, brand_id, brand_name, campaign_description, language, status, created_at")
-          .eq("id", viewJobId)
-          .maybeSingle();
-
-        if (cancelled) return;
-
-        if (jobErr || !job) {
-          // Not a job → maybe the user pasted a draft_id in the path. Try draft fallback.
-          const draft = await getDraft(viewJobId);
-          if (cancelled) return;
-          if (draft) {
-            setViewJobId(null);
-            navigate(`/parrilla/nueva?draft_id=${draft.id}`, { replace: true });
-            return;
-          }
-          toast({ title: "Parrilla no encontrada", variant: "destructive" });
-          navigate("/dashboard");
-          return;
-        }
-
-        // 2) Load the brand row (for header + products + colors)
-        if (job.brand_id) {
-          setBrandId(job.brand_id);
-          const { data: brandRow } = await supabase
-            .from("brands")
-            .select("name, logo_url, primary_color, secondary_color, accent_colors, font_family")
-            .eq("id", job.brand_id)
-            .maybeSingle();
-          if (cancelled) return;
-          if (brandRow?.name) setBrandName(brandRow.name);
-          else if (job.brand_name) setBrandName(job.brand_name);
-          if (brandRow?.logo_url) {
-            setCurrentLogoUrl(brandRow.logo_url);
-            setBrandAssets([brandRow.logo_url]);
-            setBrandDetected(true);
-          }
-          if (brandRow?.primary_color) {
-            setBrand((prev) => ({
-              ...prev,
-              primary_color: brandRow.primary_color || prev.primary_color,
-              secondary_color: brandRow.secondary_color || prev.secondary_color,
-              font_family: brandRow.font_family || prev.font_family,
-            }));
-          }
-        } else if (job.brand_name) {
-          setBrandName(job.brand_name);
-        }
-
-        // 3) Derive a title from the campaign description (first line, truncated)
-        if (job.campaign_description) {
-          const firstLine = job.campaign_description.split("\n")[0]?.trim() || "";
-          if (firstLine) setDraftTitle(firstLine.slice(0, 80));
-        }
-        if (job.language === "es" || job.language === "en") {
-          setDetectedLanguage(job.language as "es" | "en");
-        }
-
-        // 4) Load generated posts in order
-        const { data: gp, error: gpErr } = await supabase
-          .from("generated_posts")
-          .select("id, platform, format, headline, body, cta, image_prompt, rendered_image_url, status, index, video_url, video_status")
-          .eq("job_id", viewJobId)
-          .order("index", { ascending: true });
-
-        if (cancelled) return;
-        if (gpErr) {
-          console.error("[parrilla] load generated_posts failed", gpErr);
-          toast({ title: "Error cargando posts", description: gpErr.message, variant: "destructive" });
-          return;
-        }
-
-        const loaded: PostCard[] = (gp ?? [])
-          .filter((sp: any) => sp.rendered_image_url)
-          .map((sp: any, idx: number) => ({
-            id: sp.id || `post-${viewJobId}-${idx}`,
-            platform: (sp.platform || "instagram") as Platform,
-            format: sp.format || "instagram_feed",
-            status: "draft" as PostStatus,
-            calendarDay: ((sp.index ?? idx) * 2) + 1,
-            image: sp.rendered_image_url,
-            headline: sp.headline || "",
-            body: sp.body || "",
-            cta: sp.cta || "",
-            imagePrompt: sp.image_prompt || "",
-            isRendering: false,
-            error: null,
-            video_url: sp.video_url || undefined,
-            video_status: sp.video_status || undefined,
-          }));
-
-        // Reflect generated platforms in toggles so the tab UI shows data
-        const platformsPresent = new Set(loaded.map((p) => p.platform));
-        if (platformsPresent.size > 0) {
-          setPlatforms({
-            instagram: platformsPresent.has("instagram" as Platform),
-            tiktok: platformsPresent.has("tiktok" as Platform),
-            linkedin: platformsPresent.has("linkedin" as Platform),
-            twitter: platformsPresent.has("twitter" as Platform),
-          });
-          const first = Array.from(platformsPresent)[0] as string;
-          setActivePlatform(first);
-        }
-
-        setPosts(loaded);
-        setHasGenerated(loaded.length > 0);
-      } catch (err: any) {
-        console.error("[parrilla] view-job load error", err);
-        toast({ title: "Error cargando parrilla", description: err?.message, variant: "destructive" });
-      } finally {
-        if (!cancelled) setIsLoadingJob(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [viewJobId, currentAgencyId, navigate]);
-
-  // Fetch persistent brand products whenever brandId changes
-  useEffect(() => {
-    if (!brandId) { setBrandProducts(null); return; }
-    let cancelled = false;
-    (async () => {
-      try {
-        const list = await listProducts(brandId);
-        if (!cancelled) setBrandProducts(list);
-      } catch (err) {
-        console.error("[parrilla] listProducts failed", err);
-        if (!cancelled) setBrandProducts([]);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [brandId]);
-
-  // Auto-select primary product when brandProducts arrive AND draft has no selection yet.
-  // Only runs once after hydration to respect user's explicit empty selection on existing drafts.
-  const autoSelectAppliedRef = useRef(false);
-  useEffect(() => {
-    if (!draftHydrated) return;
-    if (autoSelectAppliedRef.current) return;
-    if (!brandProducts || brandProducts.length === 0) return;
-    if (selectedProductIds.length > 0) {
-      autoSelectAppliedRef.current = true;
-      return;
-    }
-    const primary = brandProducts.find((p) => p.is_primary) ?? brandProducts[0];
-    if (primary) {
-      setSelectedProductIds([primary.id]);
-      autoSelectAppliedRef.current = true;
-    }
-  }, [brandProducts, draftHydrated, selectedProductIds.length]);
-
-  // Snapshot of latest values for the auto-save (avoids re-creating the debounced fn)
-  const draftSnapshotRef = useRef<{ get: () => DraftPatch }>({ get: () => ({}) as DraftPatch });
-  draftSnapshotRef.current.get = () => ({
-    title: draftTitle || null,
-    chat_messages: chatMessages,
-    config: {
-      brand,
-      brandName,
-      brandVision,
-      productVision,
-      platforms,
-      selectedFormats: Array.from(selectedFormats),
-      frequency,
-      objective,
-      optionsPerPost,
-      includeLogoInImage,
-      includeTextInImage,
-      language,
-      logoUrl: currentLogoUrl,
-    } as any,
-    selected_product_ids: selectedProductIds,
-    last_step: hasGenerated ? "generated" : "configuring",
-  });
-
-  // Stable debounced save (does not recreate on every state change)
-  const persistDraft = useDebouncedCallback(async () => {
-    const id = draftId;
-    if (!id) return;
-    setSaveStatus("saving");
-    try {
-      await patchDraft(id, draftSnapshotRef.current.get());
-      setSaveStatus("saved");
-      setLastSavedAt(new Date());
-    } catch (err) {
-      console.error("[parrilla] auto-save failed", err);
-      setSaveStatus("error");
-    }
-  }, 2000);
-
-  // Trigger save on any tracked change (after hydration). Skip the very first run
-  // post-hydration to avoid an unnecessary PATCH right after we just loaded.
-  useEffect(() => {
-    if (!draftHydrated || !draftId) return;
-    if (skipNextSaveRef.current) {
-      skipNextSaveRef.current = false;
-      return;
-    }
-    persistDraft();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    draftHydrated, draftId,
-    chatMessages, brand, brandName, brandVision, productVision,
-    platforms, selectedFormats, frequency, objective, optionsPerPost,
-    includeLogoInImage, includeTextInImage, language, currentLogoUrl, hasGenerated,
-    selectedProductIds, draftTitle,
-  ]);
-
-  const handleDiscardDraft = useCallback(async () => {
-    if (!draftId) { navigate("/dashboard"); return; }
-    if (!confirm("¿Descartar este borrador? Esta acción no se puede deshacer.")) return;
-    try {
-      await deleteDraft(draftId);
-      toast({ title: "Borrador descartado" });
-      navigate("/dashboard");
-    } catch (err: any) {
-      toast({ title: "Error al descartar", description: err?.message, variant: "destructive" });
-    }
-  }, [draftId, navigate]);
-
-
-  // Send chat message to AI
-  const sendChatMessage = useCallback(async (userMessage: string) => {
-    const newMessages = [...chatMessages, { role: "user" as const, content: userMessage }];
-    setChatMessages(newMessages);
-    setIsChatThinking(true);
-    try {
-      const res = await fetch(`${API_URL}/api/v1/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: newMessages,
-          brand_context: brandVision,
-          product_context: productVision,
-          brand_colors: brand,
-          language,
-        }),
-      });
-      if (!res.ok) throw new Error(`Error ${res.status}`);
-      const data = await res.json();
-      setChatMessages([...newMessages, { role: "assistant", content: data.reply }]);
-    } catch (err) {
-      console.error("Chat error:", err);
-      setChatMessages([...newMessages, { role: "assistant", content: "⚠️ Error al conectar con el agente. Intenta de nuevo." }]);
-    } finally {
-      setIsChatThinking(false);
-    }
-  }, [chatMessages, brandVision, productVision, brand, language]);
-
-  // Trigger intro message when brand + product are both analyzed
-  const introSentRef = useRef(false);
-  useEffect(() => {
-    if (brandVision && productVision && !introSentRef.current) {
-      introSentRef.current = true;
-      (async () => {
-        setIsChatThinking(true);
-        try {
-          const introMessages = [{ role: "user" as const, content: "Hola, acabo de subir mi logo y una foto de mi producto. Analízalos y preséntate." }];
-          const res = await fetch(`${API_URL}/api/v1/chat`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              messages: introMessages,
-              brand_context: brandVision,
-              product_context: productVision,
-              brand_colors: brand,
-              language,
-            }),
-          });
-          if (!res.ok) throw new Error(`Error ${res.status}`);
-          const data = await res.json();
-          setChatMessages([{ role: "assistant", content: data.reply }]);
-        } catch {
-          setChatMessages([{ role: "assistant", content: "¡Hola! 👋 Soy tu **Nano Banano Content Agent**. Ya analicé tu marca y producto. Cuéntame sobre tu campaña." }]);
-        } finally {
-          setIsChatThinking(false);
-        }
-      })();
-    }
-  }, [brandVision, productVision, brand]);
-
-  // Trigger intro for brand-only (no product yet)
-  const brandIntroSentRef = useRef(false);
-  useEffect(() => {
-    if (brandVision && !productVision && !brandIntroSentRef.current && !introSentRef.current) {
-      brandIntroSentRef.current = true;
-      (async () => {
-        setIsChatThinking(true);
-        try {
-          const introMessages = [{ role: "user" as const, content: "Hola, acabo de subir mi logo. Analízalo y preséntate." }];
-          const res = await fetch(`${API_URL}/api/v1/chat`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              messages: introMessages,
-              brand_context: brandVision,
-              product_context: null,
-              brand_colors: brand,
-              language,
-            }),
-          });
-          if (!res.ok) throw new Error(`Error ${res.status}`);
-          const data = await res.json();
-          setChatMessages([{ role: "assistant", content: data.reply }]);
-        } catch {
-          setChatMessages([{ role: "assistant", content: "¡Hola! 👋 Soy tu **Nano Banano Content Agent**. Ya analicé tu logo. Sube fotos de tu producto y cuéntame sobre tu campaña." }]);
-        } finally {
-          setIsChatThinking(false);
-        }
-      })();
-    }
-  }, [brandVision, productVision, brand]);
-
-  // Brand analysis — real API call with vision
-  const analyzeBrand = useCallback(async (logoB64: string) => {
-    setIsAnalyzingBrand(true);
-    setBrandDetected(false);
-    try {
-      const res = await fetch(`${API_URL}/api/v1/brand/analyze-vision`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ logo_b64: logoB64 }),
-      });
-      if (!res.ok) throw new Error(`Error ${res.status}: ${await res.text()}`);
-      const data = await res.json();
-      if (!data.palette || !data.primary_color) throw new Error("Respuesta incompleta de la API");
-      const newBrand: BrandProfile = {
-        primary_color: data.primary_color,
-        secondary_color: data.secondary_color || data.palette[1] || "#333333",
-        accent_color: data.accent_color || data.palette[2] || "#666666",
-        palette: data.palette,
-        contrast_color: data.contrast_color || "#FFFFFF",
-        font_family: data.suggested_fonts?.[0] || "Montserrat",
-        suggested_fonts: data.suggested_fonts || ["Montserrat", "Poppins", "Inter"],
-        background_suggestion: data.background_suggestion || "dark",
-      };
-      setBrand(newBrand);
-      setBrandDetected(true);
-      setIsAnalyzingBrand(false);
-      // Save vision analysis
-      if (data.vision_analysis) {
-        setBrandVision(data.vision_analysis);
-        if (data.vision_analysis.brand_name_detected && !brandName) {
-          setBrandName(data.vision_analysis.brand_name_detected);
-        }
-      }
-      toast({ title: "✨ Marca analizada con IA visual", description: "Colores, tipografía y personalidad detectados." });
-    } catch (error) {
-      console.error("Error analyzing brand:", error);
-      setIsAnalyzingBrand(false);
-      setBrandDetected(false);
-      toast({ title: "⚠️ No se pudo analizar el logo", description: "Configura los colores manualmente o intenta de nuevo.", variant: "destructive" });
-    }
-  }, [brandName, id]);
-
-  // Product analysis
-  const analyzeProduct = useCallback(async (productB64: string) => {
-    setIsAnalyzingProduct(true);
-    try {
-      const res = await fetch(`${API_URL}/api/v1/product/analyze`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ product_b64: productB64 }),
-      });
-      if (!res.ok) throw new Error(`Error ${res.status}`);
-      const data = await res.json();
-      setProductVision(data);
-      toast({ title: "🧠 Producto analizado", description: data.product_description || "Análisis visual completado." });
-    } catch (err) {
-      console.error("Error analyzing product:", err);
-      toast({ title: "⚠️ No se pudo analizar el producto", variant: "destructive" });
-    } finally {
-      setIsAnalyzingProduct(false);
-    }
-  }, []);
-
-  const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-      toast({ title: "Archivo demasiado grande", description: "Máximo 10MB.", variant: "destructive" });
-      return;
-    }
-    e.target.value = "";
-    const previewUrl = URL.createObjectURL(file);
-    setBrandAssets((prev) => [...prev, previewUrl]);
-    setBrandAssetBlobs((prev) => [...prev, file]);
-    toast({ title: "✅ Logo cargado", description: "Analizando identidad de marca..." });
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const b64 = reader.result as string;
-      setCurrentLogoB64(b64);
-
-      // Persist logo to Supabase Storage in background (only if we have a brand)
-      if (currentAgencyId && brandId) {
-        try {
-          const blob = await base64ToBlob(b64);
-          const { publicUrl } = await uploadBrandLogo({
-            file: blob,
-            agencyId: currentAgencyId,
-            brandId,
-            filename: file.name,
-          });
-          setCurrentLogoUrl(publicUrl);
-        } catch (err: any) {
-          console.error("[parrilla] logo upload failed", err);
-          toast({
-            title: "⚠️ El logo no se guardó en la nube",
-            description: err?.message || "Sigue cargado para esta sesión. Reintenta más tarde.",
-            variant: "destructive",
-          });
-        }
-      }
-
-      analyzeBrand(b64);
-    };
-    reader.readAsDataURL(file);
-  }, [analyzeBrand, currentAgencyId, brandId]);
-
-  const handleProductImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-    e.target.value = "";
-    const remaining = 4 - productImages.length;
-    const toProcess = files.slice(0, remaining);
-    let firstProductB64: string | null = null;
-    toProcess.forEach((file, idx) => {
-      if (file.size > 10 * 1024 * 1024) {
-        toast({ title: "Archivo demasiado grande", description: "Máximo 10MB por imagen.", variant: "destructive" });
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const b64 = reader.result as string;
-        setProductImages(prev => {
-          if (prev.length >= 4) return prev;
-          return [...prev, b64];
-        });
-        // Analyze the first product image
-        if (idx === 0 && !productVision) {
-          analyzeProduct(b64);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-    toast({ title: "📸 Foto(s) cargada(s)", description: `${toProcess.length} foto(s) de producto añadida(s).` });
-  }, [productImages.length, productVision, analyzeProduct]);
-
-  const blobToBase64 = useCallback((blob: Blob): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  }, []);
-
-  const renderPost = useCallback(async (post: PostCard, logoB64: string | undefined): Promise<string> => {
-    const res = await fetch(`${API_URL}/api/v1/posts/render`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        format: post.format,
-        brand: {
-          name: brandName || "Mi Marca",
-          logo_b64: logoB64 || undefined,
-          primary_color: brand.primary_color,
-          secondary_color: brand.secondary_color,
-          accent_color: brand.accent_color,
-          font_family: brand.font_family,
-        },
-        copy: {
-          headline: post.headline || post.title || "",
-          body: post.body || post.caption || "",
-          cta: post.cta || "",
-        },
-        image_prompt: post.imagePrompt || "",
-        style_description: post.styleDescription || "profesional y moderno",
-        product_images: productImages,
-      }),
-    });
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      throw new Error(`Error ${res.status}: ${errText}`);
-    }
-    const data = await res.json();
-    if (data.rendered_post) return data.rendered_post;
-    if (data.image) return data.image;
-    throw new Error("No image returned from API");
-  }, [brand, brandName, productImages]);
-
-  const handleGenerateParrilla = useCallback(async () => {
-    setIsGenerating(true);
-    setGenerationProgress(null);
-    setGeneratingStatus("⚡ Preparando parrilla...");
-
-    const activeFormats = Array.from(selectedFormats);
-    const postsPerFormat = getFrequencyCount(frequency) * optionsPerPost;
-
-    // Build posts_config
-    const postsConfig: { platform: string; format: string }[] = [];
-    for (const formatId of activeFormats) {
-      const fmt = ALL_FORMATS.find(f => f.id === formatId)!;
-      for (let j = 0; j < postsPerFormat; j++) {
-        postsConfig.push({ platform: fmt.platform, format: fmt.id });
-      }
-    }
-
-    // Get logo b64 (from in-memory state or blob)
-    let logoB64: string | undefined = currentLogoB64 || undefined;
-    if (!logoB64 && brandAssetBlobs.length > 0) {
-      logoB64 = await blobToBase64(brandAssetBlobs[0]);
-    }
-
-    // Show skeletons
-    const skeletonPosts: PostCard[] = postsConfig.map((pc, idx) => ({
-      id: `skeleton-${idx}`,
-      platform: pc.platform as Platform,
-      format: pc.format,
-      status: "draft" as PostStatus,
-      calendarDay: (idx * 2) + 1,
-      isRendering: true,
-    }));
-    setPosts(skeletonPosts);
-    setHasGenerated(true);
-    setGenerationProgress({ completed: 0, total: postsConfig.length });
-    setTimeout(() => {
-      parrillaGridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 300);
-
-    // Extract campaign context from chat messages
-    const userMessages = chatMessages.filter(m => m.role === "user").map(m => m.content);
-    const campaignDescription = userMessages.join("\n");
-
-    const requestBody = {
-      brand: {
-        name: brandVision?.brand_name_detected || brandName || "Mi Marca",
-        logo_b64: logoB64 || undefined,
-        primary_color: brand.primary_color,
-        secondary_color: brand.secondary_color,
-        accent_color: brand.accent_color,
-        font_family: brand.font_family,
-      },
-      campaign: {
-        description: campaignDescription,
-        tone: "",
-        extras: "",
-      },
-      brand_vision: brandVision || null,
-      product_vision: productVision || null,
-      product_images: productImages,
-      selected_product_ids: selectedProductIds,
-      draft_id: draftId,
-      posts_config: postsConfig,
-      include_logo_in_image: includeLogoInImage,
-      include_text_in_image: includeTextInImage,
-      language,
-    };
-
-    const motivationalMessages = [
-      "🎨 Creando escenas con tu producto...",
-      "✨ Diseñando templates personalizados...",
-      "🎯 Aplicando tu identidad de marca...",
-      "📐 Ajustando composición y tipografía...",
-      "🖌️ Refinando los detalles visuales...",
-      "🚀 Casi listo, finalizando los últimos posts...",
-    ];
-
-    const startTime = Date.now();
-    const secsPerPost = includeLogoInImage ? 60 : 30;
-    const estimatedMins = Math.ceil((postsConfig.length * secsPerPost) / 60);
-    const estimateLabel = includeLogoInImage
-      ? `⏳ Tiempo estimado: ~${estimatedMins} min (integración de logo activada)`
-      : `⏳ Tiempo estimado: ~${estimatedMins} min`;
-    const timerInterval = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      const mins = Math.floor(elapsed / 60);
-      const secs = elapsed % 60;
-      const msgIndex = Math.floor(elapsed / 15) % motivationalMessages.length;
-      setGeneratingStatus(
-        `⚡ Generando posts con IA...\n${motivationalMessages[msgIndex]}\n${estimateLabel}\n⏱️ ${mins}:${secs.toString().padStart(2, "0")}`
-      );
-    }, 1000);
-
-    try {
-      // Step 1: Start generation (returns immediately)
-      const startRes = await fetch(`${API_URL}/api/v1/posts/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!startRes.ok) {
-        const errText = await startRes.text().catch(() => "");
-        throw new Error(`Error ${startRes.status}: ${errText}`);
-      }
-
-      const { job_id, total_posts } = await startRes.json();
-
-      // Update skeleton count if server says different
-      if (total_posts && total_posts !== postsConfig.length) {
-        setGenerationProgress({ completed: 0, total: total_posts });
-      }
-
-      // Step 2: Polling every 5 seconds
-      let isComplete = false;
-      while (!isComplete) {
-        await new Promise(r => setTimeout(r, 5000));
-
-        const pollRes = await fetch(`${API_URL}/api/v1/posts/job/${job_id}`);
-        if (!pollRes.ok) {
-          console.warn("Poll error, retrying...", pollRes.status);
-          continue;
-        }
-
-        const { job, posts: serverPosts } = await pollRes.json();
-
-        // Capture detected language from backend
-        if (job?.language && (job.language === "es" || job.language === "en")) {
-          setDetectedLanguage(job.language);
-        }
-
-        // Update posts progressively
-        setPosts(prevPosts => {
-          const updated = [...prevPosts];
-          (serverPosts || []).forEach((sp: any) => {
-            const idx = sp.index != null ? sp.index : undefined;
-            if (idx == null || idx >= updated.length) return;
-
-            if (sp.status === "success" && sp.rendered_image_url) {
-              updated[idx] = {
-                id: sp.id || `post-${job_id}-${idx}`,
-                platform: (sp.platform || postsConfig[idx]?.platform || "instagram") as Platform,
-                format: sp.format || postsConfig[idx]?.format || "instagram_feed",
-                status: "draft" as PostStatus,
-                calendarDay: (idx * 2) + 1,
-                image: sp.rendered_image_url,
-                headline: sp.headline || "",
-                body: sp.body || "",
-                cta: sp.cta || "",
-                imagePrompt: sp.image_prompt || "",
-                isRendering: false,
-                error: null,
-              };
-            } else if (sp.status === "error") {
-              updated[idx] = {
-                ...updated[idx],
-                isRendering: false,
-                error: sp.error_message || "Error al generar este post",
-              };
-            }
-          });
-          return updated;
-        });
-
-        // Update progress
-        const completedCount = job?.completed_posts ?? 0;
-        const totalCount = job?.total_posts ?? postsConfig.length;
-        setGenerationProgress({ completed: completedCount, total: totalCount });
-
-        // Check if done
-        if (job?.status === "completed" || job?.status === "failed") {
-          isComplete = true;
-        }
-      }
-
-      // Final toast
-      const finalPosts = await new Promise<PostCard[]>(resolve => {
-        setPosts(prev => { resolve(prev); return prev; });
-      });
-      const errorCount = finalPosts.filter(p => p.error).length;
-      if (errorCount > 0) {
-        toast({ title: "⚠️ Parrilla con errores", description: `${finalPosts.length - errorCount} OK, ${errorCount} fallidos. Reintenta los fallidos.`, variant: "destructive" });
-      } else {
-        toast({ title: "🚀 Parrilla generada", description: `${finalPosts.length} posts generados exitosamente.` });
-      }
-    } catch (error: any) {
-      console.error("Error generating posts:", error);
-      setPosts([]);
-      setHasGenerated(false);
-      setGenerationProgress(null);
-      toast({
-        title: "⚠️ No se pudo generar la parrilla",
-        description: error.message || "No se pudo conectar con el servidor de generación.",
-        variant: "destructive",
-      });
-    } finally {
-      clearInterval(timerInterval);
-      setIsGenerating(false);
-      setGeneratingStatus("");
-    }
-  }, [selectedFormats, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, chatMessages, brand, brandName, brandVision, productVision, id, productImages, includeLogoInImage, includeTextInImage, language]);
-
-  const hasUserChatMessage = chatMessages.some(m => m.role === "user");
-  const hasAnyProduct = productImages.length > 0 || selectedProductIds.length > 0;
-  const canGenerate = brandDetected && hasAnyProduct && selectedFormats.size > 0 && hasUserChatMessage;
-  const getDisabledReason = () => {
-    if (!brandDetected) return "Sube tu logo primero";
-    if (!hasAnyProduct) return "Selecciona un producto de tu marca o sube una imagen temporal";
-    if (!hasUserChatMessage) return "Conversa con Nano Banano sobre tu campaña";
-    if (selectedFormats.size === 0) return "Selecciona al menos una plataforma y formato";
-    return "";
-  };
-
-  const togglePlatform = (key: keyof typeof platforms) => setPlatforms((prev) => ({ ...prev, [key]: !prev[key] }));
-  const toggleFormat = (formatId: string) => {
-    setSelectedFormats(prev => {
-      const next = new Set(prev);
-      if (next.has(formatId)) next.delete(formatId);
-      else next.add(formatId);
-      return next;
-    });
-  };
-
-  const handleApprovePost = useCallback((id: string) => { setPosts(prev => prev.map(p => p.id === id ? { ...p, status: "scheduled" as PostStatus } : p)); toast({ title: "✅ Post aprobado" }); }, []);
-  const handleApproveAll = () => { setPosts(prev => prev.map(p => ({ ...p, status: "scheduled" as PostStatus }))); toast({ title: "✅ Todo aprobado" }); };
-
-  const platformPosts = posts.filter((p) => p.platform === activePlatform);
-
-  const handleEditPost = useCallback((post: PostCard) => { setEditingPost(post); }, []);
-  const handleClickImage = useCallback((post: PostCard) => {
-    const idx = platformPosts.findIndex(p => p.id === post.id);
-    setPreviewIndex(idx >= 0 ? idx : 0);
-    setIsPreviewOpen(true);
-  }, [platformPosts]);
-  const handleSavePost = useCallback((updatedPost: PostCard) => {
-    setPosts(prev => prev.map(p => p.id === updatedPost.id ? updatedPost : p));
-    toast({ title: "💾 Post actualizado" });
-  }, []);
-
-  const handleRegenerateSingle = useCallback(async (post: PostCard) => {
-    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, isRendering: true, error: null } : p));
-    try {
-      let logoB64: string | undefined = currentLogoB64 || undefined;
-      if (!logoB64 && brandAssetBlobs.length > 0) logoB64 = await blobToBase64(brandAssetBlobs[0]);
-      const newImage = await renderPost(post, logoB64);
-      setPosts(prev => prev.map(p => p.id === post.id ? { ...p, image: newImage, isRendering: false, error: null } : p));
-      toast({ title: "✨ Post regenerado" });
-    } catch (err: any) {
-      console.error("Error regenerating post:", err);
-      setPosts(prev => prev.map(p => p.id === post.id ? { ...p, isRendering: false, error: "Error al regenerar" } : p));
-      toast({ title: "⚠️ Error al regenerar", description: "No se pudo conectar con el servidor.", variant: "destructive" });
-    }
-  }, [brandAssetBlobs, blobToBase64, renderPost, id]);
-
-  const handleDownloadPost = useCallback(async (post: PostCard) => {
-    const hasVideo = post.video_url && (post.video_status === "completed" || post.video_status === "success");
-    const url = hasVideo ? post.video_url! : post.image;
-    if (!url) return;
-    const ext = hasVideo ? "mp4" : "png";
-    try {
-      if (url.startsWith("http")) {
-        const response = await fetch(url);
-        const blob = await response.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = blobUrl;
-        a.download = `post-${post.id}.${ext}`;
-        a.click();
-        URL.revokeObjectURL(blobUrl);
-      } else {
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `post-${post.id}.${ext}`;
-        a.click();
-      }
-    } catch {
-      toast({ title: "⚠️ Error al descargar", description: `No se pudo descargar el ${hasVideo ? "video" : "imagen"}.`, variant: "destructive" });
-    }
-  }, []);
-
-  const handleGenerateVideo = useCallback(async (post: PostCard) => {
-    // Set status to generating
-    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, video_status: "generating" as const } : p));
-    toast({ title: "🎬 Generando video...", description: "Esto toma ~1-2 minutos." });
-
-    try {
-      await fetch(`${API_URL}/api/v1/posts/${post.id}/video`, { method: "POST" });
-
-      // Poll every 5 seconds
-      const poll = setInterval(async () => {
-        try {
-          const res = await fetch(`${API_URL}/api/v1/posts/${post.id}/video/status`);
-          if (!res.ok) return;
-          const data = await res.json();
-
-          if (data.video_status === "completed" || data.video_status === "success") {
-            clearInterval(poll);
-            setPosts(prev => prev.map(p => p.id === post.id ? { ...p, video_url: data.video_url, video_status: "completed" as const } : p));
-            toast({ title: "🎬 Video listo ✅" });
-          } else if (data.video_status === "error") {
-            clearInterval(poll);
-            setPosts(prev => prev.map(p => p.id === post.id ? { ...p, video_status: "error" as const, video_error: data.video_error } : p));
-            toast({ title: "⚠️ Error al generar video", description: data.video_error || "Intenta de nuevo.", variant: "destructive" });
-          }
-        } catch {
-          // Ignore polling errors, will retry
-        }
-      }, 5000);
-    } catch {
-      setPosts(prev => prev.map(p => p.id === post.id ? { ...p, video_status: "error" as const } : p));
-      toast({ title: "⚠️ Error al iniciar video", variant: "destructive" });
-    }
-  }, []);
-
-  // Group formats by platform for display
-  const formatsByPlatform = useMemo(() => {
-    const groups: Record<string, FormatOption[]> = {};
-    availableFormats.forEach(f => {
-      if (!groups[f.platform]) groups[f.platform] = [];
-      groups[f.platform].push(f);
-    });
-    return groups;
-  }, [availableFormats]);
-
-
-  const platformConfig = [
-    { key: "instagram" as const, label: "Instagram", icon: Instagram, gradient: "from-pink-500 via-red-500 to-yellow-500", emoji: "📸" },
-    { key: "tiktok" as const, label: "TikTok", icon: TikTokIcon, gradient: "from-slate-900 to-slate-700", emoji: "🎵" },
-    { key: "linkedin" as const, label: "LinkedIn", icon: Linkedin, gradient: "from-blue-600 to-blue-700", emoji: "💼" },
-    { key: "twitter" as const, label: "X / Twitter", icon: Twitter, gradient: "from-slate-800 to-slate-900", emoji: "🐦" },
-  ];
-
-  const platformLabelsMap: Record<string, string> = { instagram: "Instagram", tiktok: "TikTok", linkedin: "LinkedIn", twitter: "X / Twitter" };
+  const {
+    navigate, isNewParrilla,
+    activePlatform, setActivePlatform,
+    posts, hasGenerated,
+    isGenerating, generationProgress, generatingStatus,
+    isClientView, viewMode, setViewMode,
+    generationMode,
+    platformPosts,
+    draftId, brandId, saveStatus, lastSavedAt,
+    draftTitle, setDraftTitle,
+    isEditingTitle, setIsEditingTitle,
+    briefInfo, handleDiscardDraft,
+    brand, setBrand,
+    brandName, setBrandName,
+    brandAssets, setBrandAssetBlobs,
+    currentLogoB64, setCurrentLogoB64,
+    currentLogoUrl, setCurrentLogoUrl,
+    brandDetected, setBrandDetected, setBrandAssets,
+    isAnalyzingBrand,
+    brandVision, setBrandVision,
+    productVision, isAnalyzingProduct,
+    productImages, setProductImages,
+    brandProducts, setBrandProducts,
+    selectedProductIds, setSelectedProductIds,
+    includeLogoInImage, setIncludeLogoInImage,
+    includeTextInImage, setIncludeTextInImage,
+    language, setLanguage, detectedLanguage,
+    platforms, selectedFormats,
+    frequency, setFrequency,
+    objective, setObjective,
+    optionsPerPost, setOptionsPerPost,
+    totalPosts,
+    formatsByPlatform, platformConfig, platformLabelsMap,
+    handleFileUpload, handleProductImageUpload,
+    sendChatMessage, chatMessages, isChatThinking,
+    handleGenerateParrilla, canGenerate, getDisabledReason,
+    togglePlatform, toggleFormat,
+    handleApprovePost, handleApproveAll, handleRejectPost,
+    handleEditPost, editingPost, setEditingPost,
+    handleClickImage, previewIndex, isPreviewOpen, setIsPreviewOpen,
+    handleSavePost, handleRegenerateSingle,
+    handleDownloadPost, handleGenerateVideo,
+    parrillaGridRef,
+    currentAgencyId,
+  } = useParrillaPage();
+
+  const stats = useMemo(() => ({
+    total: posts.length,
+    approved: posts.filter(p => p.approval_status === "approved").length,
+    pending: posts.filter(p => p.approval_status === "pending" && !p.error && !p.isRendering).length,
+    rejected: posts.filter(p => p.approval_status === "rejected").length,
+    generatingImages: posts.filter(p => p.image_status === "generating").length,
+    imagesReady: posts.filter(p => p.image_status === "ready").length,
+  }), [posts]);
 
   return (
     <div className="min-h-screen bg-background transition-colors duration-500">
@@ -2122,7 +107,7 @@ const Parrilla = () => {
                   <h1 className="text-lg font-bold text-foreground">Parrilla de Contenido</h1>
                   {detectedLanguage && (
                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 transition-all">
-                      🌐 {detectedLanguage.toUpperCase()}
+                      ðŸŒ {detectedLanguage.toUpperCase()}
                     </span>
                   )}
                 </div>
@@ -2137,7 +122,7 @@ const Parrilla = () => {
                         if (e.key === "Enter") { e.currentTarget.blur(); }
                         if (e.key === "Escape") { setIsEditingTitle(false); }
                       }}
-                      placeholder="Parrilla sin título"
+                      placeholder="Parrilla sin tÃ­tulo"
                       className="bg-transparent border-b border-primary/40 outline-none text-xs text-foreground px-0.5 min-w-[160px]"
                     />
                   ) : (
@@ -2146,10 +131,10 @@ const Parrilla = () => {
                       className="hover:text-foreground transition-colors text-left"
                       title="Click para editar"
                     >
-                      {draftTitle || "Parrilla sin título"}
+                      {draftTitle || "Parrilla sin tÃ­tulo"}
                     </button>
                   )}
-                  <span>·</span>
+                  <span>Â·</span>
                   <span>{brandName || "Sin marca"}</span>
                 </p>
                 {briefInfo && (
@@ -2168,13 +153,13 @@ const Parrilla = () => {
               {isNewParrilla && draftId && (
                 <div className="flex items-center gap-1.5 text-[11px] font-mono">
                   {saveStatus === "saving" && (
-                    <span className="flex items-center gap-1 text-amber-400"><Loader2 size={11} className="animate-spin" /> Guardando…</span>
+                    <span className="flex items-center gap-1 text-amber-400"><Loader2 size={11} className="animate-spin" /> Guardandoâ€¦</span>
                   )}
                   {saveStatus === "saved" && lastSavedAt && (
                     <span className="flex items-center gap-1 text-emerald-400"><Check size={11} /> Guardado</span>
                   )}
                   {saveStatus === "error" && (
-                    <span className="flex items-center gap-1 text-destructive">⚠️ Error al guardar</span>
+                    <span className="flex items-center gap-1 text-destructive">âš ï¸ Error al guardar</span>
                   )}
                   {saveStatus === "idle" && (
                     <span className="text-muted-foreground/60">Borrador</span>
@@ -2189,10 +174,10 @@ const Parrilla = () => {
               )}
               <Button
                 onClick={handleApproveAll}
-                disabled={posts.length === 0}
+                disabled={posts.length === 0 || stats.pending === 0}
                 className="gap-2 text-sm h-9 bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-40"
               >
-                <CheckCircle2 size={14} /> Aprobar Todo
+                <CheckCircle2 size={14} /> Aprobar Todo{stats.pending > 0 ? ` (${stats.pending})` : ""}
               </Button>
             </div>
           </div>
@@ -2203,314 +188,54 @@ const Parrilla = () => {
         {/* Left Panel - Brand Assets */}
         <AnimatePresence>
           {!isClientView && (
-            <motion.aside initial={{ width: 0, opacity: 0 }} animate={{ width: 300, opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.3 }}
-              className="sticky top-[73px] self-start max-h-[calc(100vh-73px)] bg-card border-r border-border p-5 flex flex-col overflow-y-auto shrink-0"
-            >
-              <div className="flex items-center gap-2 mb-5">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-cyan-500 flex items-center justify-center">
-                  <ImageIcon size={16} className="text-primary-foreground" />
-                </div>
-                <div>
-                  <h2 className="font-semibold text-foreground text-sm">Brand Assets</h2>
-                  <p className="text-[10px] text-muted-foreground">Inteligencia visual de marca</p>
-                </div>
-              </div>
-
-              {/* Brand Name */}
-              <div className="mb-4 space-y-1.5">
-                <label className="text-[11px] font-bold text-foreground uppercase tracking-wider">Nombre de tu marca</label>
-                <Input
-                  value={brandName}
-                  onChange={(e) => setBrandName(e.target.value)}
-                  placeholder="Ej: Bacachito Feliz"
-                  className="bg-secondary/50 border-border h-9 text-sm"
-                />
-              </div>
-
-              {/* Upload / Logo Preview */}
-              {brandAssets.length === 0 ? (
-                <button onClick={() => fileInputRef.current?.click()}
-                  className="w-full aspect-[4/3] rounded-2xl border-2 border-dashed border-border hover:border-primary bg-secondary/50 hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-3 group mb-4"
-                >
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-cyan-500 flex items-center justify-center shadow-lg shadow-primary/25 group-hover:scale-105 transition-transform">
-                    <Upload size={24} className="text-primary-foreground" />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-semibold text-foreground">Subir Logo de Marca</p>
-                    <p className="text-[11px] text-muted-foreground">PNG, JPG hasta 10MB</p>
-                  </div>
-                </button>
-              ) : (
-                <div className="mb-4 space-y-3">
-                  <div className="relative group/logo">
-                    <CheckerboardBg className="aspect-square rounded-xl overflow-hidden border border-border shadow-sm">
-                      <img src={brandAssets[brandAssets.length - 1]} alt="Logo" className="w-full h-full object-contain p-2" />
-                    </CheckerboardBg>
-                    {/* Overlay actions */}
-                    <div className="absolute inset-0 bg-background/60 backdrop-blur-sm rounded-xl opacity-0 group-hover/logo:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="h-8 text-xs gap-1.5 bg-secondary/90 hover:bg-secondary"
-                      >
-                        <Upload size={13} /> Cambiar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => {
-                          setBrandAssets([]);
-                          setBrandAssetBlobs([]);
-                          setBrandDetected(false);
-                          setBrandVision(null);
-                          setBrand(DEFAULT_BRAND);
-                          setCurrentLogoB64(null);
-                          setCurrentLogoUrl(null);
-                          // Note: el logo en Supabase Storage se conserva como histórico.
-                          // Para borrarlo en serio, hay que sobrescribir desde la página de la marca.
-                          toast({ title: "Logo eliminado de esta sesión" });
-                        }}
-                        className="h-8 text-xs gap-1.5 bg-destructive/20 text-destructive hover:bg-destructive/30 border-destructive/30"
-                      >
-                        <X size={13} /> Quitar
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between gap-2 px-1">
-                    <label htmlFor="logo-integrate" className="text-[11px] font-medium text-foreground cursor-pointer">
-                      ✨ Integrar logo en la imagen
-                    </label>
-                    <Switch id="logo-integrate" checked={includeLogoInImage} onCheckedChange={setIncludeLogoInImage} />
-                  </div>
-                  <p className="text-[10px] px-1 leading-relaxed" style={{ color: includeLogoInImage ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))' }}>
-                    {includeLogoInImage
-                      ? "La IA integrará tu logo dentro de la escena (tarda un poco más)"
-                      : "El logo aparecerá como marca de agua en la esquina"}
-                  </p>
-                  <div className="flex items-center justify-between gap-2 px-1 pt-1">
-                    <label htmlFor="text-integrate" className="text-[11px] font-medium text-foreground cursor-pointer">
-                      📝 Incluir texto en la imagen
-                    </label>
-                    <Switch id="text-integrate" checked={includeTextInImage} onCheckedChange={setIncludeTextInImage} />
-                  </div>
-                  <p className="text-[10px] px-1 leading-relaxed" style={{ color: includeTextInImage ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))' }}>
-                    {includeTextInImage
-                      ? "La IA agregará el headline y CTA directamente en la imagen con tipografía profesional"
-                      : "El headline y CTA aparecerán solo en el caption"}
-                  </p>
-                </div>
-              )}
-              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
-
-              {brandAssets.length === 0 && !isAnalyzingBrand && !brandDetected && (
-                <p className="text-xs text-muted-foreground text-center py-4 px-2 italic">
-                  Sube tu logo para detectar automáticamente los colores de tu marca
-                </p>
-              )}
-
-              {isAnalyzingBrand && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mb-4 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Loader2 size={14} className="animate-spin text-primary" />
-                    <p className="text-xs text-primary font-medium">🔍 Analizando tu marca...</p>
-                  </div>
-                  <div className="flex gap-2 justify-center">
-                    {[...Array(5)].map((_, i) => (
-                      <motion.div key={i} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: i * 0.1 }}
-                        className="w-8 h-8 rounded-full bg-secondary animate-pulse border border-border"
-                      />
-                    ))}
-                  </div>
-                  <div className="h-9 bg-secondary rounded-lg animate-pulse" />
-                </motion.div>
-              )}
-
-              {brandDetected && !isAnalyzingBrand && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-4 space-y-4">
-                  <div className="space-y-2.5">
-                    <p className="text-[11px] font-bold text-foreground uppercase tracking-wider">✨ Paleta Detectada</p>
-                    <div className="flex items-center gap-2 justify-center">
-                      {brand.palette.map((color, i) => (
-                        <motion.div key={i} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: i * 0.08, type: "spring" }}
-                          className="flex flex-col items-center gap-1"
-                        >
-                          <label className="cursor-pointer group/swatch">
-                            <input type="color" value={color} onChange={(e) => {
-                              const newPalette = [...brand.palette];
-                              newPalette[i] = e.target.value;
-                              const updates: Partial<BrandProfile> = { palette: newPalette };
-                              if (i === 0) updates.primary_color = e.target.value;
-                              if (i === 1) updates.secondary_color = e.target.value;
-                              if (i === 2) updates.accent_color = e.target.value;
-                              setBrand(prev => ({ ...prev, ...updates }));
-                            }} className="sr-only" />
-                            <div
-                              className="w-8 h-8 rounded-full border border-white/20 shadow-sm group-hover/swatch:scale-110 group-hover/swatch:ring-2 group-hover/swatch:ring-primary transition-all"
-                              style={{ backgroundColor: color }}
-                            />
-                          </label>
-                          {i < 3 && (
-                            <>
-                              <p className="text-[8px] text-muted-foreground font-medium">
-                                {["Primario", "Secundario", "Acento"][i]}
-                              </p>
-                              <p className="text-[8px] text-muted-foreground font-mono">{color}</p>
-                            </>
-                          )}
-                        </motion.div>
-                      ))}
-                    </div>
-                    <p className="text-[9px] text-muted-foreground text-center">Puedes editar cualquier color</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <p className="text-[11px] font-bold text-foreground uppercase tracking-wider">🔤 Tipografía Sugerida</p>
-                    <Select value={brand.font_family} onValueChange={(v) => setBrand(prev => ({ ...prev, font_family: v }))}>
-                      <SelectTrigger className="bg-secondary/50 border-border h-9 text-sm"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {brand.suggested_fonts.map(f => <SelectItem key={f} value={f}>{f} ⭐</SelectItem>)}
-                        <SelectSeparator />
-                        {["Inter", "Poppins", "Montserrat", "Playfair Display", "Roboto", "Space Grotesk"]
-                          .filter(f => !brand.suggested_fonts.includes(f))
-                          .map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)
-                        }
-                      </SelectContent>
-                    </Select>
-                    <div className="bg-secondary/50 rounded-lg p-3 text-center border border-border">
-                      <p className="text-lg text-foreground" style={{ fontFamily: brand.font_family }}>Aa Bb Cc 123</p>
-                      <p className="text-[10px] text-muted-foreground mt-1">{brand.font_family}</p>
-                    </div>
-                  </div>
-                  {/* Brand Vision Analysis */}
-                  {brandVision && (
-                    <div className="space-y-1.5 px-1">
-                      <p className="text-[10px] text-muted-foreground leading-relaxed">
-                        🧠 {brandVision.logo_description || "Marca analizada"}
-                      </p>
-                      {brandVision.brand_name_detected && (
-                        <p className="text-[10px] text-muted-foreground">
-                          📛 Nombre detectado: <span className="text-foreground font-medium">{brandVision.brand_name_detected}</span>
-                        </p>
-                      )}
-                      {brandVision.personality && (
-                        <p className="text-[10px] text-muted-foreground">
-                          ✨ Personalidad: <span className="text-foreground font-medium">{brandVision.personality}</span>
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </motion.div>
-              )}
-
-              {/* 🌐 Content Language */}
-              <div className="mb-4 space-y-2">
-                <p className="text-[11px] font-bold text-foreground uppercase tracking-wider">🌐 Idioma del contenido</p>
-                <Select value={language} onValueChange={(v) => setLanguage(v as "auto" | "es" | "en")}>
-                  <SelectTrigger className="bg-secondary/50 border-border h-9 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="auto">🌐 Auto-detectar</SelectItem>
-                    <SelectItem value="es">🇪🇸 Español</SelectItem>
-                    <SelectItem value="en">🇺🇸 English</SelectItem>
-                  </SelectContent>
-                </Select>
-                {language === "auto" ? (
-                  detectedLanguage ? (
-                    <p className="text-[10px] text-emerald-400 font-medium px-1 transition-colors">
-                      Detectado: {detectedLanguage === "es" ? "Español 🇪🇸" : "English 🇺🇸"} ✓
-                    </p>
-                  ) : (
-                    <p className="text-[10px] text-muted-foreground px-1 leading-relaxed">
-                      Se detectará del chat y tu marca
-                    </p>
-                  )
-                ) : (
-                  <p className="text-[10px] text-muted-foreground px-1 leading-relaxed">
-                    {language === "es"
-                      ? "Forzado a Español — Nano Banano y los posts saldrán en este idioma"
-                      : "Forced to English — Nano Banano and posts will use this language"}
-                  </p>
-                )}
-              </div>
-
-              {/* 📦 Persistent Brand Products (NEW) */}
-              <ParrillaProductSelector
-                brandId={brandId}
-                agencyId={currentAgencyId}
-                brandProducts={brandProducts}
-                selectedProductIds={selectedProductIds}
-                onToggle={(pid) => {
-                  setSelectedProductIds((prev) =>
-                    prev.includes(pid) ? prev.filter((x) => x !== pid) : [...prev, pid]
-                  );
-                }}
-                onProductCreated={(product) => {
-                  setBrandProducts((prev) => (prev ? [...prev, product] : [product]));
-                  setSelectedProductIds((prev) =>
-                    prev.includes(product.id) ? prev : [...prev, product.id]
-                  );
-                }}
-              />
-
-              {/* Separator: legacy temporary uploads */}
-              <div className="my-4 flex items-center gap-2">
-                <div className="flex-1 h-px bg-border/60" />
-                <span className="text-[9px] uppercase tracking-wider text-muted-foreground/70 font-mono">
-                  o sube imágenes temporales
-                </span>
-                <div className="flex-1 h-px bg-border/60" />
-              </div>
-
-              {/* 📸 Product Photos (LEGACY — temporary, not persisted) */}
-              <div className="mb-4 space-y-2.5">
-                <p className="text-[11px] font-bold text-foreground uppercase tracking-wider">📸 Imágenes temporales</p>
-                <p className="text-[10px] text-muted-foreground -mt-1.5">No se guardan, solo para esta parrilla.</p>
-                {productImages.length === 0 ? (
-                  <button onClick={() => productFileInputRef.current?.click()}
-                    className="w-full py-6 rounded-xl border-2 border-dashed border-border hover:border-primary bg-secondary/50 hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-2 group"
-                  >
-                    <Camera size={24} className="text-muted-foreground group-hover:text-primary transition-colors" />
-                    <p className="text-xs font-medium text-foreground">Sube fotos de tu producto</p>
-                    <p className="text-[10px] text-muted-foreground">La IA usará estas fotos para crear tus posts</p>
-                  </button>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      {productImages.map((img, i) => (
-                        <div key={i} className="relative aspect-square rounded-lg border border-border overflow-hidden group/thumb">
-                          <img src={img} alt={`Producto ${i + 1}`} className="w-full h-full object-cover" />
-                          <button
-                            onClick={() => setProductImages(prev => prev.filter((_, idx) => idx !== i))}
-                            className="absolute top-1 right-1 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity"
-                          >
-                            <X size={10} className="text-white" />
-                          </button>
-                        </div>
-                      ))}
-                      {productImages.length < 4 && (
-                        <button onClick={() => productFileInputRef.current?.click()}
-                          className="aspect-square rounded-lg border-2 border-dashed border-border hover:border-primary bg-secondary/30 hover:bg-primary/5 transition-all flex items-center justify-center"
-                        >
-                          <Plus size={20} className="text-muted-foreground" />
-                        </button>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-emerald-400 font-medium">✅ {productImages.length} foto(s) lista(s) — La IA usará estas como referencia</p>
-                    {isAnalyzingProduct && (
-                      <p className="text-[10px] text-muted-foreground animate-pulse">🧠 Analizando producto con IA...</p>
-                    )}
-                    {productVision && !isAnalyzingProduct && (
-                      <p className="text-[10px] text-muted-foreground">
-                        🧠 {productVision.product_type ? `${productVision.product_type} — ` : ""}{productVision.product_description || "Producto analizado"}
-                      </p>
-                    )}
-                  </div>
-                )}
-                <input ref={productFileInputRef} type="file" accept="image/png,image/jpeg" multiple className="hidden" onChange={handleProductImageUpload} />
-              </div>
-            </motion.aside>
+            <BrandAssetsSidebar
+              brandName={brandName}
+              onBrandNameChange={setBrandName}
+              brand={brand}
+              onBrandChange={setBrand}
+              brandAssets={brandAssets}
+              onFileUpload={handleFileUpload}
+              onClearLogo={() => {
+                setBrandAssets([]);
+                setBrandAssetBlobs([]);
+                setBrandDetected(false);
+                setBrandVision(null);
+                setBrand(DEFAULT_BRAND);
+                setCurrentLogoB64(null);
+                setCurrentLogoUrl(null);
+                toast({ title: "Logo eliminado de esta sesiÃ³n" });
+              }}
+              brandDetected={brandDetected}
+              isAnalyzingBrand={isAnalyzingBrand}
+              brandVision={brandVision}
+              includeLogoInImage={includeLogoInImage}
+              onIncludeLogoChange={setIncludeLogoInImage}
+              includeTextInImage={includeTextInImage}
+              onIncludeTextChange={setIncludeTextInImage}
+              language={language}
+              onLanguageChange={setLanguage}
+              detectedLanguage={detectedLanguage}
+              brandId={brandId}
+              agencyId={currentAgencyId}
+              brandProducts={brandProducts}
+              selectedProductIds={selectedProductIds}
+              onToggleProduct={(pid) => {
+                setSelectedProductIds((prev) =>
+                  prev.includes(pid) ? prev.filter((x) => x !== pid) : [...prev, pid]
+                );
+              }}
+              onProductCreated={(product) => {
+                setBrandProducts((prev) => (prev ? [...prev, product] : [product]));
+                setSelectedProductIds((prev) =>
+                  prev.includes(product.id) ? prev : [...prev, product.id]
+                );
+              }}
+              productImages={productImages}
+              onProductImagesChange={setProductImages}
+              onProductImageUpload={handleProductImageUpload}
+              isAnalyzingProduct={isAnalyzingProduct}
+              productVision={productVision}
+            />
           )}
         </AnimatePresence>
 
@@ -2529,7 +254,7 @@ const Parrilla = () => {
                       <Sparkles size={20} className="text-white" />
                     </div>
                     <div>
-                      <h2 className="font-bold text-foreground">Nano Banano Content Agent ✨</h2>
+                      <h2 className="font-bold text-foreground">Nano Banano Content Agent âœ¨</h2>
                       <p className="text-xs text-muted-foreground">IA generativa para parrillas de contenido social media</p>
                     </div>
                   </div>
@@ -2589,7 +314,7 @@ const Parrilla = () => {
                                   >
                                     <span className="text-sm">{fmt.icon}</span>
                                     <span>{fmt.label}</span>
-                                    <span className="text-[9px] text-muted-foreground">{fmt.width}×{fmt.height}</span>
+                                    <span className="text-[9px] text-muted-foreground">{fmt.width}Ã—{fmt.height}</span>
                                     {selectedFormats.has(fmt.id) && <Check size={10} className="text-primary" />}
                                   </button>
                                 ))}
@@ -2621,7 +346,7 @@ const Parrilla = () => {
                         <SelectTrigger className="bg-secondary/50 border-border h-9 w-[140px] text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="engagement"><div className="flex items-center gap-2"><Heart size={14} className="text-pink-500" /> Engagement</div></SelectItem>
-                          <SelectItem value="conversion"><div className="flex items-center gap-2"><Target size={14} className="text-emerald-500" /> Conversión</div></SelectItem>
+                          <SelectItem value="conversion"><div className="flex items-center gap-2"><Target size={14} className="text-emerald-500" /> ConversiÃ³n</div></SelectItem>
                           <SelectItem value="awareness"><div className="flex items-center gap-2"><Users size={14} className="text-blue-500" /> Awareness</div></SelectItem>
                         </SelectContent>
                       </Select>
@@ -2638,7 +363,7 @@ const Parrilla = () => {
                         </SelectContent>
                       </Select>
                       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 rounded-md bg-card border border-border text-[9px] text-muted-foreground whitespace-nowrap opacity-0 group-hover/var:opacity-100 transition-opacity pointer-events-none shadow-lg">
-                        Número de variaciones de diseño por cada post
+                        NÃºmero de variaciones de diseÃ±o por cada post
                       </div>
                     </div>
 
@@ -2646,7 +371,7 @@ const Parrilla = () => {
 
                     {selectedFormats.size > 0 && (
                       <span className="text-xs text-muted-foreground">
-                        Se generarán <span className="text-foreground font-bold">{totalPosts}</span> posts
+                        Se generarÃ¡n <span className="text-foreground font-bold">{totalPosts}</span> posts
                       </span>
                     )}
 
@@ -2659,7 +384,7 @@ const Parrilla = () => {
                             : "bg-gradient-to-r from-violet-600 via-purple-600 to-primary opacity-50"
                         }`}
                       >
-                        {isGenerating ? <><Loader2 size={16} className="animate-spin mr-2" /> {generatingStatus || "Generando..."}</> : <><Zap size={16} className="mr-2" /> Generar 🚀</>}
+                        {isGenerating ? <><Loader2 size={16} className="animate-spin mr-2" /> {generatingStatus || "Generando..."}</> : <><Zap size={16} className="mr-2" /> Generar ðŸš€</>}
                       </Button>
                       {!canGenerate && !isGenerating && (
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 rounded-lg bg-card border border-border text-[10px] text-muted-foreground whitespace-nowrap opacity-0 group-hover/gen:opacity-100 transition-opacity pointer-events-none shadow-lg">
@@ -2682,7 +407,7 @@ const Parrilla = () => {
                 <div className="max-w-2xl mx-auto space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-foreground font-medium">
-                      ⚡ Generando posts... {generationProgress.completed} de {generationProgress.total}
+                      âš¡ Generando posts... {generationProgress.completed} de {generationProgress.total}
                     </span>
                     <span className="text-muted-foreground text-xs">
                       {Math.round((generationProgress.completed / generationProgress.total) * 100)}%
@@ -2725,6 +450,25 @@ const Parrilla = () => {
                   </div>
                 </div>
 
+                {/* ── Stats bar ── */}
+                {stats.total > 0 && (
+                  <div className="flex flex-wrap items-center gap-4 px-1 text-xs text-muted-foreground">
+                    <span>{stats.total} posts</span>
+                    {stats.approved > 0 && <span className="text-emerald-500">{stats.approved} aprobados</span>}
+                    {stats.pending > 0 && <span className="text-amber-500">{stats.pending} pendientes</span>}
+                    {stats.rejected > 0 && <span className="text-red-400">{stats.rejected} rechazados</span>}
+                    {stats.generatingImages > 0 && (
+                      <span className="text-primary flex items-center gap-1">
+                        <Loader2 className="inline w-3 h-3 animate-spin" />
+                        {stats.generatingImages} imágenes generándose
+                      </span>
+                    )}
+                    {generationMode === "copy-first" && stats.imagesReady > 0 && (
+                      <span className="text-emerald-400">{stats.imagesReady} imágenes listas</span>
+                    )}
+                  </div>
+                )}
+
                 {viewMode === "kanban" ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                     <AnimatePresence>
@@ -2732,6 +476,7 @@ const Parrilla = () => {
                         <RenderedPostCard key={post.id} post={post}
                           onEdit={handleEditPost} onRegenerate={handleRegenerateSingle}
                           onDownload={handleDownloadPost} onApproveStatus={handleApprovePost}
+                          onRejectStatus={handleRejectPost}
                           isClientView={isClientView} onClickImage={handleClickImage}
                           onGenerateVideo={handleGenerateVideo}
                         />
@@ -2753,7 +498,7 @@ const Parrilla = () => {
                   <div className="w-20 h-20 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-6">
                     <Sparkles size={36} className="text-primary" />
                   </div>
-                  <h3 className="text-xl font-bold mb-2 text-foreground">Tu parrilla está vacía</h3>
+                  <h3 className="text-xl font-bold mb-2 text-foreground">Tu parrilla estÃ¡ vacÃ­a</h3>
                   <p className="text-sm mb-6 text-muted-foreground">
                     {isClientView ? "Espera a que el equipo creativo genere el contenido." : "Sube tu logo, configura la marca y haz clic en \"Generar\" para crear contenido con IA."}
                   </p>

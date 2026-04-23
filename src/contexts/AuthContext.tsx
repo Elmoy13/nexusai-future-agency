@@ -28,9 +28,20 @@ interface AuthCtx {
 
 const AuthContext = createContext<AuthCtx | undefined>(undefined);
 
-const AGENCY_KEY = "nexus.currentAgencyId";
+const AGENCY_KEY = "current_agency_id";
+const LEGACY_AGENCY_KEY = "nexus.currentAgencyId";
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  // One-time migration from legacy key
+  if (typeof window !== "undefined") {
+    const legacy = localStorage.getItem(LEGACY_AGENCY_KEY);
+    if (legacy) {
+      if (!localStorage.getItem(AGENCY_KEY)) {
+        localStorage.setItem(AGENCY_KEY, legacy);
+      }
+      localStorage.removeItem(LEGACY_AGENCY_KEY);
+    }
+  }
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);

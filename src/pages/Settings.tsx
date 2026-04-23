@@ -7,11 +7,11 @@ import { cn } from "@/lib/utils";
 
 type SettingsTab = "appearance" | "account" | "agents" | "integrations";
 
-const menuItems: { id: SettingsTab; label: string; icon: React.ElementType; soon?: boolean }[] = [
+const menuItems: { id: SettingsTab; label: string; icon: React.ElementType; soon?: boolean; href?: string }[] = [
   { id: "appearance", label: "Apariencia", icon: Palette },
   { id: "account", label: "Cuenta", icon: UserCircle },
   { id: "agents", label: "Agentes", icon: Bot, soon: true },
-  { id: "integrations", label: "Integraciones", icon: Plug, soon: true },
+  { id: "integrations", label: "Canales", icon: Plug, href: "/settings/channels" },
 ];
 
 const accentOptions: { id: AccentTheme; label: string; hsl: string; hex: string }[] = [
@@ -70,7 +70,13 @@ const Settings = () => {
           {menuItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => !item.soon && setActiveTab(item.id)}
+              onClick={() => {
+                if (item.href) {
+                  navigate(item.href);
+                } else if (!item.soon) {
+                  setActiveTab(item.id);
+                }
+              }}
               className={cn(
                 "flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-200 border-none cursor-pointer px-3 py-2.5",
                 activeTab === item.id

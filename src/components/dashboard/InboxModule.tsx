@@ -23,7 +23,8 @@ import {
 } from "@/lib/inboxService";
 import { toast } from "sonner";
 
-const WEBHOOK_URL = "https://representative-tier-customize-bonus.trycloudflare.com/api/webhook/chat";
+import { apiCall } from "@/lib/apiClient";
+
 const STORAGE_KEY = "inbox_selected_brand_id";
 const REQUEST_TIMEOUT_MS = 10_000;
 
@@ -142,19 +143,18 @@ const InboxModule = () => {
     const timeout = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
 
     try {
-      const res = await fetch(WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          brand_id: selectedBrandId,
-          social_user_id: user.id,
-          message: text,
-        }),
-        signal: ctrl.signal,
-      });
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data = await apiCall<{ response?: string; reply?: string; message?: string }>(
+        "/api/webhook/chat",
+        {
+          method: "POST",
+          body: {
+            brand_id: selectedBrandId,
+            social_user_id: user.id,
+            message: text,
+          },
+          signal: ctrl.signal,
+        },
+      );
       const reply = data.response || data.reply || data.message || JSON.stringify(data);
 
       const agentMsg = await insertMessage(conversationId, "agent", reply);

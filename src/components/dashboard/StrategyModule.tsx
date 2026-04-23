@@ -2,7 +2,7 @@ import { useState } from "react";
 import { BrainCircuit, Loader2, Sparkles, Target, Users } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const BASE_URL = "https://representative-tier-customize-bonus.trycloudflare.com";
+import { apiCall, API_URL } from "@/lib/apiClient";
 
 interface StrategyResult {
   tone?: string;
@@ -28,21 +28,17 @@ const StrategyModule = ({ onPostsGenerated }: Props) => {
     setResult(null);
 
     try {
-      const res = await fetch(`${BASE_URL}/api/strategy/generate`, {
+      const data = await apiCall<StrategyResult>("/api/strategy/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           brand_id: "28b1c920-f35c-4a62-b510-bd41620d9dcd",
           brief,
-        }),
+        },
       });
-
-      if (!res.ok) throw new Error(`Error ${res.status}`);
-      const data = await res.json();
       setResult(data);
       if (data.posts) onPostsGenerated(data.posts);
-    } catch (err: any) {
-      setError(err.message || "Error de conexión");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error de conexión");
     } finally {
       setIsLoading(false);
     }

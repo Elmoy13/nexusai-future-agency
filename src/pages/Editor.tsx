@@ -29,7 +29,6 @@ import {
   Shapes, Film, Circle, Triangle, Star, Zap, ChevronDown, Wand2, Braces, ClipboardCopy, ClipboardCheck,
   Download, Upload, AlertTriangle, Home, Tv,
 } from "lucide-react";
-import { initialCampaigns } from "@/components/dashboard/briefs/campaignData";
 import type { SlideData, SlideElement } from "@/components/dashboard/briefs/campaignData";
 
 /* ── helpers ── */
@@ -227,15 +226,15 @@ const TEMPLATE_COMUNICADO = (): SlideElement[] => [
   { id: uid(), type: "shape", content: "#ffffff", x: 0, y: 0, width: 1920, height: 1080, zIndex: 0 },
   { id: uid(), type: "shape", content: "#0f172a", x: 60, y: 60, width: 1800, height: 8, zIndex: 1 },
   { id: uid(), type: "shape", content: "#0f172a", x: 60, y: 1012, width: 1800, height: 8, zIndex: 1 },
-  { id: uid(), type: "text", content: "⬡ AERO DYNAMICS", x: 660, y: 100, width: 600, height: 60, fontSize: 28, fontWeight: "800", color: "#0f172a", zIndex: 2, textAlign: "center" },
+  { id: uid(), type: "text", content: "⬡ TU MARCA", x: 660, y: 100, width: 600, height: 60, fontSize: 28, fontWeight: "800", color: "#0f172a", zIndex: 2, textAlign: "center" },
   { id: uid(), type: "text", content: "COMUNICADO OFICIAL", x: 460, y: 200, width: 1000, height: 60, fontSize: 48, fontWeight: "900", color: "#0f172a", zIndex: 2, textAlign: "center" },
   { id: uid(), type: "text", content: "Por medio del presente, se comunica a todos nuestros socios y colaboradores que la empresa ha tomado la decisión estratégica de expandir sus operaciones al mercado internacional.\n\nEsta iniciativa forma parte de nuestra visión 2025 de crecimiento sostenible y liderazgo en innovación tecnológica.", x: 260, y: 320, width: 1400, height: 400, fontSize: 26, fontWeight: "400", color: "#334155", zIndex: 2, textAlign: "left" },
-  { id: uid(), type: "text", content: "Firma: ___________________________\nDirector General · Aero Dynamics", x: 260, y: 800, width: 600, height: 100, fontSize: 20, fontWeight: "500", color: "#64748b", zIndex: 2 },
+  { id: uid(), type: "text", content: "Firma: ___________________________\nDirector General", x: 260, y: 800, width: 600, height: 100, fontSize: 20, fontWeight: "500", color: "#64748b", zIndex: 2 },
 ];
 const TEMPLATE_MEME = (): SlideElement[] => [
   { id: uid(), type: "shape", content: "#ffffff", x: 0, y: 0, width: 1920, height: 1080, zIndex: 0 },
   { id: uid(), type: "shape", content: "#e2e8f0", x: 80, y: 0, width: 48, height: 48, zIndex: 1 },
-  { id: uid(), type: "text", content: "Aero Dynamics", x: 148, y: 6, width: 300, height: 22, fontSize: 18, fontWeight: "800", color: "#0f172a", zIndex: 2 },
+  { id: uid(), type: "text", content: "Tu Marca", x: 148, y: 6, width: 300, height: 22, fontSize: 18, fontWeight: "800", color: "#0f172a", zIndex: 2 },
   { id: uid(), type: "text", content: "@aerodynamics · 2h", x: 148, y: 28, width: 300, height: 20, fontSize: 15, fontWeight: "400", color: "#94a3b8", zIndex: 2 },
   { id: uid(), type: "text", content: "Cuando descubres que tu herramienta de IA hace presentaciones sola 🤯🚀\n\nEsto cambia todo. No more templates genéricos.", x: 80, y: 80, width: 1760, height: 160, fontSize: 32, fontWeight: "400", color: "#0f172a", zIndex: 2 },
   { id: uid(), type: "shape", content: "#f1f5f9", x: 80, y: 280, width: 1760, height: 700, zIndex: 1 },
@@ -277,7 +276,7 @@ const BrandPanel = ({
     <div className="flex flex-col gap-5 p-4">
       <div>
         <h3 className="text-xs font-bold text-foreground uppercase tracking-wider mb-1">Brand Hub</h3>
-        <p className="text-[11px] text-muted-foreground">Aero Dynamics</p>
+        <p className="text-[11px] text-muted-foreground">Tu marca</p>
       </div>
 
       <div>
@@ -975,7 +974,7 @@ const MockupFrame = ({ el, interactive, onDrop, onChildAdjust, onNativeFileDrop 
                   <span className="text-[10px] font-bold text-white">AD</span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-[9px] font-semibold text-gray-900">Aero Dynamics</span>
+                  <span className="text-[9px] font-semibold text-gray-900">Tu Marca</span>
                   <span className="text-[7px] text-gray-500">Empresa · Patrocinado</span>
                 </div>
               </div>
@@ -2295,20 +2294,6 @@ const Editor = () => {
       return;
     }
 
-    const hydrateFromCampaign = (campaign: typeof initialCampaigns[number]) => {
-      const els = campaign.slides.map(slideToElements);
-      const meta: SlideMetaState[] = campaign.slides.map((s) => ({
-        id: s.id,
-        type: s.type,
-        image: s.type === "cover" ? s.image : undefined,
-        backgroundColor: "#ffffff",
-        transition: "fade",
-      }));
-      setSlidesElements(els);
-      setSlideMeta(meta);
-      setDocTitle(campaign.title);
-    };
-
     const hydrateFromEditorState = (s: EditorState) => {
       setSlidesElements(s.slidesElements ?? []);
       setSlideMeta(
@@ -2394,14 +2379,7 @@ const Editor = () => {
         return;
       }
 
-      // Caso C: matchea un campaign de demo
-      const campaign = initialCampaigns.find((c) => c.id === id);
-      if (campaign) {
-        hydrateFromCampaign(campaign);
-        setMode("demo");
-        return;
-      }
-
+      // Caso C: ID no matchea nada — not found
       setMode("not_found");
     })();
 
