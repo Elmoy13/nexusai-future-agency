@@ -7,6 +7,7 @@ import { ThemeAccentProvider } from "@/contexts/ThemeAccentContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AgencyProvider } from "@/contexts/AgencyContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import DashboardLayout from "@/components/DashboardLayout";
 
 const Protected = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute>
@@ -28,6 +29,8 @@ import Parrilla from "./pages/Parrilla";
 import Channels from "./pages/Channels";
 import Conversations from "./pages/Conversations";
 import ChannelSelect from "./pages/ChannelSelect";
+import BriefsModule from "./components/dashboard/BriefsModule";
+import ParrillasHub from "./components/dashboard/ParrillasHub";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,17 +52,21 @@ const App = () => (
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
 
-              {/* Protected */}
-              <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
-              <Route path="/brand/:id" element={<Protected><Brand /></Protected>} />
-              <Route path="/agente/nueva-marca" element={<Protected><Agent /></Protected>} />
-              <Route path="/parrilla/:id" element={<Protected><Parrilla /></Protected>} />
-              <Route path="/channels" element={<Protected><Channels /></Protected>} />
-              <Route path="/conversations" element={<Protected><Conversations /></Protected>} />
-              <Route path="/conversations/:id" element={<Protected><Conversations /></Protected>} />
-              <Route path="/settings" element={<Protected><Settings /></Protected>} />
-              <Route path="/settings/channels/select" element={<Protected><ChannelSelect /></Protected>} />
-              <Route path="/editor/:id" element={<Protected><Editor /></Protected>} />
+              {/* Protected — inside DashboardLayout (sidebar + topbar always visible) */}
+              <Route element={<Protected><DashboardLayout /></Protected>}>
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/brand/:id" element={<Brand />} />
+                <Route path="/agente/nueva-marca" element={<Agent />} />
+                <Route path="/briefs" element={<BriefsModule />} />
+                <Route path="/parrillas" element={<ParrillasHub />} />
+                <Route path="/parrilla/:id" element={<Parrilla />} />
+                <Route path="/channels" element={<Channels />} />
+                <Route path="/conversations" element={<Conversations />} />
+                <Route path="/conversations/:id" element={<Conversations />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/settings/channels/select" element={<ChannelSelect />} />
+                <Route path="/editor/:id" element={<Editor />} />
+              </Route>
 
               <Route path="*" element={<NotFound />} />
             </Routes>

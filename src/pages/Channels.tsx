@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Zap, Check, Bell, Loader2, ArrowLeft, ArrowDown,
+  Zap, Check, Bell, Loader2, ArrowDown,
   MessageCircle, Facebook, Instagram, Phone, Mail,
   Globe, Send, Video, MessageSquare, Plug, X,
 } from "lucide-react";
@@ -145,10 +145,19 @@ export default function Channels() {
   };
 
   const isPlatformConnected = (platform: PlatformOption) => {
-    if (platform.id === "facebook_messenger") return connectedPlatforms.has("facebook");
-    if (platform.id === "instagram_dms") return connectedPlatforms.has("instagram");
-    if (platform.id === "whatsapp_business") return connectedPlatforms.has("whatsapp");
-    return false;
+    // A platform is fully connected only if ALL brands have it linked
+    const platformKey =
+      platform.id === "facebook_messenger" ? "facebook" :
+      platform.id === "instagram_dms" ? "instagram" :
+      platform.id === "whatsapp_business" ? "whatsapp" : null;
+    if (!platformKey) return false;
+    if (brands.length === 0) return false;
+    const brandsWithPlatform = new Set(
+      channels
+        .filter((c) => c.platform === platformKey)
+        .flatMap((c) => c.brands.map((b) => b.brand_id)),
+    );
+    return brands.every((b) => brandsWithPlatform.has(b.id));
   };
 
   const statusBadge = (status: PlatformOption["status"]) => {
@@ -164,24 +173,15 @@ export default function Channels() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="h-full flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-full overflow-auto">
       <div className="max-w-6xl mx-auto px-6 py-10">
-        {/* Back */}
-        <button
-          onClick={() => navigate("/dashboard")}
-          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8 bg-transparent border-none cursor-pointer"
-        >
-          <ArrowLeft size={16} />
-          Volver al Dashboard
-        </button>
-
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -235,6 +235,10 @@ export default function Channels() {
                   (p) => p.id === "whatsapp_business" && channel.platform === "whatsapp"
                 );
 
+                const brandNames = channel.brands
+                  .map((cb) => brands.find((b) => b.id === cb.brand_id)?.name)
+                  .filter(Boolean);
+
                 return (
                   <motion.div
                     key={channel.id}
@@ -259,6 +263,11 @@ export default function Channels() {
                     <p className="text-xs text-muted-foreground mt-0.5 capitalize">
                       {channel.platform}
                     </p>
+                    {brandNames.length > 0 && (
+                      <p className="text-[11px] text-muted-foreground mt-1.5">
+                        {brandNames.join(", ")}
+                      </p>
+                    )}
                   </motion.div>
                 );
               })}

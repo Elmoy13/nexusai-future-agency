@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ArrowLeft,
   Search,
   Send,
   Bot,
@@ -18,9 +17,13 @@ import {
   X,
   Archive,
   AlertTriangle,
+  AlertCircle,
   ExternalLink,
   StickyNote,
+  ArrowLeft,
+  RefreshCw,
 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -152,14 +155,11 @@ export default function Conversations() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { currentAgencyId } = useAgency();
+  const queryClient = useQueryClient();
 
-  // List state
-  const [conversations, setConversations] = useState<ConversationListItem[]>([]);
-  const [loadingList, setLoadingList] = useState(true);
+  // UI state
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
-  const [offset, setOffset] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
 
   // Active conversation state
   const [selectedId, setSelectedId] = useState<string | null>(routeId || null);
@@ -176,54 +176,33 @@ export default function Conversations() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const listEndRef = useRef<HTMLDivElement>(null);
+
+  // ─── Load conversations with React Query (auto-poll) ───
+  const statusFilter = filter === "all" ? undefined : filter === "ai" ? "open" : filter === "manual" ? "open" : "closed";
+
+  const {
+    data: rawConversations,
+    isLoading: loadingList,
+    error: listError,
+    refetch: refetchList,
+  } = useQuery({
+    queryKey: ["conversations", currentAgencyId, statusFilter],
+    queryFn: () => listConversationsByAgency(currentAgencyId!, { status: statusFilter, limit: 50 }),
+    enabled: !!currentAgencyId,
+    refetchInterval: 10_000,
+    retry: 3,
+  });
+
+  // Client-side filter for ai/manual mode
+  const conversations = (rawConversations ?? []).filter((c) => {
+    if (filter === "ai") return c.mode === "ai";
+    if (filter === "manual") return c.mode === "manual";
+    return true;
+  });
 
   // Derived
   const selectedConv = conversations.find((c) => c.id === selectedId) || null;
   const isManualMode = selectedConv?.mode === "manual";
-
-  // ─── Load conversations ───
-  const fetchConversations = useCallback(
-    async (reset = false) => {
-      if (!currentAgencyId) return;
-      const newOffset = reset ? 0 : offset;
-      if (reset) setLoadingList(true);
-
-      try {
-        const statusFilter = filter === "all" ? undefined : filter === "ai" ? "open" : filter === "manual" ? "open" : "closed";
-        const data = await listConversationsByAgency(currentAgencyId, {
-          status: statusFilter,
-          limit: 50,
-          offset: newOffset,
-        });
-
-        // Client-side filter for ai/manual mode
-        let filtered = data;
-        if (filter === "ai") filtered = data.filter((c) => c.mode === "ai");
-        if (filter === "manual") filtered = data.filter((c) => c.mode === "manual");
-
-        if (reset) {
-          setConversations(filtered);
-          setOffset(filtered.length);
-        } else {
-          setConversations((prev) => [...prev, ...filtered]);
-          setOffset((prev) => prev + filtered.length);
-        }
-        setHasMore(data.length === 50);
-      } catch (err) {
-        console.error("Error loading conversations:", err);
-        setConversations([]);
-      } finally {
-        setLoadingList(false);
-      }
-    },
-    [currentAgencyId, filter, offset]
-  );
-
-  useEffect(() => {
-    fetchConversations(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentAgencyId, filter]);
 
   // ─── Load conversation detail ───
   useEffect(() => {
@@ -286,14 +265,8 @@ export default function Conversations() {
           ? { ...prev, messages: [...prev.messages, newMsg], total_messages: prev.total_messages + 1 }
           : prev
       );
-      // Update conversation list (mode might have changed to manual)
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === selectedId
-            ? { ...c, mode: "manual", last_message_preview: text, last_message_at: newMsg.sent_at, last_message_sender: "agent" }
-            : c
-        )
-      );
+      // Invalidate list so it picks up updated last_message
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
     } catch (err) {
       console.error("Send error:", err);
       toast({
@@ -314,9 +287,7 @@ export default function Conversations() {
     setTogglingMode(true);
     try {
       await updateConversationMode(selectedId, newMode);
-      setConversations((prev) =>
-        prev.map((c) => (c.id === selectedId ? { ...c, mode: newMode } : c))
-      );
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
       if (detail) setDetail({ ...detail, mode: newMode });
       toast({
         title: newMode === "manual" ? "Modo manual activado" : "IA activada",
@@ -351,20 +322,7 @@ export default function Conversations() {
   );
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden">
-      {/* Mobile/narrow header */}
-      <div className="h-12 border-b border-border/20 bg-card/80 backdrop-blur-xl flex items-center px-4 gap-3 shrink-0 lg:hidden">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate("/dashboard")}
-          className="gap-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft size={16} />
-        </Button>
-        <h1 className="font-semibold text-sm">Conversaciones</h1>
-      </div>
-
+    <div className="h-full flex flex-col overflow-hidden">
       {/* 3-column layout */}
       <div className="flex-1 flex overflow-hidden">
         {/* ── Column 1: Conversation List (320px) ── */}
@@ -376,17 +334,7 @@ export default function Conversations() {
         >
           {/* List header */}
           <div className="p-4 pb-2 space-y-3 shrink-0">
-            <div className="hidden lg:flex items-center justify-between">
-              <h2 className="font-bold text-lg text-foreground">Bandeja</h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate("/dashboard")}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <ArrowLeft size={16} />
-              </Button>
-            </div>
+            <h2 className="text-lg font-medium text-foreground">Bandeja</h2>
 
             {/* Search */}
             <div className="relative">
@@ -425,6 +373,26 @@ export default function Conversations() {
                 <Loader2 size={24} className="mx-auto mb-2 animate-spin text-primary" />
                 <p className="text-xs text-muted-foreground">Cargando conversaciones...</p>
               </div>
+            ) : listError ? (
+              <div className="text-center py-16 px-4">
+                <div className="w-14 h-14 rounded-2xl bg-destructive/10 flex items-center justify-center mx-auto mb-3">
+                  <AlertCircle size={24} className="text-destructive/60" />
+                </div>
+                <p className="text-sm font-medium text-foreground mb-1">
+                  No pudimos cargar las conversaciones
+                </p>
+                <p className="text-xs text-muted-foreground mb-4">
+                  {listError instanceof Error ? listError.message : "Error desconocido"}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => refetchList()}
+                  className="text-xs gap-1.5"
+                >
+                  <RefreshCw size={12} /> Reintentar
+                </Button>
+              </div>
             ) : filteredConversations.length === 0 ? (
               <div className="text-center py-16 px-4">
                 <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
@@ -434,16 +402,14 @@ export default function Conversations() {
                   No hay conversaciones todavía
                 </p>
                 <p className="text-xs text-muted-foreground mb-4">
-                  Conecta un canal y las conversaciones aparecerán aquí
+                  Cuando alguien te escriba a Facebook o Instagram, aparecerá aquí
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate("/channels")}
-                  className="text-xs"
+                <Link
+                  to="/channels"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
                 >
-                  Conectar canal
-                </Button>
+                  Ir a Canales →
+                </Link>
               </div>
             ) : (
               <AnimatePresence>

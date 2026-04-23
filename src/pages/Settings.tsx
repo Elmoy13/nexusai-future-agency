@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Palette, UserCircle, Check, Moon, Sun, Loader2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Palette, UserCircle, Check, Moon, Sun, Loader2 } from "lucide-react";
 import { useThemeAccent, AccentTheme, ThemeMode } from "@/contexts/ThemeAccentContext";
 import { PRODUCT } from "@/config/product";
 import { cn } from "@/lib/utils";
@@ -29,7 +28,6 @@ const previewAccents: Record<AccentTheme, string> = {
 };
 
 const Settings = () => {
-  const navigate = useNavigate();
   const { accent, mode, setAccent, setMode } = useThemeAccent();
   const [activeTab, setActiveTab] = useState<SettingsTab>("appearance");
 
@@ -51,18 +49,9 @@ const Settings = () => {
   const isDark = previewMode === "dark";
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="h-full overflow-auto flex">
       {/* Left column — Settings menu */}
-      <aside className="w-64 lg:w-72 shrink-0 h-screen sticky top-0 glass-strong border-r border-border/30 flex flex-col py-6 px-4">
-        {/* Back to dashboard */}
-        <button
-          onClick={() => navigate("/dashboard")}
-          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8 bg-transparent border-none cursor-pointer px-3"
-        >
-          <ArrowLeft size={16} />
-          Volver al Dashboard
-        </button>
-
+      <aside className="w-64 lg:w-72 shrink-0 h-full sticky top-0 glass-strong border-r border-border/30 flex flex-col py-6 px-4">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground px-3 mb-4">Configuración</h2>
 
         <nav className="flex flex-col gap-1">
@@ -94,7 +83,7 @@ const Settings = () => {
       </aside>
 
       {/* Right column — Content area */}
-      <main className="flex-1 min-h-screen overflow-y-auto p-6 md:p-10 lg:p-12">
+      <main className="flex-1 h-full overflow-y-auto p-6 md:p-10 lg:p-12">
         {activeTab === "appearance" && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
