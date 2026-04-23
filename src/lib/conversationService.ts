@@ -97,3 +97,13 @@ export async function updateConversationMode(
     body: { mode },
   });
 }
+
+export async function updateConversationActiveBrand(
+  conversationId: string,
+  brandId: string,
+): Promise<void> {
+  await apiCall(`/api/v1/conversations/${conversationId}/active-brand`, {
+    method: "PATCH",
+    body: { brand_id: brandId },
+  });
+}

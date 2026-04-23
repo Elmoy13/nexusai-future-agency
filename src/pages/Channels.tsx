@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Zap, Check, Bell, Loader2, ArrowDown,
+  Zap, Check, Bell, Loader2, ArrowDown, AlertTriangle, Settings2, Tag,
   MessageCircle, Facebook, Instagram, Phone, Mail,
   Globe, Send, Video, MessageSquare, Plug, X,
 } from "lucide-react";
@@ -32,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ManageBrandsModal } from "@/components/channels/ManageBrandsModal";
 
 interface BrandOption {
   id: string;
@@ -89,6 +90,10 @@ export default function Channels() {
   const [connectModalOpen, setConnectModalOpen] = useState(false);
   const [selectedBrandId, setSelectedBrandId] = useState("");
   const [connectingPlatform, setConnectingPlatform] = useState<PlatformOption | null>(null);
+
+  // Manage brands modal state
+  const [manageBrandsOpen, setManageBrandsOpen] = useState(false);
+  const [manageBrandsChannel, setManageBrandsChannel] = useState<Channel | null>(null);
 
   const loadData = useCallback(async () => {
     if (!currentAgencyId) return;
@@ -237,19 +242,21 @@ export default function Channels() {
 
                 const brandNames = channel.brands
                   .map((cb) => brands.find((b) => b.id === cb.brand_id)?.name)
-                  .filter(Boolean);
+                  .filter(Boolean) as string[];
+
+                const hasBrands = brandNames.length > 0;
 
                 return (
                   <motion.div
                     key={channel.id}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="relative bg-card rounded-xl border border-emerald-500/30 p-5 hover:border-emerald-500/50 transition"
+                    className="relative bg-card rounded-xl border border-emerald-500/30 p-5 hover:border-emerald-500/50 transition flex flex-col"
                   >
                     <div className="absolute top-3 right-3">
-                      <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                        <Check size={14} className="text-emerald-400" />
-                      </div>
+                      <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/25 text-[10px]">
+                        Activo
+                      </Badge>
                     </div>
                     <div
                       className="w-12 h-12 rounded-xl flex items-center justify-center mb-3 text-white"
@@ -263,11 +270,57 @@ export default function Channels() {
                     <p className="text-xs text-muted-foreground mt-0.5 capitalize">
                       {channel.platform}
                     </p>
-                    {brandNames.length > 0 && (
-                      <p className="text-[11px] text-muted-foreground mt-1.5">
-                        {brandNames.join(", ")}
-                      </p>
-                    )}
+
+                    {/* Brand assignments */}
+                    <div className="mt-3 flex-1">
+                      {hasBrands ? (
+                        <>
+                          <p className="text-[10px] text-muted-foreground font-medium mb-1.5">
+                            Marcas asignadas:
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {brandNames.map((name) => (
+                              <Badge
+                                key={name}
+                                variant="secondary"
+                                className="text-[10px] gap-1"
+                              >
+                                <Tag size={9} />
+                                {name}
+                              </Badge>
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex items-start gap-1.5 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                          <AlertTriangle size={13} className="text-amber-400 shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-[11px] text-amber-300 font-medium">
+                              Sin marca asignada
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              Esta página no responderá hasta que asignes una marca
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/20">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-[11px] gap-1.5"
+                        onClick={() => {
+                          setManageBrandsChannel(channel);
+                          setManageBrandsOpen(true);
+                        }}
+                      >
+                        <Settings2 size={12} />
+                        {hasBrands ? "Gestionar marcas" : "Asignar ahora"}
+                      </Button>
+                    </div>
                   </motion.div>
                 );
               })}
@@ -439,6 +492,7 @@ export default function Channels() {
               <ConnectFacebookButton
                 agencyId={currentAgencyId}
                 brandId={selectedBrandId}
+                brandName={brands.find((b) => b.id === selectedBrandId)?.name}
                 className="w-full justify-center text-base py-3"
                 onConnectStart={() => {}}
               />
@@ -452,6 +506,14 @@ export default function Channels() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Manage Brands Modal */}
+      <ManageBrandsModal
+        open={manageBrandsOpen}
+        onOpenChange={setManageBrandsOpen}
+        channel={manageBrandsChannel}
+        brands={brands}
+      />
     </div>
   );
 }

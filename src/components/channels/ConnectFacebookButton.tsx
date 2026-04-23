@@ -6,6 +6,7 @@ import { startMetaOAuth } from "@/lib/channelService";
 interface ConnectFacebookButtonProps {
   agencyId: string;
   brandId: string;
+  brandName?: string;
   onConnectStart?: () => void;
   onConnectCancel?: () => void;
   className?: string;
@@ -22,6 +23,7 @@ const POLL_INTERVAL_MS = 500;
 export function ConnectFacebookButton({
   agencyId,
   brandId,
+  brandName,
   onConnectStart,
   onConnectCancel,
   className = "",
@@ -31,6 +33,13 @@ export function ConnectFacebookButton({
   const handleClick = async () => {
     setLoading(true);
     onConnectStart?.();
+
+    if (brandName) {
+      toast.info(`Conectando Facebook para la marca ${brandName}`, {
+        description: "Puedes cambiar esta asignación después.",
+      });
+    }
+
     try {
       const { authorize_url } = await startMetaOAuth(agencyId, brandId);
 

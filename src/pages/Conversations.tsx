@@ -22,6 +22,7 @@ import {
   StickyNote,
   ArrowLeft,
   RefreshCw,
+  Tag,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -35,9 +36,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useAgency } from "@/contexts/AgencyContext";
 import { useToast } from "@/hooks/use-toast";
+import { useChannelBrands } from "@/hooks/useChannelBrands";
+import { useUpdateConversationActiveBrand } from "@/hooks/useConversationBrand";
 import {
   listConversationsByAgency,
   getConversation,
@@ -203,6 +213,18 @@ export default function Conversations() {
   // Derived
   const selectedConv = conversations.find((c) => c.id === selectedId) || null;
   const isManualMode = selectedConv?.mode === "manual";
+
+  // ─── Channel brands for active brand dropdown ───
+  const { data: channelBrands } = useChannelBrands(selectedConv?.channel?.id ?? null);
+  const activeBrandMutation = useUpdateConversationActiveBrand();
+  const showBrandDropdown = (channelBrands?.length ?? 0) > 1;
+
+  // Show brand chip in list if there are multiple distinct brands
+  const hasMultipleBrands = new Set(
+    (rawConversations ?? [])
+      .map((c) => c.active_brand?.id)
+      .filter(Boolean),
+  ).size > 1;
 
   // ─── Load conversation detail ───
   useEffect(() => {
@@ -461,6 +483,15 @@ export default function Conversations() {
                             {formatRelative(conv.last_message_at)}
                           </span>
                         </div>
+                        {hasMultipleBrands && conv.active_brand && (
+                          <Badge
+                            variant="secondary"
+                            className="text-[9px] px-1.5 py-0 h-4 mb-0.5 w-fit gap-1"
+                          >
+                            <Tag size={8} />
+                            {conv.active_brand.name}
+                          </Badge>
+                        )}
                         <div className="flex items-center gap-1.5">
                           <p className="text-[12px] text-muted-foreground truncate flex-1">
                             {conv.last_message_preview || "Sin mensajes"}
@@ -749,10 +780,35 @@ export default function Conversations() {
                   </div>
                   {selectedConv.active_brand && (
                     <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Marca</span>
-                      <Badge variant="outline" className="text-[10px]">
-                        {selectedConv.active_brand.name}
-                      </Badge>
+                      <span className="text-muted-foreground">Marca activa</span>
+                      {showBrandDropdown ? (
+                        <Select
+                          value={selectedConv.active_brand.id}
+                          onValueChange={(brandId) => {
+                            if (selectedConv) {
+                              activeBrandMutation.mutate({
+                                conversationId: selectedConv.id,
+                                brandId,
+                              });
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-6 w-auto min-w-[100px] text-[10px] px-2 border-border/30">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {channelBrands?.map((cb) => (
+                              <SelectItem key={cb.brand_id} value={cb.brand_id} className="text-xs">
+                                {cb.brand_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px]">
+                          {selectedConv.active_brand.name}
+                        </Badge>
+                      )}
                     </div>
                   )}
                 </div>
