@@ -475,7 +475,6 @@ export default function Conversations() {
                 ))}
               </AnimatePresence>
             )}
-            <div ref={listEndRef} />
           </div>
         </div>
 
