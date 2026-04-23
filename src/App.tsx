@@ -29,6 +29,7 @@ import Settings from "./pages/Settings";
 import Editor from "./pages/Editor";
 import Agent from "./pages/Agent";
 import Parrilla from "./pages/Parrilla";
+import { ParrillaErrorBoundary } from "./components/ParrillaErrorBoundary";
 import Channels from "./pages/Channels";
 import Conversations from "./pages/Conversations";
 import ChannelSelect from "./pages/ChannelSelect";
@@ -62,7 +63,7 @@ const App = () => (
                 <Route path="/agente/nueva-marca" element={<Agent />} />
                 <Route path="/briefs" element={<BriefsModule />} />
                 <Route path="/parrillas" element={<ParrillasHub />} />
-                <Route path="/parrilla/:id" element={<Parrilla />} />
+                <Route path="/parrilla/:id" element={<ParrillaErrorBoundary><Parrilla /></ParrillaErrorBoundary>} />
                 <Route path="/channels" element={<Channels />} />
                 <Route path="/conversations" element={<Conversations />} />
                 <Route path="/conversations/:id" element={<Conversations />} />

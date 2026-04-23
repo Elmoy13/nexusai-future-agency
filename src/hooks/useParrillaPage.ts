@@ -5,8 +5,7 @@ import { useDebouncedCallback } from "use-debounce";
 import { useAgency } from "@/contexts/AgencyContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActiveBrand } from "@/contexts/ActiveBrandContext";
-import { createDraft, getDraft, getDraftWithPosts, patchDraft, deleteDraft, type DraftPatch } from "@/lib/draftService";
-import type { DraftWithPosts } from "@/lib/draftService";
+import { createDraft, getDraftWithPosts, patchDraft, deleteDraft, type DraftPatch } from "@/lib/draftService";
 import { approvePost, rejectPost, approveAllPosts, approveAndGenerateImage, generateAllApprovedImages } from "@/lib/postService";
 import { generateCopyOnly, generateFull } from "@/lib/generationService";
 import type { GenerationRequest } from "@/lib/generationService";
@@ -247,6 +246,7 @@ export function useParrillaPage() {
     const cancelledRef = { current: false };
     (async () => {
       setIsHydrating(true);
+      console.info("[parrilla/hydrate] Flow A start", { queryDraftId, queryBrandId });
       try {
         if (queryDraftId) {
           // Hydrate draft + any existing posts using the enriched endpoint
@@ -330,6 +330,7 @@ export function useParrillaPage() {
     (async () => {
       setIsHydrating(true);
       setIsLoadingJob(true);
+      console.info("[parrilla/hydrate] Flow B start", { id });
       try {
         // 1. Try as draft_id first (most common new flow)
         const draftResult = await getDraftWithPosts(id);
@@ -881,6 +882,7 @@ export function useParrillaPage() {
   }, [brand, brandName, productImages]);
 
   const handleGenerateParrilla = useCallback(async () => {
+    console.info("[parrilla/generate/start]", { draftId, brandId, brandName, language, objective, formats: Array.from(selectedFormats), frequency, optionsPerPost });
     setIsGenerating(true);
     setGenerationProgress(null);
     setGeneratingStatus("⚡ Preparando parrilla...");
@@ -1005,6 +1007,7 @@ export function useParrillaPage() {
       }
 
       setGenerationMode(currentMode);
+      console.info("[parrilla/generate/dispatched]", { job_id, total_posts, currentMode });
       // NOTE: Do NOT call setViewJobId here — it triggers a useEffect that
       // would race with this polling loop. We set it AFTER polling completes.
 
@@ -1020,6 +1023,7 @@ export function useParrillaPage() {
         let pollData: { job?: Record<string, unknown>; posts?: Record<string, unknown>[] };
         try {
           pollData = await apiCall<{ job?: Record<string, unknown>; posts?: Record<string, unknown>[] }>(`/api/v1/posts/job/${job_id}`);
+          console.info("[parrilla/poll]", { job_id, status: pollData.job?.status, completed: pollData.job?.completed_posts, total: pollData.job?.total_posts, postsReturned: pollData.posts?.length });
           pollErrorCount = 0; // reset on success
         } catch {
           pollErrorCount++;
@@ -1083,6 +1087,7 @@ export function useParrillaPage() {
       }
 
       // Polling complete — now safe to set viewJobId
+      console.info("[parrilla/poll/complete]", { job_id });
       setViewJobId(job_id);
 
       const finalPosts = await new Promise<PostCard[]>(resolve => {
