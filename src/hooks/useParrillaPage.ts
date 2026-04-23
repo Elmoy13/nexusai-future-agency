@@ -4,7 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useDebouncedCallback } from "use-debounce";
 import { useAgency } from "@/contexts/AgencyContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { createDraft, getDraft, patchDraft, deleteDraft, type DraftPatch } from "@/lib/draftService";
+import { useActiveBrand } from "@/contexts/ActiveBrandContext";
+import { createDraft, getDraft, getDraftWithPosts, patchDraft, deleteDraft, type DraftPatch } from "@/lib/draftService";
+import type { DraftWithPosts } from "@/lib/draftService";
 import { approvePost, rejectPost, approveAllPosts, approveAndGenerateImage, generateAllApprovedImages } from "@/lib/postService";
 import { generateCopyOnly, generateFull } from "@/lib/generationService";
 import type { GenerationRequest } from "@/lib/generationService";
@@ -28,13 +30,14 @@ export function useParrillaPage() {
   const navigate = useNavigate();
   const { currentAgencyId } = useAgency();
   const { user } = useAuth();
+  const { brand: activeBrand } = useActiveBrand();
 
   const isNewParrilla = id === "nueva" || !id;
   const queryDraftId = searchParams.get("draft_id");
   const queryBrandId = searchParams.get("brand_id");
-  const candidateJobId = !isNewParrilla && !queryDraftId ? id ?? null : null;
-  const [viewJobId, setViewJobId] = useState<string | null>(candidateJobId);
-  const [isLoadingJob, setIsLoadingJob] = useState<boolean>(!!candidateJobId);
+  const [viewJobId, setViewJobId] = useState<string | null>(null);
+  const [isLoadingJob, setIsLoadingJob] = useState<boolean>(false);
+  const [isHydrating, setIsHydrating] = useState<boolean>(!isNewParrilla || !!queryDraftId);
 
   // ── Grid / view state ──
   const [activePlatform, setActivePlatform] = useState<string>("instagram");
@@ -135,53 +138,155 @@ export function useParrillaPage() {
     link.href = `https://fonts.googleapis.com/css2?family=${fontName}:wght@400;700;900&display=swap`;
   }, [brand.font_family]);
 
+  // ═══════════ Helpers: map server data to UI state ═══════════
+
+  const mapServerPostToCard = useCallback((sp: Record<string, any>, idx: number, jobId?: string): PostCard => {
+    const hasImage = !!sp.rendered_image_url;
+    const imgStatus: PostImageStatus = sp.image_status || (hasImage ? "ready" : "pending");
+    return {
+      id: sp.id || `post-${jobId || "unknown"}-${idx}`,
+      platform: (sp.platform || "instagram") as Platform,
+      format: sp.format || "instagram_feed",
+      status: (sp.approval_status === "approved" && (imgStatus === "ready" || hasImage) ? "scheduled" : "draft") as PostStatus,
+      calendarDay: ((sp.index ?? idx) * 2) + 1,
+      image: sp.rendered_image_url || "",
+      headline: sp.headline || "",
+      body: sp.body || "",
+      cta: sp.cta || "",
+      imagePrompt: sp.image_prompt || "",
+      isRendering: false,
+      error: sp.status === "error" ? (sp.error_message || "Error") : null,
+      video_url: sp.video_url || undefined,
+      video_status: sp.video_status || undefined,
+      image_status: imgStatus,
+      approval_status: sp.approval_status || "pending",
+      approved_at: sp.approved_at || null,
+    };
+  }, []);
+
+  /** Applies saved draft config to local state. Shared by both "nueva" + direct-URL flows. */
+  const applyDraftConfig = useCallback((d: { config: unknown; chat_messages: unknown; selected_product_ids: string[] | null; title: string | null; brand_id: string; brief_id: string | null; id: string }) => {
+    setDraftId(d.id);
+    setBrandId(d.brand_id);
+    const cfg = (d.config as any) || {};
+    if (cfg.brand) setBrand({ ...DEFAULT_BRAND, ...cfg.brand });
+    if (cfg.brandName) setBrandName(cfg.brandName);
+    if (cfg.brandVision) { setBrandVision(cfg.brandVision); setBrandDetected(true); }
+    if (cfg.productVision) setProductVision(cfg.productVision);
+    if (cfg.platforms) setPlatforms(cfg.platforms);
+    if (Array.isArray(cfg.selectedFormats)) setSelectedFormats(new Set(cfg.selectedFormats));
+    if (cfg.frequency) setFrequency(cfg.frequency);
+    if (cfg.objective) setObjective(cfg.objective);
+    if (typeof cfg.optionsPerPost === "number") setOptionsPerPost(cfg.optionsPerPost);
+    if (typeof cfg.includeLogoInImage === "boolean") setIncludeLogoInImage(cfg.includeLogoInImage);
+    if (typeof cfg.includeTextInImage === "boolean") setIncludeTextInImage(cfg.includeTextInImage);
+    if (cfg.language) setLanguage(cfg.language);
+    if (cfg.logoUrl) { setCurrentLogoUrl(cfg.logoUrl); setBrandAssets([cfg.logoUrl]); }
+    if (Array.isArray(d.chat_messages) && (d.chat_messages as any[]).length > 0) setChatMessages(d.chat_messages as any);
+    if (Array.isArray(d.selected_product_ids) && d.selected_product_ids.length > 0) {
+      setSelectedProductIds(d.selected_product_ids);
+    }
+    if (d.title) setDraftTitle(d.title);
+  }, []);
+
+  /** Loads brand row data (name, logo, colors) from Supabase brands table. */
+  const loadBrandRow = useCallback(async (bId: string, cancelled: { current: boolean }) => {
+    const { data: brandRow } = await supabase
+      .from("brands")
+      .select("name, logo_url, primary_color, secondary_color, accent_colors, font_family")
+      .eq("id", bId)
+      .maybeSingle();
+    if (cancelled.current || !brandRow) return;
+    if (brandRow.name) setBrandName((prev) => prev || brandRow.name);
+    if (brandRow.logo_url) {
+      setCurrentLogoUrl(brandRow.logo_url);
+      setBrandAssets((prev) => prev.length === 0 ? [brandRow.logo_url!] : prev);
+      setBrandDetected(true);
+    }
+    if (brandRow.primary_color) {
+      setBrand((prev) => ({
+        ...prev,
+        primary_color: brandRow.primary_color || prev.primary_color,
+        secondary_color: brandRow.secondary_color || prev.secondary_color,
+        font_family: brandRow.font_family || prev.font_family,
+      }));
+    }
+  }, []);
+
   // ═══════════ Draft hydration & auto-save (Figma-style) ═══════════
 
+  // Helper: apply loaded posts to state and activate their platforms
+  const applyLoadedPosts = useCallback((serverPosts: Record<string, any>[], jobId?: string) => {
+    const loaded: PostCard[] = serverPosts
+      .filter((sp: any) => sp.status === "success" || sp.status === "error")
+      .map((sp: any, idx: number) => mapServerPostToCard(sp, idx, jobId));
+
+    const platformsPresent = new Set(loaded.map((p) => p.platform));
+    if (platformsPresent.size > 0) {
+      setPlatforms({
+        instagram: platformsPresent.has("instagram" as Platform),
+        tiktok: platformsPresent.has("tiktok" as Platform),
+        linkedin: platformsPresent.has("linkedin" as Platform),
+        twitter: platformsPresent.has("twitter" as Platform),
+      });
+      setActivePlatform(Array.from(platformsPresent)[0] as string);
+    }
+
+    setPosts(loaded);
+    setHasGenerated(loaded.length > 0);
+    return loaded;
+  }, [mapServerPostToCard]);
+
+  // ── Flow A: /parrilla/nueva (?draft_id=X or ?brand_id=X) ──
   useEffect(() => {
     if (!isNewParrilla) return;
     if (!currentAgencyId || !user) return;
     if (draftHydrated) return;
 
     let cancelled = false;
+    const cancelledRef = { current: false };
     (async () => {
+      setIsHydrating(true);
       try {
         if (queryDraftId) {
-          const d = await getDraft(queryDraftId);
+          // Hydrate draft + any existing posts using the enriched endpoint
+          const result = await getDraftWithPosts(queryDraftId);
           if (cancelled) return;
-          if (!d) {
+          if (!result) {
             toast({ title: "Borrador no encontrado", variant: "destructive" });
-            navigate("/dashboard");
+            navigate("/parrillas");
             return;
           }
-          setDraftId(d.id);
-          setBrandId(d.brand_id);
-          const cfg = (d.config as any) || {};
-          if (cfg.brand) setBrand({ ...DEFAULT_BRAND, ...cfg.brand });
-          if (cfg.brandName) setBrandName(cfg.brandName);
-          if (cfg.brandVision) { setBrandVision(cfg.brandVision); setBrandDetected(true); }
-          if (cfg.productVision) setProductVision(cfg.productVision);
-          if (cfg.platforms) setPlatforms(cfg.platforms);
-          if (Array.isArray(cfg.selectedFormats)) setSelectedFormats(new Set(cfg.selectedFormats));
-          if (cfg.frequency) setFrequency(cfg.frequency);
-          if (cfg.objective) setObjective(cfg.objective);
-          if (typeof cfg.optionsPerPost === "number") setOptionsPerPost(cfg.optionsPerPost);
-          if (typeof cfg.includeLogoInImage === "boolean") setIncludeLogoInImage(cfg.includeLogoInImage);
-          if (typeof cfg.includeTextInImage === "boolean") setIncludeTextInImage(cfg.includeTextInImage);
-          if (cfg.language) setLanguage(cfg.language);
-          if (cfg.logoUrl) { setCurrentLogoUrl(cfg.logoUrl); setBrandAssets([cfg.logoUrl]); }
-          if (Array.isArray(d.chat_messages) && d.chat_messages.length > 0) setChatMessages(d.chat_messages as any);
-          if (Array.isArray(d.selected_product_ids) && d.selected_product_ids.length > 0) {
-            setSelectedProductIds(d.selected_product_ids);
+          applyDraftConfig(result.draft);
+
+          // Load brand row for logo/colors
+          if (result.draft.brand_id) {
+            await loadBrandRow(result.draft.brand_id, cancelledRef);
           }
-          if (d.title) setDraftTitle(d.title);
-          if (d.brief_id) {
+          if (cancelled) return;
+
+          // Load brief info
+          if (result.draft.brief_id) {
             const { data: briefRow } = await supabase
               .from("brand_briefs")
               .select("id, title")
-              .eq("id", d.brief_id)
+              .eq("id", result.draft.brief_id)
               .maybeSingle();
             if (briefRow && !cancelled) setBriefInfo(briefRow as any);
           }
+
+          // If posts exist, show them
+          if (result.posts && result.posts.length > 0) {
+            const latestJobId = result.jobs[0]?.id;
+            applyLoadedPosts(result.posts, latestJobId);
+            if (latestJobId) setViewJobId(latestJobId);
+            // If there's an active job, set language from it
+            const activeJob = result.jobs.find(j => j.status === "processing" || j.status === "pending");
+            if (activeJob?.language && (activeJob.language === "es" || activeJob.language === "en")) {
+              setDetectedLanguage(activeJob.language as "es" | "en");
+            }
+          }
+
           setDraftHydrated(true);
           return;
         }
@@ -195,27 +300,8 @@ export function useParrillaPage() {
           if (cancelled) return;
           setDraftId(created.id);
           setBrandId(queryBrandId);
-          const { data: brandRow } = await supabase
-            .from("brands")
-            .select("name, logo_url, primary_color, secondary_color, accent_colors, font_family")
-            .eq("id", queryBrandId)
-            .maybeSingle();
-          if (brandRow && !cancelled) {
-            if (brandRow.name) setBrandName(brandRow.name);
-            if (brandRow.logo_url) {
-              setCurrentLogoUrl(brandRow.logo_url);
-              setBrandAssets([brandRow.logo_url]);
-              setBrandDetected(true);
-            }
-            if (brandRow.primary_color) {
-              setBrand((prev) => ({
-                ...prev,
-                primary_color: brandRow.primary_color || prev.primary_color,
-                secondary_color: brandRow.secondary_color || prev.secondary_color,
-                font_family: brandRow.font_family || prev.font_family,
-              }));
-            }
-          }
+          await loadBrandRow(queryBrandId, cancelledRef);
+          if (cancelled) return;
           setSearchParams({ draft_id: created.id }, { replace: true });
           setDraftHydrated(true);
           return;
@@ -226,64 +312,81 @@ export function useParrillaPage() {
         console.error("[parrilla] hydration error", err);
         toast({ title: "Error cargando borrador", description: err?.message, variant: "destructive" });
         setDraftHydrated(true);
+      } finally {
+        if (!cancelled) setIsHydrating(false);
       }
     })();
-    return () => { cancelled = true; };
-  }, [isNewParrilla, currentAgencyId, user, queryDraftId, queryBrandId, draftHydrated, navigate, setSearchParams]);
+    return () => { cancelled = true; cancelledRef.current = true; };
+  }, [isNewParrilla, currentAgencyId, user, queryDraftId, queryBrandId, draftHydrated, navigate, setSearchParams, applyDraftConfig, loadBrandRow, applyLoadedPosts]);
 
-  // ═══════════ View existing job ═══════════
-
+  // ── Flow B: /parrilla/{uuid} (direct URL — could be draft_id OR job_id) ──
   useEffect(() => {
-    if (!viewJobId) return;
+    if (isNewParrilla) return;  // Flow A handles /nueva
+    if (!id) return;
     if (!currentAgencyId) return;
+
     let cancelled = false;
+    const cancelledRef = { current: false };
     (async () => {
+      setIsHydrating(true);
       setIsLoadingJob(true);
       try {
+        // 1. Try as draft_id first (most common new flow)
+        const draftResult = await getDraftWithPosts(id);
+        if (cancelled) return;
+
+        if (draftResult) {
+          applyDraftConfig(draftResult.draft);
+          if (draftResult.draft.brand_id) {
+            await loadBrandRow(draftResult.draft.brand_id, cancelledRef);
+          }
+          if (cancelled) return;
+
+          if (draftResult.draft.brief_id) {
+            const { data: briefRow } = await supabase
+              .from("brand_briefs")
+              .select("id, title")
+              .eq("id", draftResult.draft.brief_id)
+              .maybeSingle();
+            if (briefRow && !cancelled) setBriefInfo(briefRow as any);
+          }
+
+          if (draftResult.posts && draftResult.posts.length > 0) {
+            const latestJobId = draftResult.jobs[0]?.id;
+            applyLoadedPosts(draftResult.posts, latestJobId);
+            if (latestJobId) setViewJobId(latestJobId);
+            const activeJob = draftResult.jobs.find(j => j.status === "processing" || j.status === "pending");
+            if (activeJob?.language && (activeJob.language === "es" || activeJob.language === "en")) {
+              setDetectedLanguage(activeJob.language as "es" | "en");
+            }
+          }
+
+          setDraftHydrated(true);
+          return;
+        }
+
+        // 2. Fallback: try as job_id (legacy URLs)
         const { data: job, error: jobErr } = await supabase
           .from("generation_jobs")
           .select("id, brand_id, brand_name, campaign_description, language, status, created_at")
-          .eq("id", viewJobId)
+          .eq("id", id)
           .maybeSingle();
 
         if (cancelled) return;
 
         if (jobErr || !job) {
-          const draft = await getDraft(viewJobId);
-          if (cancelled) return;
-          if (draft) {
-            setViewJobId(null);
-            navigate(`/parrilla/nueva?draft_id=${draft.id}`, { replace: true });
-            return;
-          }
           toast({ title: "Parrilla no encontrada", variant: "destructive" });
-          navigate("/dashboard");
+          navigate("/parrillas");
           return;
         }
 
+        // Hydrate from job
+        setViewJobId(job.id);
         if (job.brand_id) {
           setBrandId(job.brand_id);
-          const { data: brandRow } = await supabase
-            .from("brands")
-            .select("name, logo_url, primary_color, secondary_color, accent_colors, font_family")
-            .eq("id", job.brand_id)
-            .maybeSingle();
+          await loadBrandRow(job.brand_id, cancelledRef);
           if (cancelled) return;
-          if (brandRow?.name) setBrandName(brandRow.name);
-          else if (job.brand_name) setBrandName(job.brand_name);
-          if (brandRow?.logo_url) {
-            setCurrentLogoUrl(brandRow.logo_url);
-            setBrandAssets([brandRow.logo_url]);
-            setBrandDetected(true);
-          }
-          if (brandRow?.primary_color) {
-            setBrand((prev) => ({
-              ...prev,
-              primary_color: brandRow.primary_color || prev.primary_color,
-              secondary_color: brandRow.secondary_color || prev.secondary_color,
-              font_family: brandRow.font_family || prev.font_family,
-            }));
-          }
+          if (job.brand_name && !brandName) setBrandName(job.brand_name);
         } else if (job.brand_name) {
           setBrandName(job.brand_name);
         }
@@ -299,7 +402,7 @@ export function useParrillaPage() {
         const { data: gp, error: gpErr } = await supabase
           .from("generated_posts")
           .select("id, platform, format, headline, body, cta, image_prompt, rendered_image_url, status, index, video_url, video_status, image_status, approval_status, approved_at")
-          .eq("job_id", viewJobId)
+          .eq("job_id", id)
           .order("index", { ascending: true });
 
         if (cancelled) return;
@@ -309,51 +412,104 @@ export function useParrillaPage() {
           return;
         }
 
-        const loaded: PostCard[] = (gp ?? [])
-          .filter((sp: any) => sp.status === "success" || sp.status === "error")
-          .map((sp: any, idx: number) => ({
-            id: sp.id || `post-${viewJobId}-${idx}`,
-            platform: (sp.platform || "instagram") as Platform,
-            format: sp.format || "instagram_feed",
-            status: (sp.approval_status === "approved" && (sp.image_status === "ready" || sp.rendered_image_url) ? "scheduled" : "draft") as PostStatus,
-            calendarDay: ((sp.index ?? idx) * 2) + 1,
-            image: sp.rendered_image_url || "",
-            headline: sp.headline || "",
-            body: sp.body || "",
-            cta: sp.cta || "",
-            imagePrompt: sp.image_prompt || "",
-            isRendering: false,
-            error: sp.status === "error" ? (sp.error_message || "Error") : null,
-            video_url: sp.video_url || undefined,
-            video_status: sp.video_status || undefined,
-            image_status: (sp.image_status || (sp.rendered_image_url ? "ready" : "pending")) as PostImageStatus,
-            approval_status: sp.approval_status || "pending",
-            approved_at: sp.approved_at || null,
-          }));
+        applyLoadedPosts((gp ?? []) as Record<string, unknown>[], id);
+        setDraftHydrated(true);
+      } catch (err: any) {
+        console.error("[parrilla] direct-url hydration error", err);
+        toast({ title: "Error cargando parrilla", description: err?.message, variant: "destructive" });
+      } finally {
+        if (!cancelled) {
+          setIsLoadingJob(false);
+          setIsHydrating(false);
+        }
+      }
+    })();
+    return () => { cancelled = true; cancelledRef.current = true; };
+  }, [id, isNewParrilla, currentAgencyId, navigate, applyDraftConfig, loadBrandRow, applyLoadedPosts, brandName]);
 
-        const platformsPresent = new Set(loaded.map((p) => p.platform));
-        if (platformsPresent.size > 0) {
-          setPlatforms({
-            instagram: platformsPresent.has("instagram" as Platform),
-            tiktok: platformsPresent.has("tiktok" as Platform),
-            linkedin: platformsPresent.has("linkedin" as Platform),
-            twitter: platformsPresent.has("twitter" as Platform),
-          });
-          const first = Array.from(platformsPresent)[0] as string;
-          setActivePlatform(first);
+  // ═══════════ View existing job (for post-generate polling results, NOT initial load) ═══════════
+  // Guard: only runs when viewJobId is set AFTER initial hydration (e.g. after a re-generation)
+
+  useEffect(() => {
+    if (!viewJobId) return;
+    if (!currentAgencyId) return;
+    // Do NOT re-fetch if we already hydrated or are generating — avoids race condition
+    if (isGenerating) return;
+    if (!draftHydrated) return;
+    // If we already have posts for this job, skip
+    if (posts.length > 0 && posts.some(p => p.id?.includes(viewJobId) || !p.id?.startsWith("skeleton"))) return;
+
+    let cancelled = false;
+    const cancelledRef = { current: false };
+    (async () => {
+      setIsLoadingJob(true);
+      try {
+        const { data: job, error: jobErr } = await supabase
+          .from("generation_jobs")
+          .select("id, brand_id, brand_name, campaign_description, language, status, created_at")
+          .eq("id", viewJobId)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        if (jobErr || !job) {
+          // Job not found — probably still being created. Skip silently.
+          return;
         }
 
-        setPosts(loaded);
-        setHasGenerated(loaded.length > 0);
+        if (job.brand_id && !brandId) {
+          setBrandId(job.brand_id);
+          await loadBrandRow(job.brand_id, cancelledRef);
+          if (cancelled) return;
+        }
+
+        if (job.language === "es" || job.language === "en") {
+          setDetectedLanguage(job.language as "es" | "en");
+        }
+
+        const { data: gp, error: gpErr } = await supabase
+          .from("generated_posts")
+          .select("id, platform, format, headline, body, cta, image_prompt, rendered_image_url, status, index, video_url, video_status, image_status, approval_status, approved_at")
+          .eq("job_id", viewJobId)
+          .order("index", { ascending: true });
+
+        if (cancelled) return;
+        if (gpErr) {
+          console.error("[parrilla] load generated_posts failed", gpErr);
+          return;
+        }
+
+        if (gp && gp.length > 0) {
+          applyLoadedPosts((gp ?? []) as Record<string, unknown>[], viewJobId);
+        }
       } catch (err: any) {
         console.error("[parrilla] view-job load error", err);
-        toast({ title: "Error cargando parrilla", description: err?.message, variant: "destructive" });
       } finally {
         if (!cancelled) setIsLoadingJob(false);
       }
     })();
-    return () => { cancelled = true; };
-  }, [viewJobId, currentAgencyId, navigate]);
+    return () => { cancelled = true; cancelledRef.current = true; };
+  }, [viewJobId, currentAgencyId, isGenerating, draftHydrated, posts.length, brandId, loadBrandRow, applyLoadedPosts]);
+
+  // ═══════════ Active brand redirect ═══════════
+  // When user changes the active brand in the global selector while on /parrilla/nueva,
+  // redirect to a new parrilla for that brand (unless a draft is already being worked on).
+
+  const activeBrandRedirectRef = useRef(false);
+  useEffect(() => {
+    if (!isNewParrilla) return;
+    if (!activeBrand?.id) return;
+    // Skip the first render (initial brand selection) and only redirect on CHANGES
+    if (!activeBrandRedirectRef.current) {
+      activeBrandRedirectRef.current = true;
+      return;
+    }
+    // Don't redirect if user already has chat messages or posts (active work)
+    if (hasGenerated || chatMessages.some(m => m.role === "user")) return;
+    // If the brand is already matching, skip
+    if (activeBrand.id === brandId) return;
+    navigate(`/parrilla/nueva?brand_id=${activeBrand.id}`, { replace: true });
+  }, [activeBrand?.id, isNewParrilla, brandId, hasGenerated, chatMessages, navigate]);
 
   // ═══════════ Brand products ═══════════
 
@@ -827,6 +983,7 @@ export function useParrillaPage() {
         include_logo_in_image: requestBody.include_logo_in_image,
         include_text_in_image: requestBody.include_text_in_image,
         language: requestBody.language,
+        objective: objective as GenerationRequest["objective"],
       };
 
       let job_id: string;
@@ -848,21 +1005,29 @@ export function useParrillaPage() {
       }
 
       setGenerationMode(currentMode);
-      setViewJobId(job_id);
+      // NOTE: Do NOT call setViewJobId here — it triggers a useEffect that
+      // would race with this polling loop. We set it AFTER polling completes.
 
       if (total_posts && total_posts !== postsConfig.length) {
         setGenerationProgress({ completed: 0, total: total_posts });
       }
 
       let isComplete = false;
+      let pollErrorCount = 0;
       while (!isComplete) {
         await new Promise(r => setTimeout(r, 5000));
 
         let pollData: { job?: Record<string, unknown>; posts?: Record<string, unknown>[] };
         try {
           pollData = await apiCall<{ job?: Record<string, unknown>; posts?: Record<string, unknown>[] }>(`/api/v1/posts/job/${job_id}`);
+          pollErrorCount = 0; // reset on success
         } catch {
-          console.warn("Poll error, retrying...");
+          pollErrorCount++;
+          console.warn(`Poll error (${pollErrorCount}), retrying...`);
+          // Give up after 10 consecutive errors (~50s)
+          if (pollErrorCount >= 10) {
+            throw new Error("Polling failed: demasiados errores de red consecutivos.");
+          }
           continue;
         }
 
@@ -872,39 +1037,41 @@ export function useParrillaPage() {
           setDetectedLanguage(jobData.language as "es" | "en");
         }
 
-        setPosts(prevPosts => {
-          const updated = [...prevPosts];
-          (serverPosts || []).forEach((sp: any) => {
-            const idx = sp.index != null ? sp.index : undefined;
-            if (idx == null || idx >= updated.length) return;
+        // Replace posts array from server data (do NOT merge by index)
+        if (serverPosts && serverPosts.length > 0) {
+          const completedPosts: PostCard[] = [];
+          const skeletonFill: PostCard[] = [];
 
-            const hasCopy = sp.status === "success";
-            const hasImage = !!sp.rendered_image_url;
-            const imgStatus: PostImageStatus = sp.image_status
-              || (hasImage ? "ready" : "pending");
-
-            if (hasCopy || sp.status === "error") {
-              updated[idx] = {
-                id: sp.id || `post-${job_id}-${idx}`,
+          (serverPosts as any[]).forEach((sp, idx) => {
+            if (sp.status === "success" || sp.status === "error") {
+              completedPosts.push(mapServerPostToCard(sp, idx, job_id));
+            } else {
+              // Still generating — keep as skeleton
+              skeletonFill.push({
+                id: sp.id || `skeleton-${idx}`,
                 platform: (sp.platform || postsConfig[idx]?.platform || "instagram") as Platform,
                 format: sp.format || postsConfig[idx]?.format || "instagram_feed",
-                status: (sp.approval_status === "approved" && imgStatus === "ready" ? "scheduled" : "draft") as PostStatus,
+                status: "draft" as PostStatus,
                 calendarDay: (idx * 2) + 1,
-                image: sp.rendered_image_url || "",
-                headline: sp.headline || "",
-                body: sp.body || "",
-                cta: sp.cta || "",
-                imagePrompt: sp.image_prompt || "",
-                isRendering: false,
-                error: sp.status === "error" ? (sp.error_message || "Error al generar este post") : null,
-                image_status: imgStatus,
-                approval_status: sp.approval_status || "pending",
-                approved_at: sp.approved_at || null,
-              };
+                isRendering: true,
+              });
             }
           });
-          return updated;
-        });
+
+          // Build new array: completed posts + remaining skeletons for pending ones
+          const totalExpected = (jobData?.total_posts as number) ?? postsConfig.length;
+          const remaining = Math.max(0, totalExpected - completedPosts.length - skeletonFill.length);
+          const extraSkeletons: PostCard[] = Array.from({ length: remaining }, (_, i) => ({
+            id: `skeleton-extra-${i}`,
+            platform: (postsConfig[completedPosts.length + skeletonFill.length + i]?.platform || "instagram") as Platform,
+            format: postsConfig[completedPosts.length + skeletonFill.length + i]?.format || "instagram_feed",
+            status: "draft" as PostStatus,
+            calendarDay: ((completedPosts.length + skeletonFill.length + i) * 2) + 1,
+            isRendering: true,
+          }));
+
+          setPosts([...completedPosts, ...skeletonFill, ...extraSkeletons]);
+        }
 
         const completedCount = (jobData?.completed_posts as number) ?? 0;
         const totalCount = (jobData?.total_posts as number) ?? postsConfig.length;
@@ -915,17 +1082,21 @@ export function useParrillaPage() {
         }
       }
 
+      // Polling complete — now safe to set viewJobId
+      setViewJobId(job_id);
+
       const finalPosts = await new Promise<PostCard[]>(resolve => {
         setPosts(prev => { resolve(prev); return prev; });
       });
-      const errorCount = finalPosts.filter(p => p.error).length;
+      const realPosts = finalPosts.filter(p => !p.isRendering);
+      const errorCount = realPosts.filter(p => p.error).length;
       if (currentMode === "copy-first") {
-        const copyReady = finalPosts.filter(p => !p.error).length;
+        const copyReady = realPosts.filter(p => !p.error && p.headline).length;
         toast({ title: "🚀 Copy generado", description: `${copyReady} posts listos para revisar. Apruébalos para generar imágenes.` });
       } else if (errorCount > 0) {
-        toast({ title: "⚠️ Parrilla con errores", description: `${finalPosts.length - errorCount} OK, ${errorCount} fallidos. Reintenta los fallidos.`, variant: "destructive" });
+        toast({ title: "⚠️ Parrilla con errores", description: `${realPosts.length - errorCount} OK, ${errorCount} fallidos. Reintenta los fallidos.`, variant: "destructive" });
       } else {
-        toast({ title: "🚀 Parrilla generada", description: `${finalPosts.length} posts generados exitosamente.` });
+        toast({ title: "🚀 Parrilla generada", description: `${realPosts.length} posts generados exitosamente.` });
       }
     } catch (error: any) {
       console.error("Error generating posts:", error);
@@ -942,7 +1113,7 @@ export function useParrillaPage() {
       setIsGenerating(false);
       setGeneratingStatus("");
     }
-  }, [selectedFormats, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, chatMessages, brand, brandName, brandVision, productVision, id, productImages, includeLogoInImage, includeTextInImage, language]);
+  }, [selectedFormats, frequency, optionsPerPost, brandAssetBlobs, blobToBase64, chatMessages, brand, brandName, brandVision, productVision, id, productImages, includeLogoInImage, includeTextInImage, language, objective, draftId, selectedProductIds, mapServerPostToCard]);
 
   // ═══════════ Post actions ═══════════
 
@@ -1222,6 +1393,9 @@ export function useParrillaPage() {
   return {
     // Route
     navigate, isNewParrilla, currentAgencyId,
+
+    // Loading
+    isHydrating, isLoadingJob,
 
     // Grid / view
     activePlatform, setActivePlatform,

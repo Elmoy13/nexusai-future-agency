@@ -26,6 +26,7 @@ export interface GenerationRequest {
   include_logo_in_image: boolean;
   include_text_in_image: boolean;
   language: string;
+  objective?: "engagement" | "conversion" | "awareness";
 }
 
 interface GenerationResponse {

@@ -26,6 +26,7 @@ import {
 const Parrilla = () => {
   const {
     navigate, isNewParrilla,
+    isHydrating, isLoadingJob,
     activePlatform, setActivePlatform,
     posts, hasGenerated,
     isGenerating, generationProgress, generatingStatus,
@@ -78,6 +79,18 @@ const Parrilla = () => {
     generatingImages: posts.filter(p => p.image_status === "generating").length,
     imagesReady: posts.filter(p => p.image_status === "ready").length,
   }), [posts]);
+
+  // Show loading skeleton while hydrating draft/job data
+  if (isHydrating || isLoadingJob) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 size={32} className="animate-spin text-primary mx-auto" />
+          <p className="text-sm text-muted-foreground">Cargando parrilla...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background transition-colors duration-500">
