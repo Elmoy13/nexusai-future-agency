@@ -918,7 +918,8 @@ export function useParrillaPage() {
 
     try {
       // ── Build payload ──
-      const derivedTone = brandVision?.personality || "engaging";
+      const rawTone = brandVision?.personality || "engaging";
+      const derivedTone = Array.isArray(rawTone) ? rawTone.join(", ") : rawTone;
 
       const genPayload: GenerationRequest = {
         brand: {
