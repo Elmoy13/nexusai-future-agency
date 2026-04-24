@@ -92,8 +92,8 @@ export function useParrillaPage() {
   const parrillaGridRef = useRef<HTMLDivElement>(null);
   const [isAnalyzingBrand, setIsAnalyzingBrand] = useState(false);
   const [brandDetected, setBrandDetected] = useState(false);
-  const [includeLogoInImage, setIncludeLogoInImage] = useState(false);
-  const [includeTextInImage, setIncludeTextInImage] = useState(false);
+  const [includeLogoInImage, setIncludeLogoInImage] = useState(true);
+  const [includeTextInImage, setIncludeTextInImage] = useState(true);
   const [language, setLanguage] = useState<"auto" | "es" | "en">("auto");
   const [detectedLanguage, setDetectedLanguage] = useState<"es" | "en" | null>(null);
 
@@ -918,10 +918,13 @@ export function useParrillaPage() {
 
     try {
       // ── Build payload ──
+      const derivedTone = brandVision?.personality || "engaging";
+
       const genPayload: GenerationRequest = {
         brand: {
           name: brandVision?.brand_name_detected || brandName || "Mi Marca",
           logo_b64: logoB64 || undefined,
+          logo_url: currentLogoUrl || undefined,
           primary_color: brand.primary_color,
           secondary_color: brand.secondary_color,
           accent_color: brand.accent_color,
@@ -929,7 +932,7 @@ export function useParrillaPage() {
         },
         campaign: {
           description: campaignDescription,
-          tone: "",
+          tone: derivedTone,
           extras: "",
         },
         brand_vision: brandVision || null,

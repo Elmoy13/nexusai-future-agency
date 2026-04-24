@@ -7,6 +7,7 @@ export interface GenerationRequest {
   brand: {
     name: string;
     logo_b64?: string;
+    logo_url?: string;
     primary_color: string;
     secondary_color: string;
     accent_color: string;
